@@ -1,8 +1,21 @@
+# Core ERP Requirements
 fastapi==0.104.1
 uvicorn==0.24.0
 motor==3.3.2
-python-dotenv==1.0.0
 pydantic==2.5.0
-python-multipart==0.0.6
-bcrypt==4.1.2
+python-dotenv==1.0.0
 PyJWT==2.8.0
+bcrypt==4.1.2
+python-multipart==0.0.6
+
+# AI Requirements
+openai==0.28.1
+
+# Phone Integration Requirements
+twilio==8.10.0
+
+# Optional Speech Recognition Requirements
+# Install only if you need speech-to-text functionality
+# speechrecognition==3.10.0
+# pyaudio==0.2.11
+# pydub==0.25.1

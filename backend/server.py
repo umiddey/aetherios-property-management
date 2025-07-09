@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Request
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -13,6 +14,10 @@ import jwt
 import bcrypt
 from enum import Enum
 from fastapi.middleware.cors import CORSMiddleware
+from backend.ai_call_handler import AICallHandler
+from backend.speech_handler_simple import create_speech_handler
+from backend.phone_handler import PhoneHandler
+import tempfile
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,6 +31,16 @@ db = client[os.environ.get('DB_NAME', 'test_database')]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24
+
+# Initialize AI Call Handler and Speech Handler
+ai_call_handler = AICallHandler(db, os.environ.get('OPENAI_API_KEY', ''))
+speech_handler = create_speech_handler(
+    use_whisper=os.environ.get('USE_WHISPER', 'false').lower() == 'true',
+    openai_api_key=os.environ.get('OPENAI_API_KEY', '')
+)
+
+# Initialize Phone Handler
+phone_handler = PhoneHandler(db, ai_call_handler)
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -780,6 +795,224 @@ async def archive_invoice(invoice_id: str, current_user: User = Depends(get_curr
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Invoice not found")
     return {"message": "Invoice archived successfully"}
+
+# AI Call Handler Models
+class AICallRequest(BaseModel):
+    call_id: str
+    customer_input: str
+
+class AICallResponse(BaseModel):
+    message: str
+    action: str
+    next_step: str
+    customer_info: Optional[dict] = None
+    service_details: Optional[dict] = None
+    task_order: Optional[dict] = None
+    missing_fields: Optional[List[str]] = None
+
+# AI Call Handler Endpoints
+@api_router.post("/ai-call/handle", response_model=AICallResponse)
+async def handle_ai_call(request: AICallRequest):
+    """Handle AI call interaction"""
+    try:
+        response = await ai_call_handler.handle_customer_call(request.call_id, request.customer_input)
+        return AICallResponse(**response)
+    except Exception as e:
+        logger.error(f"Error handling AI call: {e}")
+        raise HTTPException(status_code=500, detail="Error processing call")
+
+@api_router.post("/ai-call/end")
+async def end_ai_call(call_id: str):
+    """End AI call and clean up resources"""
+    try:
+        ai_call_handler.end_call(call_id)
+        return {"message": "Call ended successfully"}
+    except Exception as e:
+        logger.error(f"Error ending AI call: {e}")
+        raise HTTPException(status_code=500, detail="Error ending call")
+
+@api_router.get("/ai-call/status/{call_id}")
+async def get_call_status(call_id: str):
+    """Get current call status and conversation history"""
+    try:
+        if call_id in ai_call_handler.conversation_state:
+            state = ai_call_handler.conversation_state[call_id]
+            return {
+                "call_id": call_id,
+                "step": state['step'],
+                "customer_id": state.get('customer_id'),
+                "conversation_history": state.get('conversation_history', []),
+                "service_data": state.get('service_data', {})
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Call not found")
+    except Exception as e:
+        logger.error(f"Error getting call status: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving call status")
+
+@api_router.post("/ai-call/speech-to-text")
+async def speech_to_text(audio_file: UploadFile = File(...)):
+    """Convert speech audio to text"""
+    if not speech_handler:
+        raise HTTPException(status_code=501, detail="Speech recognition not available")
+    
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            content = await audio_file.read()
+            tmp_file.write(content)
+            tmp_file_path = tmp_file.name
+        
+        # Transcribe audio
+        if hasattr(speech_handler, 'transcribe_audio_file'):
+            # Whisper handler
+            text = await speech_handler.transcribe_audio_file(tmp_file_path)
+        else:
+            # Basic speech recognition
+            text = await speech_handler.transcribe_audio(content)
+        
+        # Clean up temp file
+        os.unlink(tmp_file_path)
+        
+        if text:
+            return {"text": text, "success": True}
+        else:
+            return {"text": "", "success": False, "error": "Could not transcribe audio"}
+            
+    except Exception as e:
+        logger.error(f"Error in speech-to-text: {e}")
+        raise HTTPException(status_code=500, detail="Error processing audio")
+
+@api_router.post("/ai-call/handle-speech")
+async def handle_speech_call(call_id: str, audio_file: UploadFile = File(...)):
+    """Handle speech input for AI call"""
+    if not speech_handler:
+        raise HTTPException(status_code=501, detail="Speech recognition not available")
+    
+    try:
+        # First convert speech to text
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            content = await audio_file.read()
+            tmp_file.write(content)
+            tmp_file_path = tmp_file.name
+        
+        # Transcribe audio
+        if hasattr(speech_handler, 'transcribe_audio_file'):
+            text = await speech_handler.transcribe_audio_file(tmp_file_path)
+        else:
+            text = await speech_handler.transcribe_audio(content)
+        
+        # Clean up temp file
+        os.unlink(tmp_file_path)
+        
+        if not text:
+            raise HTTPException(status_code=400, detail="Could not transcribe audio")
+        
+        # Process the transcribed text through AI call handler
+        response = await ai_call_handler.handle_customer_call(call_id, text)
+        
+        return {
+            "transcribed_text": text,
+            "ai_response": response
+        }
+        
+    except Exception as e:
+        logger.error(f"Error handling speech call: {e}")
+        raise HTTPException(status_code=500, detail="Error processing speech call")
+
+# Phone Integration Endpoints
+@api_router.post("/phone/incoming")
+async def handle_incoming_phone_call(request: Request):
+    """Handle incoming phone calls from Twilio webhook"""
+    try:
+        form_data = await request.form()
+        request_data = dict(form_data)
+        
+        twiml_response = phone_handler.handle_incoming_call(request_data)
+        
+        return Response(
+            content=twiml_response,
+            media_type="application/xml"
+        )
+    except Exception as e:
+        logger.error(f"Error handling incoming call: {e}")
+        return Response(
+            content='<Response><Say>Sorry, there was an error. Please try again.</Say></Response>',
+            media_type="application/xml"
+        )
+
+@api_router.post("/phone/process-speech")
+async def process_phone_speech(request: Request):
+    """Process speech input from phone call"""
+    try:
+        form_data = await request.form()
+        request_data = dict(form_data)
+        
+        twiml_response = await phone_handler.process_speech_input(request_data)
+        
+        return Response(
+            content=twiml_response,
+            media_type="application/xml"
+        )
+    except Exception as e:
+        logger.error(f"Error processing phone speech: {e}")
+        return Response(
+            content='<Response><Say>Sorry, there was an error processing your request.</Say></Response>',
+            media_type="application/xml"
+        )
+
+@api_router.post("/phone/status")
+async def handle_call_status(request: Request):
+    """Handle call status updates from Twilio"""
+    try:
+        form_data = await request.form()
+        request_data = dict(form_data)
+        
+        response = phone_handler.handle_call_status(request_data)
+        return {"status": response}
+    except Exception as e:
+        logger.error(f"Error handling call status: {e}")
+        return {"status": "error"}
+
+@api_router.get("/phone/active-calls")
+async def get_active_calls(current_user: User = Depends(get_current_user)):
+    """Get all active phone calls"""
+    try:
+        active_calls = phone_handler.get_active_calls()
+        return {"active_calls": active_calls}
+    except Exception as e:
+        logger.error(f"Error getting active calls: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving active calls")
+
+@api_router.get("/phone/call-status/{call_sid}")
+async def get_call_status(call_sid: str, current_user: User = Depends(get_current_user)):
+    """Get status of a specific phone call"""
+    try:
+        call_status = phone_handler.get_call_status(call_sid)
+        if call_status:
+            return call_status
+        else:
+            raise HTTPException(status_code=404, detail="Call not found")
+    except Exception as e:
+        logger.error(f"Error getting call status: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving call status")
+
+class OutboundCallRequest(BaseModel):
+    to_number: str
+    message: str
+
+@api_router.post("/phone/outbound-call")
+async def make_outbound_call(request: OutboundCallRequest, current_user: User = Depends(get_current_user)):
+    """Make an outbound phone call"""
+    try:
+        call_sid = phone_handler.make_outbound_call(request.to_number, request.message)
+        if call_sid:
+            return {"call_sid": call_sid, "status": "success"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to make outbound call")
+    except Exception as e:
+        logger.error(f"Error making outbound call: {e}")
+        raise HTTPException(status_code=500, detail="Error making outbound call")
 
 # Include the router in the main app
 app.include_router(api_router)
