@@ -417,6 +417,14 @@ const Dashboard = () => {
     setViewedTasks(prev => [...prev, taskId]);
   };
 
+  const logAction = async (action, details = {}) => {
+    try {
+      await axios.post(`${API}/analytics/log`, { action, details });
+    } catch (error) {
+      console.error('Error logging action:', error);
+    }
+  };
+
   const handleNav = (view, state = {}) => {
     logAction('navigation', { view });
     navigate(`/${view}`, { state });
