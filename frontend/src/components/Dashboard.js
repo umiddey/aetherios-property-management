@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../AuthContext';
+import CreatePropertyForm from './CreatePropertyForm';
+import CreateTenantForm from './CreateTenantForm';
+import CreateInvoiceForm from './CreateInvoiceForm';
+import CreateTaskForm from './CreateTaskForm';
+import CreateCustomerForm from './CreateCustomerForm';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;

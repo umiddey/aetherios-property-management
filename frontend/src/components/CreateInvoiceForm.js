@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const CreateInvoiceForm = ({ onBack, onSuccess, properties, tenants }) => {
   const [formData, setFormData] = useState({
@@ -28,6 +32,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, properties, tenants }) => {
       await axios.post(`${API}/invoices`, submitData);
       onSuccess();
     } catch (error) {
+      console.log(error)
       setError(error.response?.data?.detail || 'Failed to create invoice');
     } finally {
       setLoading(false);
