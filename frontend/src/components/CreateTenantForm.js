@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const CreateTenantForm = ({ onBack, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -29,6 +33,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
       await axios.post(`${API}/tenants`, submitData);
       onSuccess();
     } catch (error) {
+      console.log('Error creating tenant:', error);
       setError(error.response?.data?.detail || 'Failed to create tenant');
     } finally {
       setLoading(false);

@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const CreateCustomerForm = ({ onBack, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -20,6 +24,7 @@ const CreateCustomerForm = ({ onBack, onSuccess }) => {
       await axios.post(`${API}/customers`, formData);
       onSuccess();
     } catch (error) {
+      console.log(error)
       setError(error.response?.data?.detail || 'Failed to create customer');
     } finally {
       setLoading(false);
