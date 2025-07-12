@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const CreateTaskForm = ({ onBack, onSuccess, customers }) => {
+const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) => {
   const [formData, setFormData] = useState({
     subject: '',
     description: '',
@@ -17,6 +17,12 @@ const CreateTaskForm = ({ onBack, onSuccess, customers }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (context?.propertyName) {
+      setFormData(prev => ({ ...prev, subject: `Task for property ${context.propertyName}` }));
+    }
+  }, [context]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -26,8 +32,12 @@ const CreateTaskForm = ({ onBack, onSuccess, customers }) => {
       const submitData = {
         ...formData,
         budget: formData.budget ? parseFloat(formData.budget) : null,
-        due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null
+        due_date: formData.due_date ? new Date(formData.due_date).toISOString() : null,
       };
+
+      if (context?.propertyId) {
+        submitData.property_id = context.propertyId;
+      }
 
       await axios.post(`${API}/task-orders`, submitData);
       onSuccess();
@@ -162,14 +172,19 @@ const CreateTaskForm = ({ onBack, onSuccess, customers }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Assigned To
             </label>
-            <input
-              type="text"
+            <select
               name="assigned_to"
               value={formData.assigned_to}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Assign to user..."
-            />
+            >
+              <option value="">None</option>
+              {users.map(user => (
+                <option key={user.id} value={user.id}>
+                  {user.full_name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">

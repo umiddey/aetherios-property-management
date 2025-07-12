@@ -21,10 +21,29 @@ const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-    setLoading(false);
+    const validateToken = async () => {
+      if (token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        try {
+          // Test with a protected endpoint to validate token and fetch user
+          const response = await axios.get(`${API}/users/me`);  // Assume backend adds /users/me to return current user
+          setUser(response.data);
+        } catch (error) {
+          if (error.response?.status === 401) {
+            // Invalid token - clear it
+            localStorage.removeItem('token');
+            setToken(null);
+            setUser(null);
+            delete axios.defaults.headers.common['Authorization'];
+          } else {
+            console.error('Token validation error:', error);
+          }
+        }
+      }
+      setLoading(false);
+    };
+
+    validateToken();
   }, [token]);
 
   const login = async (username, password) => {
@@ -39,16 +58,8 @@ const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (error) {
+      console.log('Login error:', error);
       return { success: false, error: error.response?.data?.detail || 'Login failed' };
-    }
-  };
-
-  const register = async (userData) => {
-    try {
-      await axios.post(`${API}/auth/register`, userData);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.response?.data?.detail || 'Registration failed' };
     }
   };
 
@@ -60,10 +71,10 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export { AuthProvider, useAuth};
+export { AuthProvider, useAuth };

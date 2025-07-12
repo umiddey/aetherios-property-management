@@ -62,6 +62,12 @@ class PropertyType(str, Enum):
     HOUSE = "house"
     OFFICE = "office"
     COMMERCIAL = "commercial"
+    COMPLEX = "complex"
+
+class PropertyStatus(str, Enum):
+    ACTIVE = "active"
+    CANCEL = "cancel"
+    EMPTY = "empty"
 
 class InvoiceStatus(str, Enum):
     DRAFT = "draft"
@@ -75,6 +81,11 @@ class PaymentMethod(str, Enum):
     CARD = "card"
     CHECK = "check"
 
+class UserRole(str, Enum):
+    SUPER_ADMIN = "super_admin"
+    ADMIN = "admin"
+    USER = "user"
+
 # Models
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -82,6 +93,7 @@ class User(BaseModel):
     email: str
     full_name: str
     hashed_password: str
+    role: UserRole = UserRole.USER
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_active: bool = True
 
@@ -90,6 +102,15 @@ class UserCreate(BaseModel):
     email: str
     full_name: str
     password: str
+    role: UserRole = UserRole.USER
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
 
 class UserLogin(BaseModel):
     username: str
@@ -100,6 +121,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     full_name: str
+    role: UserRole
     created_at: datetime
     is_active: bool
 
@@ -130,12 +152,22 @@ class Property(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     property_type: PropertyType
-    address: str
+    street: str
+    house_nr: str
+    postcode: str
+    city: str
     floor: Optional[str] = None  # Etage
     surface_area: float  # Flache in square meters
     number_of_rooms: int  # Anzahl Räume
+    num_toilets: Optional[int] = None
     description: Optional[str] = None
-    monthly_rent: Optional[float] = None
+    rent_per_sqm: Optional[float] = None
+    cold_rent: Optional[float] = None
+    status: PropertyStatus = PropertyStatus.EMPTY
+    owner_name: Optional[str] = None
+    owner_email: Optional[str] = None
+    owner_phone: Optional[str] = None
+    parent_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str
     is_archived: bool = False
@@ -143,22 +175,42 @@ class Property(BaseModel):
 class PropertyCreate(BaseModel):
     name: str
     property_type: PropertyType
-    address: str
+    street: str
+    house_nr: str
+    postcode: str
+    city: str
     floor: Optional[str] = None
     surface_area: float
     number_of_rooms: int
+    num_toilets: Optional[int] = None
     description: Optional[str] = None
-    monthly_rent: Optional[float] = None
+    rent_per_sqm: Optional[float] = None
+    cold_rent: Optional[float] = None
+    status: PropertyStatus = PropertyStatus.EMPTY
+    owner_name: Optional[str] = None
+    owner_email: Optional[str] = None
+    owner_phone: Optional[str] = None
+    parent_id: Optional[str] = None
 
 class PropertyUpdate(BaseModel):
     name: Optional[str] = None
     property_type: Optional[PropertyType] = None
-    address: Optional[str] = None
+    street: Optional[str] = None
+    house_nr: Optional[str] = None
+    postcode: Optional[str] = None
+    city: Optional[str] = None
     floor: Optional[str] = None
     surface_area: Optional[float] = None
     number_of_rooms: Optional[int] = None
+    num_toilets: Optional[int] = None
     description: Optional[str] = None
-    monthly_rent: Optional[float] = None
+    rent_per_sqm: Optional[float] = None
+    cold_rent: Optional[float] = None
+    status: Optional[PropertyStatus] = None
+    owner_name: Optional[str] = None
+    owner_email: Optional[str] = None
+    owner_phone: Optional[str] = None
+    parent_id: Optional[str] = None
     is_archived: Optional[bool] = None
 
 # Tenant Management Models
@@ -281,6 +333,7 @@ class TaskOrder(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     budget: Optional[float] = None
     due_date: Optional[datetime] = None
+    property_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str
@@ -294,6 +347,7 @@ class TaskOrderCreate(BaseModel):
     budget: Optional[float] = None
     due_date: Optional[datetime] = None
     assigned_to: Optional[str] = None
+    property_id: Optional[str] = None
 
 class TaskOrderUpdate(BaseModel):
     subject: Optional[str] = None
@@ -304,6 +358,7 @@ class TaskOrderUpdate(BaseModel):
     budget: Optional[float] = None
     due_date: Optional[datetime] = None
     assigned_to: Optional[str] = None
+    property_id: Optional[str] = None
 
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -348,19 +403,30 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="User not found")
     return User(**user)
 
+async def get_super_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Insufficient privileges")
+    return current_user
+
 # Auth routes
 @api_router.post("/auth/register", response_model=UserResponse)
 async def register(user_data: UserCreate):
+    users_count = await db.users.count_documents({})
+    if users_count > 0 and user_data.role == UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Cannot create another super admin via public registration")
+
     existing_user = await db.users.find_one({"$or": [{"username": user_data.username}, {"email": user_data.email}]})
     if existing_user:
         raise HTTPException(status_code=400, detail="Username or email already registered")
     
     hashed_password = hash_password(user_data.password)
+    role = UserRole.SUPER_ADMIN if users_count == 0 else user_data.role
     user = User(
         username=user_data.username,
         email=user_data.email,
         full_name=user_data.full_name,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        role=role
     )
     
     await db.users.insert_one(user.dict())
@@ -381,6 +447,60 @@ async def login(user_data: UserLogin):
         token_type="bearer",
         user=UserResponse(**user)
     )
+
+# User management routes for super admin
+@api_router.post("/users", response_model=UserResponse)
+async def create_user(user_data: UserCreate, super_admin: User = Depends(get_super_admin)):
+    existing_user = await db.users.find_one({"$or": [{"username": user_data.username}, {"email": user_data.email}]})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username or email already registered")
+    
+    hashed_password = hash_password(user_data.password)
+    user = User(
+        username=user_data.username,
+        email=user_data.email,
+        full_name=user_data.full_name,
+        hashed_password=hashed_password,
+        role=user_data.role
+    )
+    
+    await db.users.insert_one(user.dict())
+    return UserResponse(**user.dict())
+
+@api_router.get("/users", response_model=List[UserResponse])
+async def get_users(super_admin: User = Depends(get_super_admin)):
+    users = await db.users.find().to_list(1000)
+    return [UserResponse(**user) for user in users]
+
+@api_router.get("/users/me", response_model=UserResponse)
+async def get_me(current_user: User = Depends(get_current_user)):
+    return UserResponse(**current_user.dict())
+
+@api_router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user(user_id: str, update_data: UserUpdate, super_admin: User = Depends(get_super_admin)):
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+    if "password" in update_dict:
+        update_dict["hashed_password"] = hash_password(update_dict.pop("password"))
+    
+    if update_dict:
+        await db.users.update_one({"id": user_id}, {"$set": update_dict})
+    
+    updated_user = await db.users.find_one({"id": user_id})
+    return UserResponse(**updated_user)
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, super_admin: User = Depends(get_super_admin)):
+    if user_id == super_admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete own account")
+    
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deleted successfully"}
 
 # Customer routes
 @api_router.post("/customers", response_model=Customer)
@@ -404,6 +524,10 @@ async def get_customer(customer_id: str, current_user: User = Depends(get_curren
 # Property routes
 @api_router.post("/properties", response_model=Property)
 async def create_property(property_data: PropertyCreate, current_user: User = Depends(get_current_user)):
+    if property_data.parent_id:
+        parent = await db.properties.find_one({"id": property_data.parent_id})
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent property not found")
     property_obj = Property(**property_data.dict(), created_by=current_user.id)
     await db.properties.insert_one(property_obj.dict())
     return property_obj
@@ -648,6 +772,11 @@ async def create_task_order(task_data: TaskOrderCreate, current_user: User = Dep
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
+    if task_data.property_id:
+        property = await db.properties.find_one({"id": task_data.property_id})
+        if not property:
+            raise HTTPException(status_code=404, detail="Property not found")
+    
     task_order = TaskOrder(**task_data.dict(), created_by=current_user.id)
     await db.task_orders.insert_one(task_order.dict())
     return task_order
@@ -657,6 +786,7 @@ async def get_task_orders(
     status: Optional[TaskStatus] = None,
     priority: Optional[Priority] = None,
     customer_id: Optional[str] = None,
+    assigned_to: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ):
     query = {}
@@ -666,6 +796,8 @@ async def get_task_orders(
         query["priority"] = priority
     if customer_id:
         query["customer_id"] = customer_id
+    if assigned_to:
+        query["assigned_to"] = assigned_to
     
     task_orders = await db.task_orders.find(query).sort("created_at", -1).to_list(1000)
     return [TaskOrder(**task_order) for task_order in task_orders]

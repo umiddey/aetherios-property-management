@@ -6,6 +6,7 @@ import CreateTenantForm from './CreateTenantForm';
 import CreateInvoiceForm from './CreateInvoiceForm';
 import CreateTaskForm from './CreateTaskForm';
 import CreateCustomerForm from './CreateCustomerForm';
+import UserForm from './UserForm';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -13,16 +14,19 @@ const API = `${BACKEND_URL}/api`;
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [taskOrders, setTaskOrders] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const [accounts, setAccounts] = useState([]); // Renamed from customers
   const [properties, setProperties] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [usersList, setUsersList] = useState([]);
+  const [assignedTasks, setAssignedTasks] = useState([]);
   const [currentView, setCurrentView] = useState('dashboard');
   const [loading, setLoading] = useState(true);
+  const [createTaskContext, setCreateTaskContext] = useState(null);
   
   // Filter states
   const [propertyFilters, setPropertyFilters] = useState({
-    property_type: '',
+    property_type: 'complex',
     min_rooms: '',
     max_rooms: '',
     min_surface: '',
@@ -40,6 +44,21 @@ const Dashboard = () => {
     archived: false
   });
   
+  // Selected item states
+  const [selectedProperty, setSelectedProperty] = useState(null);
+  const [selectedTenant, setSelectedTenant] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState(null); // Renamed from selectedCustomer
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(null); // For highlighting in invoices page
+  const [propertyAgreements, setPropertyAgreements] = useState([]);
+  const [propertyInvoices, setPropertyInvoices] = useState([]);
+  const [tenantAgreements, setTenantAgreements] = useState([]);
+  const [tenantInvoices, setTenantInvoices] = useState([]);
+  const [accountTasks, setAccountTasks] = useState([]); // Renamed from customerTasks
+  const [selectedAgreement, setSelectedAgreement] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  
   const { user, logout } = useAuth();
 
   useEffect(() => {
@@ -48,15 +67,17 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [statsRes, tasksRes, customersRes] = await Promise.all([
+      const [statsRes, tasksRes, accountsRes, assignedTasksRes] = await Promise.all([
         axios.get(`${API}/dashboard/stats`),
         axios.get(`${API}/task-orders`),
-        axios.get(`${API}/customers`)
+        axios.get(`${API}/customers`), // API endpoint remains /customers, but UI renames to Accounts
+        axios.get(`${API}/task-orders?assigned_to=${user.id}`)
       ]);
       
       setStats(statsRes.data);
       setTaskOrders(tasksRes.data);
-      setCustomers(customersRes.data);
+      setAccounts(accountsRes.data); // Set renamed state
+      setAssignedTasks(assignedTasksRes.data);
       
       // Fetch filtered data
       await Promise.all([
@@ -64,6 +85,11 @@ const Dashboard = () => {
         fetchTenants(),
         fetchInvoices()
       ]);
+
+      if (user.role === 'super_admin') {
+        const usersRes = await axios.get(`${API}/users`);
+        setUsersList(usersRes.data);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -127,6 +153,65 @@ const Dashboard = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get(`${API}/users`);
+      setUsersList(response.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchPropertyDetails = async () => {
+      if (selectedProperty) {
+        try {
+          const [agreementsRes, invoicesRes] = await Promise.all([
+            axios.get(`${API}/rental-agreements?property_id=${selectedProperty.id}`),
+            axios.get(`${API}/invoices?property_id=${selectedProperty.id}`)
+          ]);
+          setPropertyAgreements(agreementsRes.data);
+          setPropertyInvoices(invoicesRes.data);
+        } catch (error) {
+          console.error('Error fetching property details:', error);
+        }
+      }
+    };
+    fetchPropertyDetails();
+  }, [selectedProperty]);
+
+  useEffect(() => {
+    const fetchTenantDetails = async () => {
+      if (selectedTenant) {
+        try {
+          const [agreementsRes, invoicesRes] = await Promise.all([
+            axios.get(`${API}/rental-agreements?tenant_id=${selectedTenant.id}`),
+            axios.get(`${API}/invoices?tenant_id=${selectedTenant.id}`)
+          ]);
+          setTenantAgreements(agreementsRes.data);
+          setTenantInvoices(invoicesRes.data);
+        } catch (error) {
+          console.error('Error fetching tenant details:', error);
+        }
+      }
+    };
+    fetchTenantDetails();
+  }, [selectedTenant]);
+
+  useEffect(() => {
+    const fetchAccountDetails = async () => {
+      if (selectedAccount) {
+        try {
+          const tasksRes = await axios.get(`${API}/task-orders?customer_id=${selectedAccount.id}`);
+          setAccountTasks(tasksRes.data);
+        } catch (error) {
+          console.error('Error fetching account details:', error);
+        }
+      }
+    };
+    fetchAccountDetails();
+  }, [selectedAccount]);
+
   // Filter change handlers
   const handlePropertyFilterChange = (field, value) => {
     setPropertyFilters(prev => ({ ...prev, [field]: value }));
@@ -178,6 +263,9 @@ const Dashboard = () => {
       case 'sent': return 'bg-blue-100 text-blue-800';
       case 'paid': return 'bg-green-100 text-green-800';
       case 'overdue': return 'bg-red-100 text-red-800';
+      case 'active': return 'bg-green-100 text-green-800';
+      case 'cancel': return 'bg-red-100 text-red-800';
+      case 'empty': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -188,6 +276,16 @@ const Dashboard = () => {
       case 'house': return 'bg-green-100 text-green-800';
       case 'office': return 'bg-purple-100 text-purple-800';
       case 'commercial': return 'bg-orange-100 text-orange-800';
+      case 'complex': return 'bg-indigo-100 text-indigo-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'super_admin': return 'bg-red-100 text-red-800';
+      case 'admin': return 'bg-blue-100 text-blue-800';
+      case 'user': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -201,6 +299,44 @@ const Dashboard = () => {
       style: 'currency',
       currency: 'USD'
     }).format(amount);
+  };
+
+  const getTenantName = (tenantId) => {
+    const tenant = tenants.find(t => t.id === tenantId);
+    return tenant ? `${tenant.first_name} ${tenant.last_name}` : 'Unknown';
+  };
+
+  const getPropertyName = (propertyId) => {
+    const prop = properties.find(p => p.id === propertyId);
+    return prop ? prop.name : 'Unknown';
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await axios.delete(`${API}/users/${userId}`);
+        fetchUsers();
+      } catch (error) {
+        console.error('Error deleting user:', error);
+      }
+    }
+  };
+
+  const handleClickInvoice = (invoiceId) => {
+    setSelectedInvoiceId(invoiceId);
+    setCurrentView('invoices');
+  };
+
+  const handleClickAgreement = (agreementId) => {
+    // Assuming we have a 'agreements' view; if not, implement similar to invoices
+    // For now, show in modal or add a new view
+    const agreement = [...propertyAgreements, ...tenantAgreements].find(ag => ag.id === agreementId);
+    setSelectedAgreement(agreement);
+  };
+
+  const handleClickTask = (taskId) => {
+    const task = taskOrders.find(t => t.id === taskId);
+    setSelectedTask(task);
   };
 
   if (loading) {
@@ -227,7 +363,7 @@ const Dashboard = () => {
             <div className="flex items-center space-x-4">
               <nav className="hidden md:flex space-x-6">
                 <button
-                  onClick={() => setCurrentView('dashboard')}
+                  onClick={() => { setCurrentView('dashboard'); setSelectedProperty(null); setSelectedTenant(null); setSelectedAccount(null); }}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentView === 'dashboard' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
                   }`}
@@ -235,7 +371,7 @@ const Dashboard = () => {
                   Dashboard
                 </button>
                 <button
-                  onClick={() => setCurrentView('properties')}
+                  onClick={() => { setCurrentView('properties'); setSelectedProperty(null); setSelectedTenant(null); setSelectedAccount(null); }}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentView === 'properties' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
                   }`}
@@ -243,7 +379,7 @@ const Dashboard = () => {
                   Properties
                 </button>
                 <button
-                  onClick={() => setCurrentView('tenants')}
+                  onClick={() => { setCurrentView('tenants'); setSelectedProperty(null); setSelectedTenant(null); setSelectedAccount(null); }}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentView === 'tenants' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
                   }`}
@@ -251,7 +387,7 @@ const Dashboard = () => {
                   Tenants
                 </button>
                 <button
-                  onClick={() => setCurrentView('invoices')}
+                  onClick={() => { setCurrentView('invoices'); setSelectedProperty(null); setSelectedTenant(null); setSelectedAccount(null); }}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentView === 'invoices' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
                   }`}
@@ -259,7 +395,7 @@ const Dashboard = () => {
                   Invoices
                 </button>
                 <button
-                  onClick={() => setCurrentView('tasks')}
+                  onClick={() => { setCurrentView('tasks'); setSelectedProperty(null); setSelectedTenant(null); setSelectedAccount(null); }}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentView === 'tasks' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
                   }`}
@@ -267,13 +403,23 @@ const Dashboard = () => {
                   Tasks
                 </button>
                 <button
-                  onClick={() => setCurrentView('customers')}
+                  onClick={() => { setCurrentView('accounts'); setSelectedProperty(null); setSelectedTenant(null); setSelectedAccount(null); }}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
-                    currentView === 'customers' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
+                    currentView === 'accounts' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Customers
+                  Accounts
                 </button>
+                {user.role === 'super_admin' && (
+                  <button
+                    onClick={() => { setCurrentView('users'); setSelectedProperty(null); setSelectedTenant(null); setSelectedAccount(null); }}
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      currentView === 'users' ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Users
+                  </button>
+                )}
               </nav>
               <button
                 onClick={logout}
@@ -443,6 +589,54 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Assigned Tasks Notifications */}
+            <div className="bg-white shadow rounded-lg mb-8">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Assigned Tasks</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {assignedTasks.map((task) => (
+                      <tr key={task.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {task.subject}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(task.priority)}`}>
+                            {task.priority}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(task.status)}`}>
+                            {task.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {task.due_date ? formatDate(task.due_date) : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                    {assignedTasks.length === 0 && (
+                      <tr>
+                        <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
+                          No assigned tasks
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             {/* Recent Properties */}
             <div className="bg-white shadow rounded-lg mb-8">
               <div className="px-6 py-4 border-b border-gray-200">
@@ -457,7 +651,8 @@ const Dashboard = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rooms</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Surface</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rent</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rent per m²</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cold Rent</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -472,7 +667,7 @@ const Dashboard = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                          {property.address}
+                          {`${property.street} ${property.house_nr}, ${property.postcode} ${property.city}`}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {property.number_of_rooms}
@@ -481,7 +676,10 @@ const Dashboard = () => {
                           {property.surface_area} m²
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {property.monthly_rent ? formatCurrency(property.monthly_rent) : '-'}
+                          {property.rent_per_sqm ? formatCurrency(property.rent_per_sqm) : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {property.cold_rent ? formatCurrency(property.cold_rent) : '-'}
                         </td>
                       </tr>
                     ))}
@@ -522,6 +720,7 @@ const Dashboard = () => {
                     <option value="house">House</option>
                     <option value="office">Office</option>
                     <option value="commercial">Commercial</option>
+                    <option value="complex">Complex</option>
                   </select>
                 </div>
                 
@@ -593,7 +792,7 @@ const Dashboard = () => {
                 
                 <button
                   onClick={() => setPropertyFilters({
-                    property_type: '',
+                    property_type: 'complex',
                     min_rooms: '',
                     max_rooms: '',
                     min_surface: '',
@@ -617,14 +816,22 @@ const Dashboard = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Floor</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rooms</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Toilets</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Surface (m²)</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monthly Rent</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rent per m²</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cold Rent</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {properties.map((property) => (
-                      <tr key={property.id}>
+                      <tr 
+                        key={property.id} 
+                        onClick={() => setSelectedProperty(property)} 
+                        className="cursor-pointer hover:bg-gray-50"
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {property.name}
                         </td>
@@ -634,7 +841,7 @@ const Dashboard = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                          {property.address}
+                          {`${property.street} ${property.house_nr}, ${property.postcode} ${property.city}`}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {property.floor || '-'}
@@ -643,10 +850,24 @@ const Dashboard = () => {
                           {property.number_of_rooms}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {property.num_toilets || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {property.surface_area}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {property.monthly_rent ? formatCurrency(property.monthly_rent) : '-'}
+                          {property.rent_per_sqm ? formatCurrency(property.rent_per_sqm) : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {property.cold_rent ? formatCurrency(property.cold_rent) : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(property.status)}`}>
+                            {property.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {property.owner_name || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(property.created_at)}
@@ -657,6 +878,146 @@ const Dashboard = () => {
                 </table>
               </div>
             </div>
+
+            {selectedProperty && (
+              <div className="mt-6 bg-white shadow rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">{selectedProperty.name} Details</h3>
+                  <button
+                    onClick={() => {
+                      setSelectedProperty(null);
+                      setSelectedAgreement(null);
+                      setSelectedInvoice(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {/* Owner Section */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Owner</h4>
+                  <p className="text-sm text-gray-600">Name: {selectedProperty.owner_name || '-'}</p>
+                  <p className="text-sm text-gray-600">Email: {selectedProperty.owner_email || '-'}</p>
+                  <p className="text-sm text-gray-600">Phone: {selectedProperty.owner_phone || '-'}</p>
+                </div>
+
+                {/* Tenant Section (if unit) */}
+                {['apartment', 'office'].includes(selectedProperty.property_type) && (
+                  <div className="mb-6">
+                    <h4 className="text-md font-medium text-gray-900 mb-2">Tenant</h4>
+                    {propertyAgreements.length > 0 ? (
+                      propertyAgreements.filter(ag => ag.is_active).map(ag => {
+                        const tenant = tenants.find(t => t.id === ag.tenant_id);
+                        return tenant ? (
+                          <div key={ag.id} className="text-sm text-gray-600">
+                            <p>Name: {tenant.first_name} {tenant.last_name}</p>
+                            <p>Email: {tenant.email}</p>
+                            <p>Phone: {tenant.phone || '-'}</p>
+                          </div>
+                        ) : (
+                          <p key={ag.id} className="text-sm text-gray-600">No tenant details available</p>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-gray-600">No active tenant</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Contracts Section */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Contracts</h4>
+                  {propertyAgreements.length > 0 ? (
+                    <ul className="space-y-2">
+                      {propertyAgreements.map(ag => (
+                        <li 
+                          key={ag.id} 
+                          className="text-sm text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => handleClickAgreement(ag.id)}
+                        >
+                          Contract ID: {ag.id} - Start: {formatDate(ag.start_date)}, Rent: {formatCurrency(ag.monthly_rent)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-600">No contracts</p>
+                  )}
+                </div>
+
+                {selectedAgreement && (
+                  <div className="mb-6 bg-gray-50 p-4 rounded-md">
+                    <h5 className="text-md font-medium text-gray-900 mb-2">Contract Details</h5>
+                    <p className="text-sm text-gray-600">Tenant: {getTenantName(selectedAgreement.tenant_id)}</p>
+                    <p className="text-sm text-gray-600">Start Date: {formatDate(selectedAgreement.start_date)}</p>
+                    <p className="text-sm text-gray-600">End Date: {selectedAgreement.end_date ? formatDate(selectedAgreement.end_date) : 'Ongoing'}</p>
+                    <p className="text-sm text-gray-600">Monthly Rent: {formatCurrency(selectedAgreement.monthly_rent)}</p>
+                    <p className="text-sm text-gray-600">Deposit: {selectedAgreement.deposit ? formatCurrency(selectedAgreement.deposit) : '-'}</p>
+                    <p className="text-sm text-gray-600">Notes: {selectedAgreement.notes || '-'}</p>
+                    <p className="text-sm text-gray-600">Active: {selectedAgreement.is_active ? 'Yes' : 'No'}</p>
+                    <button 
+                      onClick={() => setSelectedAgreement(null)}
+                      className="mt-2 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Close Details
+                    </button>
+                  </div>
+                )}
+
+                {/* Invoices Section */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Invoices</h4>
+                  {propertyInvoices.length > 0 ? (
+                    <ul className="space-y-2">
+                      {propertyInvoices.map(inv => (
+                        <li 
+                          key={inv.id} 
+                          className="text-sm text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => handleClickInvoice(inv.id)}
+                        >
+                          {inv.invoice_number}: {formatCurrency(inv.amount)}, Status: {inv.status}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-600">No invoices</p>
+                  )}
+                </div>
+
+                {selectedInvoice && (
+                  <div className="mb-6 bg-gray-50 p-4 rounded-md">
+                    <h5 className="text-md font-medium text-gray-900 mb-2">Invoice Details</h5>
+                    <p className="text-sm text-gray-600">Invoice Number: {selectedInvoice.invoice_number}</p>
+                    <p className="text-sm text-gray-600">Tenant: {getTenantName(selectedInvoice.tenant_id)}</p>
+                    <p className="text-sm text-gray-600">Amount: {formatCurrency(selectedInvoice.amount)}</p>
+                    <p className="text-sm text-gray-600">Description: {selectedInvoice.description}</p>
+                    <p className="text-sm text-gray-600">Status: {selectedInvoice.status}</p>
+                    <p className="text-sm text-gray-600">Invoice Date: {formatDate(selectedInvoice.invoice_date)}</p>
+                    <p className="text-sm text-gray-600">Due Date: {formatDate(selectedInvoice.due_date)}</p>
+                    <button 
+                      onClick={() => setSelectedInvoice(null)}
+                      className="mt-2 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Close Details
+                    </button>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div>
+                  <button
+                    onClick={() => {
+                      setCreateTaskContext({ propertyId: selectedProperty.id, propertyName: selectedProperty.name });
+                      setCurrentView('create-task');
+                    }}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                  >
+                    Assign Task
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -728,7 +1089,11 @@ const Dashboard = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {tenants.map((tenant) => (
-                      <tr key={tenant.id}>
+                      <tr 
+                        key={tenant.id}
+                        onClick={() => setSelectedTenant(tenant)}
+                        className="cursor-pointer hover:bg-gray-50"
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {tenant.first_name} {tenant.last_name}
                         </td>
@@ -753,6 +1118,124 @@ const Dashboard = () => {
                 </table>
               </div>
             </div>
+
+            {selectedTenant && (
+              <div className="mt-6 bg-white shadow rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">{selectedTenant.first_name} {selectedTenant.last_name} Details</h3>
+                  <button
+                    onClick={() => {
+                      setSelectedTenant(null);
+                      setSelectedAgreement(null);
+                      setSelectedInvoice(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {/* Personal Info */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Personal Information</h4>
+                  <p className="text-sm text-gray-600">Email: {selectedTenant.email}</p>
+                  <p className="text-sm text-gray-600">Phone: {selectedTenant.phone || '-'}</p>
+                  <p className="text-sm text-gray-600">Address: {selectedTenant.address}</p>
+                  <p className="text-sm text-gray-600">Date of Birth: {selectedTenant.date_of_birth ? formatDate(selectedTenant.date_of_birth) : '-'}</p>
+                  <p className="text-sm text-gray-600">Gender: {selectedTenant.gender || '-'}</p>
+                  <p className="text-sm text-gray-600">Bank Account: {selectedTenant.bank_account || '-'}</p>
+                  <p className="text-sm text-gray-600">Notes: {selectedTenant.notes || '-'}</p>
+                </div>
+
+                {/* Current Property */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Current Property</h4>
+                  {tenantAgreements.find(ag => ag.is_active) ? (
+                    <p className="text-sm text-gray-600">{getPropertyName(tenantAgreements.find(ag => ag.is_active).property_id)}</p>
+                  ) : (
+                    <p className="text-sm text-gray-600">No current property</p>
+                  )}
+                </div>
+
+                {/* Contracts Section */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Contracts</h4>
+                  {tenantAgreements.length > 0 ? (
+                    <ul className="space-y-2">
+                      {tenantAgreements.map(ag => (
+                        <li 
+                          key={ag.id} 
+                          className="text-sm text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => handleClickAgreement(ag.id)}
+                        >
+                          Contract ID: {ag.id} - Property: {getPropertyName(ag.property_id)}, Start: {formatDate(ag.start_date)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-600">No contracts</p>
+                  )}
+                </div>
+
+                {selectedAgreement && (
+                  <div className="mb-6 bg-gray-50 p-4 rounded-md">
+                    <h5 className="text-md font-medium text-gray-900 mb-2">Contract Details</h5>
+                    <p className="text-sm text-gray-600">Property: {getPropertyName(selectedAgreement.property_id)}</p>
+                    <p className="text-sm text-gray-600">Start Date: {formatDate(selectedAgreement.start_date)}</p>
+                    <p className="text-sm text-gray-600">End Date: {selectedAgreement.end_date ? formatDate(selectedAgreement.end_date) : 'Ongoing'}</p>
+                    <p className="text-sm text-gray-600">Monthly Rent: {formatCurrency(selectedAgreement.monthly_rent)}</p>
+                    <p className="text-sm text-gray-600">Deposit: {selectedAgreement.deposit ? formatCurrency(selectedAgreement.deposit) : '-'}</p>
+                    <p className="text-sm text-gray-600">Notes: {selectedAgreement.notes || '-'}</p>
+                    <p className="text-sm text-gray-600">Active: {selectedAgreement.is_active ? 'Yes' : 'No'}</p>
+                    <button 
+                      onClick={() => setSelectedAgreement(null)}
+                      className="mt-2 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Close Details
+                    </button>
+                  </div>
+                )}
+
+                {/* Invoices Section */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Invoices</h4>
+                  {tenantInvoices.length > 0 ? (
+                    <ul className="space-y-2">
+                      {tenantInvoices.map(inv => (
+                        <li 
+                          key={inv.id} 
+                          className="text-sm text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => handleClickInvoice(inv.id)}
+                        >
+                          {inv.invoice_number}: {formatCurrency(inv.amount)}, Status: {inv.status}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-600">No invoices</p>
+                  )}
+                </div>
+
+                {selectedInvoice && (
+                  <div className="mb-6 bg-gray-50 p-4 rounded-md">
+                    <h5 className="text-md font-medium text-gray-900 mb-2">Invoice Details</h5>
+                    <p className="text-sm text-gray-600">Invoice Number: {selectedInvoice.invoice_number}</p>
+                    <p className="text-sm text-gray-600">Property: {getPropertyName(selectedInvoice.property_id)}</p>
+                    <p className="text-sm text-gray-600">Amount: {formatCurrency(selectedInvoice.amount)}</p>
+                    <p className="text-sm text-gray-600">Description: {selectedInvoice.description}</p>
+                    <p className="text-sm text-gray-600">Status: {selectedInvoice.status}</p>
+                    <p className="text-sm text-gray-600">Invoice Date: {formatDate(selectedInvoice.invoice_date)}</p>
+                    <p className="text-sm text-gray-600">Due Date: {formatDate(selectedInvoice.due_date)}</p>
+                    <button 
+                      onClick={() => setSelectedInvoice(null)}
+                      className="mt-2 text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Close Details
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -866,7 +1349,11 @@ const Dashboard = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {invoices.map((invoice) => (
-                      <tr key={invoice.id}>
+                      <tr 
+                        key={invoice.id}
+                        onClick={() => setSelectedInvoice(invoice)}
+                        className={`cursor-pointer hover:bg-gray-50 ${selectedInvoiceId === invoice.id ? 'bg-blue-50' : ''}`}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {invoice.invoice_number}
                         </td>
@@ -893,6 +1380,27 @@ const Dashboard = () => {
                 </table>
               </div>
             </div>
+
+            {selectedInvoice && (
+              <div className="mt-6 bg-white shadow rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Invoice {selectedInvoice.invoice_number} Details</h3>
+                  <button
+                    onClick={() => setSelectedInvoice(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600">Tenant: {getTenantName(selectedInvoice.tenant_id)}</p>
+                <p className="text-sm text-gray-600">Property: {getPropertyName(selectedInvoice.property_id)}</p>
+                <p className="text-sm text-gray-600">Amount: {formatCurrency(selectedInvoice.amount)}</p>
+                <p className="text-sm text-gray-600">Description: {selectedInvoice.description}</p>
+                <p className="text-sm text-gray-600">Status: {selectedInvoice.status}</p>
+                <p className="text-sm text-gray-600">Invoice Date: {formatDate(selectedInvoice.invoice_date)}</p>
+                <p className="text-sm text-gray-600">Due Date: {formatDate(selectedInvoice.due_date)}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -923,7 +1431,11 @@ const Dashboard = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {taskOrders.map((task) => (
-                      <tr key={task.id}>
+                      <tr 
+                        key={task.id}
+                        onClick={() => handleClickTask(task.id)}
+                        className="cursor-pointer hover:bg-gray-50"
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           {task.subject}
                         </td>
@@ -952,18 +1464,39 @@ const Dashboard = () => {
                 </table>
               </div>
             </div>
+
+            {selectedTask && (
+              <div className="mt-6 bg-white shadow rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">{selectedTask.subject} Details</h3>
+                  <button
+                    onClick={() => setSelectedTask(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600">Description: {selectedTask.description}</p>
+                <p className="text-sm text-gray-600">Priority: {selectedTask.priority}</p>
+                <p className="text-sm text-gray-600">Status: {selectedTask.status.replace('_', ' ')}</p>
+                <p className="text-sm text-gray-600">Budget: {selectedTask.budget ? formatCurrency(selectedTask.budget) : '-'}</p>
+                <p className="text-sm text-gray-600">Due Date: {selectedTask.due_date ? formatDate(selectedTask.due_date) : '-'}</p>
+                <p className="text-sm text-gray-600">Assigned To: {usersList.find(u => u.id === selectedTask.assigned_to)?.full_name || '-'}</p>
+                <p className="text-sm text-gray-600">Created By: {usersList.find(u => u.id === selectedTask.created_by)?.full_name || '-'}</p>
+              </div>
+            )}
           </div>
         )}
 
-        {currentView === 'customers' && (
+        {currentView === 'accounts' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Customers</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Accounts</h2>
               <button
-                onClick={() => setCurrentView('create-customer')}
+                onClick={() => setCurrentView('create-account')}
                 className="bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-600"
               >
-                Add Customer
+                Add Account
               </button>
             </div>
             
@@ -980,22 +1513,141 @@ const Dashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {customers.map((customer) => (
-                      <tr key={customer.id}>
+                    {accounts.map((account) => (
+                      <tr 
+                        key={account.id}
+                        onClick={() => setSelectedAccount(account)}
+                        className="cursor-pointer hover:bg-gray-50"
+                      >
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {customer.name}
+                          {account.name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {customer.company}
+                          {account.company}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {customer.email}
+                          {account.email}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {customer.phone || '-'}
+                          {account.phone || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDate(customer.created_at)}
+                          {formatDate(account.created_at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {selectedAccount && (
+              <div className="mt-6 bg-white shadow rounded-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">{selectedAccount.name} Details</h3>
+                  <button
+                    onClick={() => setSelectedAccount(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {/* Account Info */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Information</h4>
+                  <p className="text-sm text-gray-600">Company: {selectedAccount.company}</p>
+                  <p className="text-sm text-gray-600">Email: {selectedAccount.email}</p>
+                  <p className="text-sm text-gray-600">Phone: {selectedAccount.phone || '-'}</p>
+                  <p className="text-sm text-gray-600">Address: {selectedAccount.address || '-'}</p>
+                </div>
+
+                {/* Tasks Section */}
+                <div className="mb-6">
+                  <h4 className="text-md font-medium text-gray-900 mb-2">Tasks</h4>
+                  {accountTasks.length > 0 ? (
+                    <ul className="space-y-2">
+                      {accountTasks.map(task => (
+                        <li 
+                          key={task.id} 
+                          className="text-sm text-blue-600 cursor-pointer hover:underline"
+                          onClick={() => handleClickTask(task.id)}
+                        >
+                          {task.subject} - Status: {task.status}, Priority: {task.priority}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-600">No tasks</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {currentView === 'users' && user.role === 'super_admin' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Users</h2>
+              <button
+                onClick={() => setCurrentView('create-user')}
+                className="bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-600"
+              >
+                Create User
+              </button>
+            </div>
+            
+            <div className="bg-white shadow rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {usersList.map((u) => (
+                      <tr key={u.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {u.username}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {u.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {u.full_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(u.role)}`}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {u.is_active ? 'Yes' : 'No'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(u.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() => setSelectedUser(u)}
+                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1006,6 +1658,31 @@ const Dashboard = () => {
           </div>
         )}
 
+        {currentView === 'create-user' && (
+          <UserForm 
+            onBack={() => setCurrentView('users')}
+            onSuccess={() => {
+              fetchUsers();
+              setCurrentView('users');
+            }}
+          />
+        )}
+
+        {currentView === 'edit-user' && selectedUser && (
+          <UserForm 
+            onBack={() => {
+              setCurrentView('users');
+              setSelectedUser(null);
+            }}
+            onSuccess={() => {
+              fetchUsers();
+              setCurrentView('users');
+              setSelectedUser(null);
+            }}
+            initialData={selectedUser}
+          />
+        )}
+
         {/* Create Property Form */}
         {currentView === 'create-property' && (
           <CreatePropertyForm 
@@ -1014,6 +1691,7 @@ const Dashboard = () => {
               fetchData();
               setCurrentView('properties');
             }}
+            properties={properties}
           />
         )}
 
@@ -1049,17 +1727,19 @@ const Dashboard = () => {
               fetchData();
               setCurrentView('tasks');
             }}
-            customers={customers}
+            customers={accounts} // Pass renamed accounts
+            users={usersList}
+            context={createTaskContext}
           />
         )}
 
-        {/* Create Customer Form */}
-        {currentView === 'create-customer' && (
-          <CreateCustomerForm 
-            onBack={() => setCurrentView('customers')}
+        {/* Create Account Form (renamed from Customer) */}
+        {currentView === 'create-account' && (
+          <CreateCustomerForm // Component name remains, but UI can be updated to say "Account"
+            onBack={() => setCurrentView('accounts')}
             onSuccess={() => {
               fetchData();
-              setCurrentView('customers');
+              setCurrentView('accounts');
             }}
           />
         )}
