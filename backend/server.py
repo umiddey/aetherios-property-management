@@ -13,6 +13,7 @@ import jwt
 import bcrypt
 from enum import Enum
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_socketio import SocketManager
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -29,6 +30,9 @@ JWT_EXPIRATION_HOURS = 24
 
 # Create the main app without a prefix
 app = FastAPI()
+
+# Socket.io
+app.sio = SocketManager(app=app)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -375,6 +379,10 @@ class ActivityCreate(BaseModel):
     hours_spent: float
     activity_date: datetime
 
+class AnalyticsLog(BaseModel):
+  action: str
+  details: dict = {}
+
 # Utility functions
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -501,6 +509,13 @@ async def delete_user(user_id: str, super_admin: User = Depends(get_super_admin)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "User deleted successfully"}
+
+# Analytics endpoint
+@api_router.post("/analytics/log")
+async def log_analytics(log_data: AnalyticsLog, current_user: User = Depends(get_current_user)):
+  # Log to DB or file
+  logging.info(f"Analytics: {log_data.action} - {log_data.details} by user {current_user.id}")
+  return {"message": "Logged"}
 
 # Customer routes
 @api_router.post("/customers", response_model=Customer)
@@ -779,6 +794,7 @@ async def create_task_order(task_data: TaskOrderCreate, current_user: User = Dep
     
     task_order = TaskOrder(**task_data.dict(), created_by=current_user.id)
     await db.task_orders.insert_one(task_order.dict())
+    await app.sio.emit('new_task', task_order.dict())
     return task_order
 
 @api_router.get("/task-orders", response_model=List[TaskOrder])
