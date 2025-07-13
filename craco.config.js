@@ -3,7 +3,7 @@ const path = require('path');
 
 // Environment variable overrides
 const config = {
-  disableHotReload: process.env.DISABLE_HOT_RELOAD === 'true',
+  disableHotReload: import.meta.env.DISABLE_HOT_RELOAD === 'true',
 };
 
 module.exports = {

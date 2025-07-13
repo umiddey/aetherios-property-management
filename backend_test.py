@@ -11,7 +11,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # Get the backend URL from the frontend .env file
-BACKEND_URL = os.environ.get('REACT_APP_BACKEND_URL', 'localhost:3000')
+BACKEND_URL = os.environ.get('VITE_BACKEND_URL', 'localhost:3000')
 API_URL = f"{BACKEND_URL}/api"
 
 # Test data

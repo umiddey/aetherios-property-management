@@ -13,7 +13,7 @@ import jwt
 import bcrypt
 from enum import Enum
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_socketio import SocketManager
+import socketio  # New import for direct python-socketio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -31,8 +31,18 @@ JWT_EXPIRATION_HOURS = 24
 # Create the main app without a prefix
 app = FastAPI()
 
-# Socket.io
-app.sio = SocketManager(app=app)
+# Socket.io setup with python-socketio (replaces fastapi_socketio)
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins="*")
+app.mount("/socket.io", socketio.ASGIApp(sio))
+
+# Socket.io event handlers (basic for connect/disconnect)
+@sio.on('connect')
+async def connect(sid, environ):
+    print('Client connected:', sid)
+
+@sio.on('disconnect')
+async def disconnect(sid):
+    print('Client disconnected:', sid)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -794,7 +804,7 @@ async def create_task_order(task_data: TaskOrderCreate, current_user: User = Dep
     
     task_order = TaskOrder(**task_data.dict(), created_by=current_user.id)
     await db.task_orders.insert_one(task_order.dict())
-    await app.sio.emit('new_task', task_order.dict())
+    await sio.emit('new_task', task_order.dict())  # Changed from app.sio to sio
     return task_order
 
 @api_router.get("/task-orders", response_model=List[TaskOrder])
