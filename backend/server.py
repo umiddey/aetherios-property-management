@@ -53,9 +53,9 @@ security = HTTPBearer()
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"]
 )
 
@@ -452,19 +452,39 @@ async def register(user_data: UserCreate):
 
 @api_router.post("/auth/login", response_model=Token)
 async def login(user_data: UserLogin):
-    user = await db.users.find_one({"username": user_data.username})
-    if not user or not verify_password(user_data.password, user["hashed_password"]):
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
-    
-    if not user["is_active"]:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    
-    access_token = create_access_token(data={"sub": user["id"]})
-    return Token(
-        access_token=access_token,
-        token_type="bearer",
-        user=UserResponse(**user)
-    )
+    try:
+        # Try to find user with exact username first
+        user = await db.users.find_one({"username": user_data.username})
+        
+        # If not found, try case-insensitive search
+        if not user:
+            user = await db.users.find_one({"username": {"$regex": f"^{user_data.username}$", "$options": "i"}})
+        
+        if not user:
+            logger.info(f"Login attempt failed: User '{user_data.username}' not found")
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+        
+        if not verify_password(user_data.password, user["hashed_password"]):
+            logger.info(f"Login attempt failed: Invalid password for user '{user_data.username}'")
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+        
+        if not user["is_active"]:
+            logger.info(f"Login attempt failed: User '{user_data.username}' is inactive")
+            raise HTTPException(status_code=400, detail="Inactive user")
+        
+        access_token = create_access_token(data={"sub": user["id"]})
+        logger.info(f"User '{user_data.username}' logged in successfully")
+        
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            user=UserResponse(**user)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error for user '{user_data.username}': {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during login")
 
 # User management routes for super admin
 @api_router.post("/users", response_model=UserResponse)

@@ -1,5 +1,5 @@
 // src/components/Dashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import io from 'socket.io-client';
@@ -336,16 +336,16 @@ const Dashboard = () => {
     }
   }, [invoiceFilters]);
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = useCallback((priority) => {
     switch (priority) {
       case 'high': return 'bg-red-100 text-red-800';
       case 'medium': return 'bg-yellow-100 text-yellow-800';
       case 'low': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
-  const getStatusColor = (status) => {
+  const getStatusColor = useCallback((status) => {
     switch (status) {
       case 'pending': return 'bg-gray-100 text-gray-800';
       case 'in_progress': return 'bg-blue-100 text-blue-800';
@@ -360,9 +360,9 @@ const Dashboard = () => {
       case 'empty': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
-  const getPropertyTypeColor = (type) => {
+  const getPropertyTypeColor = useCallback((type) => {
     switch (type) {
       case 'apartment': return 'bg-blue-100 text-blue-800';
       case 'house': return 'bg-green-100 text-green-800';
@@ -371,7 +371,7 @@ const Dashboard = () => {
       case 'complex': return 'bg-indigo-100 text-indigo-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
   const getRoleColor = (role) => {
     switch (role) {
