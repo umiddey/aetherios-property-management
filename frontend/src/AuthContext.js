@@ -1,4 +1,6 @@
+// src/AuthContext.js
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Add this import for navigation
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -19,6 +21,7 @@ const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate(); // Add navigate hook
 
   useEffect(() => {
     const validateToken = async () => {
@@ -30,21 +33,24 @@ const AuthProvider = ({ children }) => {
           setUser(response.data);
         } catch (error) {
           if (error.response?.status === 401) {
-            // Invalid token - clear it
+            // Invalid token - clear it and redirect to login
             localStorage.removeItem('token');
             setToken(null);
             setUser(null);
             delete axios.defaults.headers.common['Authorization'];
+            navigate('/login'); // Redirect on invalid token
           } else {
             console.error('Token validation error:', error);
           }
         }
+      } else {
+        navigate('/login'); // No token - redirect to login
       }
       setLoading(false);
     };
 
     validateToken();
-  }, [token]);
+  }, [token, navigate]); // Add navigate to dependencies
 
   const login = async (username, password) => {
     try {
@@ -55,6 +61,8 @@ const AuthProvider = ({ children }) => {
       setUser(userData);
       localStorage.setItem('token', access_token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      
+      navigate('/'); // Add this: Redirect to dashboard on success
       
       return { success: true };
     } catch (error) {
@@ -68,6 +76,7 @@ const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
+    navigate('/login'); // Redirect to login on logout
   };
 
   return (

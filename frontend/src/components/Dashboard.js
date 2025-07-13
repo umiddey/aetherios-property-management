@@ -84,9 +84,19 @@ const Dashboard = () => {
   
   const { user, logout } = useAuth();
 
+  // Redirect to login if no user
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  // Fetch data only if user is authenticated
+  useEffect(() => {
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
 
   useEffect(() => {
     localStorage.setItem('viewedTasks', JSON.stringify(viewedTasks));
@@ -95,7 +105,7 @@ const Dashboard = () => {
   useEffect(() => {
     const socket = io(SOCKET_URL);
     socket.on('new_task', (task) => {
-      if (task.assigned_to === user.id) {
+      if (task.assigned_to === user?.id) {
         setAssignedTasks(prev => [...prev, task]);
         notifyUser(`New task assigned: ${task.subject}`);
       }
@@ -150,7 +160,7 @@ const Dashboard = () => {
         axios.get(`${API}/dashboard/stats`),
         axios.get(`${API}/task-orders`),
         axios.get(`${API}/customers`),
-        axios.get(`${API}/task-orders?assigned_to=${user.id}`)
+        axios.get(`${API}/task-orders?assigned_to=${user?.id}`)
       ]);
       
       setStats(statsRes.data);
@@ -164,12 +174,15 @@ const Dashboard = () => {
         fetchInvoices()
       ]);
 
-      if (user.role === 'super_admin') {
+      if (user?.role === 'super_admin') {
         const usersRes = await axios.get(`${API}/users`);
         setUsersList(usersRes.data);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        logout(); // Logout on auth errors (redirects to login)
+      }
     } finally {
       setLoading(false);
     }
@@ -432,6 +445,11 @@ const Dashboard = () => {
 
   const currentViewFromPath = location.pathname.slice(1) || 'dashboard';
 
+  // If no user, return null (effect handles redirect)
+  if (!user) {
+    return null;
+  }
+
   if (loading) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
@@ -458,7 +476,7 @@ const Dashboard = () => {
                 <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Invoices')}</button>
                 <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Tasks')}</button>
                 <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Accounts')}</button>
-                {user.role === 'super_admin' && (
+                {user?.role === 'super_admin' && (
                   <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Users')}</button>
                 )}
               </nav>

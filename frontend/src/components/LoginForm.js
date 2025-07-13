@@ -17,6 +17,7 @@ const LoginForm = () => {
 
     const result = await login(formData.username, formData.password);
     if (!result.success) {
+      console.log(result.error)
       setError(result.error);
     }
     setLoading(false);
@@ -67,7 +68,7 @@ const LoginForm = () => {
             type="submit"
             disabled={loading}
             className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
+          > 
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
