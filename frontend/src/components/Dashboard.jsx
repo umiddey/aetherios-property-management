@@ -2,9 +2,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import cachedAxios, { invalidateCache } from '../utils/cachedAxios';
 import io from 'socket.io-client';
 import { useAuth } from '../AuthContext';
 import { useTranslation } from 'react-i18next';
+import useToast from '../hooks/useToast';
+import { ToastContainer } from './Toast';
 import DashboardView from './DashboardView';
 import PropertiesView from './PropertiesView';
 import TenantsView from './TenantsView';
@@ -18,6 +21,7 @@ import CreateInvoiceForm from './CreateInvoiceForm';
 import CreateTaskForm from './CreateTaskForm';
 import CreateCustomerForm from './CreateCustomerForm';
 import UserForm from './UserForm';
+import PropertyDetailPage from './PropertyDetailPage';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -38,7 +42,6 @@ const Dashboard = () => {
   const [usersList, setUsersList] = useState([]);
   const [assignedTasks, setAssignedTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [createTaskContext, setCreateTaskContext] = useState(null);
   const [viewedTasks, setViewedTasks] = useState(() => localStorage.getItem('viewedTasks') ? JSON.parse(localStorage.getItem('viewedTasks')) : []);
   const [propertyPage, setPropertyPage] = useState(1);
   const [tenantPage, setTenantPage] = useState(1);
@@ -68,28 +71,26 @@ const Dashboard = () => {
   });
   
   // Selected item states
-  const [selectedProperty, setSelectedProperty] = useState(null);
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
-  const [propertyAgreements, setPropertyAgreements] = useState([]);
-  const [propertyInvoices, setPropertyInvoices] = useState([]);
   const [tenantAgreements, setTenantAgreements] = useState([]);
   const [tenantInvoices, setTenantInvoices] = useState([]);
   const [accountTasks, setAccountTasks] = useState([]);
   const [selectedAgreement, setSelectedAgreement] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
+  const { toasts, removeToast, showError, showSuccess } = useToast();
 
-  // Redirect to login if no user
+  // Redirect to login if no user (but wait for auth loading to complete)
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       navigate('/login');
     }
-  }, [user, navigate]);
+  }, [user, navigate, authLoading]);
 
   // Fetch data only if user is authenticated
   useEffect(() => {
@@ -157,10 +158,10 @@ const Dashboard = () => {
   const fetchData = async () => {
     try {
       const [statsRes, tasksRes, accountsRes, assignedTasksRes] = await Promise.all([
-        axios.get(`${API}/dashboard/stats`),
-        axios.get(`${API}/task-orders`),
-        axios.get(`${API}/customers`),
-        axios.get(`${API}/task-orders?assigned_to=${user?.id}`)
+        cachedAxios.get(`${API}/dashboard/stats`),
+        cachedAxios.get(`${API}/task-orders`),
+        cachedAxios.get(`${API}/customers`),
+        cachedAxios.get(`${API}/task-orders?assigned_to=${user?.id}`)
       ]);
       
       setStats(statsRes.data);
@@ -174,12 +175,12 @@ const Dashboard = () => {
         fetchInvoices()
       ]);
 
-      if (user?.role === 'super_admin') {
-        const usersRes = await axios.get(`${API}/users`);
-        setUsersList(usersRes.data);
-      }
+      // All users can see other users for task assignment
+      const usersRes = await cachedAxios.get(`${API}/users`);
+      setUsersList(usersRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
+      showError(error, 'Failed to load dashboard data');
       if (error.response?.status === 401 || error.response?.status === 403) {
         logout(); // Logout on auth errors (redirects to login)
       }
@@ -198,10 +199,11 @@ const Dashboard = () => {
       if (propertyFilters.max_surface) params.append('max_surface', propertyFilters.max_surface);
       params.append('archived', propertyFilters.archived);
       
-      const response = await axios.get(`${API}/properties?${params.toString()}`);
+      const response = await cachedAxios.get(`${API}/properties?${params.toString()}`);
       setProperties(response.data);
     } catch (error) {
       console.error('Error fetching properties:', error);
+      showError(error, 'Failed to load properties');
     }
   };
 
@@ -210,7 +212,7 @@ const Dashboard = () => {
       const params = new URLSearchParams();
       params.append('archived', tenantFilters.archived);
       
-      const response = await axios.get(`${API}/tenants?${params.toString()}`);
+      const response = await cachedAxios.get(`${API}/tenants?${params.toString()}`);
       let filteredTenants = response.data;
       
       if (tenantFilters.search) {
@@ -236,7 +238,7 @@ const Dashboard = () => {
       if (invoiceFilters.property_id) params.append('property_id', invoiceFilters.property_id);
       params.append('archived', invoiceFilters.archived);
       
-      const response = await axios.get(`${API}/invoices?${params.toString()}`);
+      const response = await cachedAxios.get(`${API}/invoices?${params.toString()}`);
       setInvoices(response.data);
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -252,23 +254,6 @@ const Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    const fetchPropertyDetails = async () => {
-      if (selectedProperty) {
-        try {
-          const [agreementsRes, invoicesRes] = await Promise.all([
-            axios.get(`${API}/rental-agreements?property_id=${selectedProperty.id}`),
-            axios.get(`${API}/invoices?property_id=${selectedProperty.id}`)
-          ]);
-          setPropertyAgreements(agreementsRes.data);
-          setPropertyInvoices(invoicesRes.data);
-        } catch (error) {
-          console.error('Error fetching property details:', error);
-        }
-      }
-    };
-    fetchPropertyDetails();
-  }, [selectedProperty]);
 
   useEffect(() => {
     const fetchTenantDetails = async () => {
@@ -445,7 +430,17 @@ const Dashboard = () => {
 
   const currentViewFromPath = location.pathname.slice(1) || 'dashboard';
 
-  // If no user, return null (effect handles redirect)
+  // Show loading while auth is being validated
+  if (authLoading) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Authenticating...</p>
+      </div>
+    </div>;
+  }
+
+  // If no user after auth loading is done, return null (effect handles redirect)
   if (!user) {
     return null;
   }
@@ -461,6 +456,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center py-4 space-y-4 md:space-y-0">
@@ -512,27 +508,19 @@ const Dashboard = () => {
             totalPages={Math.ceil(properties.length / ITEMS_PER_PAGE)} 
             currentPage={propertyPage} 
             onPageChange={setPropertyPage}
-            setSelectedProperty={setSelectedProperty} 
-            selectedProperty={selectedProperty} 
-            propertyAgreements={propertyAgreements} 
-            propertyInvoices={propertyInvoices} 
-            tenants={tenants} 
-            getTenantName={getTenantName} 
-            getPropertyName={getPropertyName} 
-            selectedAgreement={selectedAgreement} 
-            setSelectedAgreement={setSelectedAgreement} 
-            selectedInvoice={selectedInvoice} 
-            setSelectedInvoice={setSelectedInvoice} 
-            handleClickInvoice={handleClickInvoice} 
-            handleClickAgreement={handleClickAgreement} 
-            setCreateTaskContext={setCreateTaskContext} 
             handleNav={handleNav} 
             getStatusColor={getStatusColor} 
             getPropertyTypeColor={getPropertyTypeColor} 
             formatDate={formatDate} 
-            formatCurrency={formatCurrency} 
             t={t}
-            logAction={logAction}
+          />} />
+          <Route path="/properties/:id" element={<PropertyDetailPage 
+            getStatusColor={getStatusColor} 
+            getPropertyTypeColor={getPropertyTypeColor} 
+            formatDate={formatDate} 
+            formatCurrency={formatCurrency} 
+            getTenantName={getTenantName}
+            handleNav={handleNav}
           />} />
           <Route path="/tenants" element={<TenantsView 
             tenantFilters={tenantFilters} 
@@ -627,6 +615,7 @@ const Dashboard = () => {
           <Route path="/create-property" element={<CreatePropertyForm 
             onBack={() => handleNav('properties')} 
             onSuccess={() => {
+              invalidateCache('/api/properties'); // Clear properties cache
               fetchData();
               handleNav('properties');
             }} 
@@ -637,6 +626,7 @@ const Dashboard = () => {
           <Route path="/create-tenant" element={<CreateTenantForm 
             onBack={() => handleNav('tenants')} 
             onSuccess={() => {
+              invalidateCache('/api/tenants'); // Clear tenants cache
               fetchData();
               handleNav('tenants');
             }} 
@@ -646,6 +636,7 @@ const Dashboard = () => {
           <Route path="/create-invoice" element={<CreateInvoiceForm 
             onBack={() => handleNav('invoices')} 
             onSuccess={() => {
+              invalidateCache('/api/invoices'); // Clear invoices cache
               fetchData();
               handleNav('invoices');
             }} 
@@ -657,18 +648,20 @@ const Dashboard = () => {
           <Route path="/create-task" element={<CreateTaskForm 
             onBack={() => handleNav('tasks')} 
             onSuccess={() => {
+              invalidateCache('/api/task-orders'); // Clear tasks cache
               fetchData();
               handleNav('tasks');
             }} 
             customers={accounts} 
             users={usersList} 
-            context={createTaskContext} 
+            context={null} 
             t={t}
             logAction={logAction}
           />} />
           <Route path="/create-account" element={<CreateCustomerForm 
             onBack={() => handleNav('accounts')} 
             onSuccess={() => {
+              invalidateCache('/api/customers'); // Clear customers cache
               fetchData();
               handleNav('accounts');
             }} 

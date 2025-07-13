@@ -54,6 +54,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
       await axios.post(`${API}/properties`, submitData);
       onSuccess();
     } catch (error) {
+      console.log(error)
       setError(error.response?.data?.detail || 'Failed to create property');
     } finally {
       setLoading(false);
@@ -312,7 +313,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             >
               <option value="">None</option>
               {properties.map(property => (
-                <option key={property.id} value={property.id}>
+                <option key={property.id || property._id} value={property.id || property._id}>
                   {property.name}
                 </option>
               ))}

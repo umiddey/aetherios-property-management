@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timedelta
@@ -14,6 +14,7 @@ import bcrypt
 from enum import Enum
 from fastapi.middleware.cors import CORSMiddleware
 import socketio  # New import for direct python-socketio
+import asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -104,7 +105,7 @@ class UserRole(str, Enum):
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     username: str
-    email: str
+    email: EmailStr
     full_name: str
     hashed_password: str
     role: UserRole = UserRole.USER
@@ -112,10 +113,10 @@ class User(BaseModel):
     is_active: bool = True
 
 class UserCreate(BaseModel):
-    username: str
-    email: str
-    full_name: str
-    password: str
+    username: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    full_name: str = Field(..., min_length=2, max_length=100)
+    password: str = Field(..., min_length=6, max_length=100)
     role: UserRole = UserRole.USER
 
 class UserUpdate(BaseModel):
@@ -244,15 +245,15 @@ class Tenant(BaseModel):
     is_archived: bool = False
 
 class TenantCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: str
-    phone: Optional[str] = None
-    address: str
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    email: EmailStr
+    phone: Optional[str] = Field(None, max_length=50)
+    address: str = Field(..., min_length=5, max_length=500)
     date_of_birth: Optional[datetime] = None
-    gender: Optional[str] = None
-    bank_account: Optional[str] = None
-    notes: Optional[str] = None
+    gender: Optional[str] = Field(None, max_length=20)
+    bank_account: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 class TenantUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -506,7 +507,7 @@ async def create_user(user_data: UserCreate, super_admin: User = Depends(get_sup
     return UserResponse(**user.dict())
 
 @api_router.get("/users", response_model=List[UserResponse])
-async def get_users(super_admin: User = Depends(get_super_admin)):
+async def get_users(current_user: User = Depends(get_current_user)):
     users = await db.users.find().to_list(1000)
     return [UserResponse(**user) for user in users]
 
@@ -567,17 +568,41 @@ async def get_customer(customer_id: str, current_user: User = Depends(get_curren
     return Customer(**customer)
 
 # Property routes
-@api_router.post("/properties", response_model=Property)
+@api_router.post("/properties")
 async def create_property(property_data: PropertyCreate, current_user: User = Depends(get_current_user)):
-    if property_data.parent_id:
-        parent = await db.properties.find_one({"id": property_data.parent_id})
-        if not parent:
-            raise HTTPException(status_code=404, detail="Parent property not found")
-    property_obj = Property(**property_data.dict(), created_by=current_user.id)
-    await db.properties.insert_one(property_obj.dict())
-    return property_obj
+    try:
+        if property_data.parent_id:
+            # Try to find parent property by id first, then by _id if not found
+            parent = await db.properties.find_one({"id": property_data.parent_id})
+            if not parent:
+                try:
+                    from bson import ObjectId
+                    parent = await db.properties.find_one({"_id": ObjectId(property_data.parent_id)})
+                except:
+                    pass
+            if not parent:
+                raise HTTPException(status_code=404, detail="Parent property not found")
+        
+        # Create property dict with all required fields
+        property_dict = property_data.model_dump()
+        property_dict["id"] = str(uuid.uuid4())
+        property_dict["created_by"] = current_user.id
+        property_dict["created_at"] = datetime.utcnow()
+        property_dict["is_archived"] = False
+        
+        # Insert into database
+        result = await db.properties.insert_one(property_dict)
+        
+        # Remove the MongoDB ObjectId before returning
+        if "_id" in property_dict:
+            del property_dict["_id"]
+        
+        return property_dict
+    except Exception as e:
+        logger.error(f"Error creating property: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to create property: {str(e)}")
 
-@api_router.get("/properties", response_model=List[Property])
+@api_router.get("/properties")
 async def get_properties(
     property_type: Optional[PropertyType] = None,
     min_rooms: Optional[int] = None,
@@ -608,14 +633,60 @@ async def get_properties(
         query["is_archived"] = archived
     
     properties = await db.properties.find(query).sort("created_at", -1).to_list(1000)
-    return [Property(**property) for property in properties]
+    
+    # Convert MongoDB documents to dict format, handling missing fields
+    property_list = []
+    for prop in properties:
+        # Convert ObjectId to string if present
+        if "_id" in prop:
+            prop["id"] = str(prop["_id"])
+            del prop["_id"]
+        
+        # Ensure required fields exist with defaults
+        prop.setdefault("street", "")
+        prop.setdefault("house_nr", "")
+        prop.setdefault("postcode", "")
+        prop.setdefault("city", "")
+        prop.setdefault("name", f"Property {prop.get('id', 'Unknown')}")
+        prop.setdefault("property_type", "unknown")
+        prop.setdefault("status", "active")
+        prop.setdefault("surface_area", 0)
+        prop.setdefault("number_of_rooms", 0)
+        
+        property_list.append(prop)
+    
+    return property_list
 
-@api_router.get("/properties/{property_id}", response_model=Property)
+@api_router.get("/properties/{property_id}")
 async def get_property(property_id: str, current_user: User = Depends(get_current_user)):
+    # Try to find by id first, then by _id for backward compatibility
     property = await db.properties.find_one({"id": property_id})
     if not property:
+        try:
+            from bson import ObjectId
+            property = await db.properties.find_one({"_id": ObjectId(property_id)})
+        except:
+            pass
+    
+    if not property:
         raise HTTPException(status_code=404, detail="Property not found")
-    return Property(**property)
+    
+    # Handle missing fields
+    if "_id" in property:
+        property["id"] = str(property["_id"])
+        del property["_id"]
+    
+    property.setdefault("street", "")
+    property.setdefault("house_nr", "")
+    property.setdefault("postcode", "")
+    property.setdefault("city", "")
+    property.setdefault("name", f"Property {property.get('id', 'Unknown')}")
+    property.setdefault("property_type", "unknown")
+    property.setdefault("status", "active")
+    property.setdefault("surface_area", 0)
+    property.setdefault("number_of_rooms", 0)
+    
+    return property
 
 @api_router.put("/properties/{property_id}", response_model=Property)
 async def update_property(
@@ -717,7 +788,15 @@ async def get_rental_agreements(
 async def create_invoice(invoice_data: InvoiceCreate, current_user: User = Depends(get_current_user)):
     # Verify tenant and property exist
     tenant = await db.tenants.find_one({"id": invoice_data.tenant_id})
+    
+    # Try to find property by id first, then by _id if not found
     property = await db.properties.find_one({"id": invoice_data.property_id})
+    if not property:
+        try:
+            from bson import ObjectId
+            property = await db.properties.find_one({"_id": ObjectId(invoice_data.property_id)})
+        except:
+            pass
     
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
@@ -898,35 +977,69 @@ async def get_activities(task_order_id: str, current_user: User = Depends(get_cu
 # Dashboard stats
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(current_user: User = Depends(get_current_user)):
-    # Task Order Stats
-    total_tasks = await db.task_orders.count_documents({})
-    pending_tasks = await db.task_orders.count_documents({"status": TaskStatus.PENDING})
-    in_progress_tasks = await db.task_orders.count_documents({"status": TaskStatus.IN_PROGRESS})
-    completed_tasks = await db.task_orders.count_documents({"status": TaskStatus.COMPLETED})
-    
-    # Property Management Stats
-    total_properties = await db.properties.count_documents({"is_archived": False})
-    total_tenants = await db.tenants.count_documents({"is_archived": False})
-    active_agreements = await db.rental_agreements.count_documents({"is_active": True, "is_archived": False})
-    
-    # Financial Stats
-    total_invoices = await db.invoices.count_documents({"is_archived": False})
-    unpaid_invoices = await db.invoices.count_documents({"status": {"$in": [InvoiceStatus.DRAFT, InvoiceStatus.SENT, InvoiceStatus.OVERDUE]}, "is_archived": False})
-    
-    total_customers = await db.customers.count_documents({})
-    
-    return {
-        "total_tasks": total_tasks,
-        "pending_tasks": pending_tasks,
-        "in_progress_tasks": in_progress_tasks,
-        "completed_tasks": completed_tasks,
-        "total_customers": total_customers,
-        "total_properties": total_properties,
-        "total_tenants": total_tenants,
-        "active_agreements": active_agreements,
-        "total_invoices": total_invoices,
-        "unpaid_invoices": unpaid_invoices
-    }
+    # Use aggregation pipelines for better performance
+    try:
+        # Task Order Stats - single aggregation
+        task_stats = await db.task_orders.aggregate([
+            {
+                "$group": {
+                    "_id": None,
+                    "total_tasks": {"$sum": 1},
+                    "pending_tasks": {
+                        "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.PENDING]}, 1, 0]}
+                    },
+                    "in_progress_tasks": {
+                        "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.IN_PROGRESS]}, 1, 0]}
+                    },
+                    "completed_tasks": {
+                        "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.COMPLETED]}, 1, 0]}
+                    }
+                }
+            }
+        ]).to_list(1)
+        
+        # Property, tenant, and customer counts (faster individual calls for simple counts)
+        total_properties, total_tenants, total_customers, active_agreements, total_invoices, unpaid_invoices = await asyncio.gather(
+            db.properties.count_documents({"is_archived": False}),
+            db.tenants.count_documents({"is_archived": False}),
+            db.customers.count_documents({}),
+            db.rental_agreements.count_documents({"is_active": True, "is_archived": False}),
+            db.invoices.count_documents({"is_archived": False}),
+            db.invoices.count_documents({"status": {"$in": [InvoiceStatus.DRAFT, InvoiceStatus.SENT, InvoiceStatus.OVERDUE]}, "is_archived": False})
+        )
+        
+        # Extract task stats or use defaults
+        task_data = task_stats[0] if task_stats else {
+            "total_tasks": 0, "pending_tasks": 0, "in_progress_tasks": 0, "completed_tasks": 0
+        }
+        
+        return {
+            "total_tasks": task_data["total_tasks"],
+            "pending_tasks": task_data["pending_tasks"],
+            "in_progress_tasks": task_data["in_progress_tasks"],
+            "completed_tasks": task_data["completed_tasks"],
+            "total_customers": total_customers,
+            "total_properties": total_properties,
+            "total_tenants": total_tenants,
+            "active_agreements": active_agreements,
+            "total_invoices": total_invoices,
+            "unpaid_invoices": unpaid_invoices
+        }
+    except Exception as e:
+        logger.error(f"Error fetching dashboard stats: {str(e)}")
+        # Return default values on error
+        return {
+            "total_tasks": 0,
+            "pending_tasks": 0,
+            "in_progress_tasks": 0,
+            "completed_tasks": 0,
+            "total_customers": 0,
+            "total_properties": 0,
+            "total_tenants": 0,
+            "active_agreements": 0,
+            "total_invoices": 0,
+            "unpaid_invoices": 0
+        }
 
 # Archive routes
 @api_router.put("/archive/properties/{property_id}")

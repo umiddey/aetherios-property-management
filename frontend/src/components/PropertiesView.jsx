@@ -1,6 +1,5 @@
 // src/components/PropertiesView.js
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import Pagination from './Pagination';
 
 const PropertiesView = ({
@@ -10,34 +9,12 @@ const PropertiesView = ({
   totalPages,
   currentPage,
   onPageChange,
-  setSelectedProperty,
-  selectedProperty,
-  propertyAgreements,
-  propertyInvoices,
-  tenants,
-  getTenantName,
-  getPropertyName,
-  selectedAgreement,
-  setSelectedAgreement,
-  selectedInvoice,
-  setSelectedInvoice,
-  handleClickInvoice,
-  handleClickAgreement,
-  setCreateTaskContext,
   handleNav,
   getStatusColor,
   getPropertyTypeColor,
   formatDate,
-  formatCurrency,
-  t,
-  logAction
+  t
 }) => {
-  const { t: translate } = useTranslation();
-
-  const handleAssignTask = (property) => {
-    setCreateTaskContext({ property_id: property.id });
-    handleNav('create-task');
-  };
 
   return (
     <div className="space-y-8">
@@ -122,7 +99,7 @@ const PropertiesView = ({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {properties.map(property => (
-                <tr key={property.id} onClick={() => setSelectedProperty(property)} className="cursor-pointer hover:bg-gray-50">
+                <tr key={property.id} onClick={() => handleNav(`properties/${property.id}`)} className="cursor-pointer hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{property.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPropertyTypeColor(property.property_type)}`}>
@@ -149,64 +126,6 @@ const PropertiesView = ({
       </div>
 
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
-
-      {/* Selected Property Details */}
-      {selectedProperty && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">{t('Property Details')} - {selectedProperty.name}</h3>
-            <button onClick={() => handleAssignTask(selectedProperty)} className="bg-green-500 text-white px-4 py-2 rounded-md">
-              {t('Assign Task')}
-            </button>
-          </div>
-          <div className="space-y-4">
-            <p><strong>{t('Type')}:</strong> {selectedProperty.property_type}</p>
-            <p><strong>{t('Address')}:</strong> {selectedProperty.street} {selectedProperty.house_nr}, {selectedProperty.floor ? `Floor ${selectedProperty.floor},` : ''} {selectedProperty.postcode} {selectedProperty.city}</p>
-            <p><strong>{t('Surface Area')}:</strong> {selectedProperty.surface_area} m²</p>
-            <p><strong>{t('Rooms')}:</strong> {selectedProperty.number_of_rooms}</p>
-            <p><strong>{t('Toilets')}:</strong> {selectedProperty.num_toilets}</p>
-            <p><strong>{t('Rent per m²')}:</strong> {formatCurrency(selectedProperty.rent_per_sqm)}</p>
-            <p><strong>{t('Cold Rent')}:</strong> {formatCurrency(selectedProperty.cold_rent)}</p>
-            <p><strong>{t('Status')}:</strong> {selectedProperty.status}</p>
-            <p><strong>{t('Description')}:</strong> {selectedProperty.description}</p>
-            <p><strong>{t('Owner')}:</strong> {selectedProperty.owner_name} ({selectedProperty.owner_email}, {selectedProperty.owner_phone})</p>
-          </div>
-
-          <h4 className="text-md font-semibold text-gray-900 mt-6 mb-2">{t('Rental Agreements')}</h4>
-          <ul className="space-y-2">
-            {propertyAgreements.map(agreement => (
-              <li key={agreement.id} onClick={() => handleClickAgreement(agreement.id)} className="border-b py-2 cursor-pointer hover:bg-gray-50">
-                <p><strong>{getTenantName(agreement.tenant_id)}:</strong> {formatDate(agreement.start_date)} - {agreement.end_date ? formatDate(agreement.end_date) : t('Ongoing')}</p>
-                <p>{formatCurrency(agreement.monthly_rent)} / month</p>
-              </li>
-            ))}
-            {propertyAgreements.length === 0 && <p className="text-sm text-gray-500">{t('No agreements')}</p>}
-          </ul>
-
-          {selectedAgreement && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-md">
-              <h5 className="font-semibold">{t('Agreement Details')}</h5>
-              <p><strong>{t('Tenant')}:</strong> {getTenantName(selectedAgreement.tenant_id)}</p>
-              <p><strong>{t('Start Date')}:</strong> {formatDate(selectedAgreement.start_date)}</p>
-              <p><strong>{t('End Date')}:</strong> {selectedAgreement.end_date ? formatDate(selectedAgreement.end_date) : t('Indefinite')}</p>
-              <p><strong>{t('Monthly Rent')}:</strong> {formatCurrency(selectedAgreement.monthly_rent)}</p>
-              <p><strong>{t('Deposit')}:</strong> {formatCurrency(selectedAgreement.deposit)}</p>
-              <p><strong>{t('Notes')}:</strong> {selectedAgreement.notes}</p>
-            </div>
-          )}
-
-          <h4 className="text-md font-semibold text-gray-900 mt-6 mb-2">{t('Invoices')}</h4>
-          <ul className="space-y-2">
-            {propertyInvoices.map(invoice => (
-              <li key={invoice.id} onClick={() => handleClickInvoice(invoice.id)} className="border-b py-2 cursor-pointer hover:bg-gray-50">
-                <p><strong>{invoice.invoice_number}:</strong> {formatCurrency(invoice.amount)} - {invoice.status}</p>
-                <p>{t('Due')}: {formatDate(invoice.due_date)}</p>
-              </li>
-            ))}
-            {propertyInvoices.length === 0 && <p className="text-sm text-gray-500">{t('No invoices')}</p>}
-          </ul>
-        </div>
-      )}
     </div>
   );
 };
