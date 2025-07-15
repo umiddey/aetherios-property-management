@@ -42,7 +42,7 @@ const AccountsView = ({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {accounts.map(account => (
-                <tr key={account.id} onClick={() => setSelectedAccount(account)} className="cursor-pointer hover:bg-gray-50">
+                <tr key={account.id} onClick={() => handleNav(`accounts/${account.id}`)} className="cursor-pointer hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{account.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.company}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{account.email}</td>

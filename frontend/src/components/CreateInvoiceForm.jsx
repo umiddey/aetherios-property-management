@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const CreateInvoiceForm = ({ onBack, onSuccess, properties, tenants }) => {
+const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
   const [formData, setFormData] = useState({
     tenant_id: '',
     property_id: '',
@@ -15,6 +15,26 @@ const CreateInvoiceForm = ({ onBack, onSuccess, properties, tenants }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [allProperties, setAllProperties] = useState([]);
+  const [loadingProperties, setLoadingProperties] = useState(true);
+
+  // Fetch ALL properties for the dropdown, independent of any filters
+  useEffect(() => {
+    const fetchAllProperties = async () => {
+      try {
+        setLoadingProperties(true);
+        const response = await axios.get(`${API}/properties/?archived=false`);
+        setAllProperties(response.data);
+      } catch (error) {
+        console.error('Error fetching properties:', error);
+        setError('Failed to load properties');
+      } finally {
+        setLoadingProperties(false);
+      }
+    };
+
+    fetchAllProperties();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +49,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, properties, tenants }) => {
         due_date: new Date(formData.due_date).toISOString()
       };
 
-      await axios.post(`${API}/invoices`, submitData);
+      await axios.post(`${API}/invoices/`, submitData);
       onSuccess();
     } catch (error) {
       console.log(error)
@@ -93,9 +113,12 @@ const CreateInvoiceForm = ({ onBack, onSuccess, properties, tenants }) => {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
+                disabled={loadingProperties}
               >
-                <option value="">Select property</option>
-                {properties.map(property => (
+                <option value="">
+                  {loadingProperties ? 'Loading properties...' : 'Select property'}
+                </option>
+                {allProperties.map(property => (
                   <option key={property.id} value={property.id}>
                     {property.name} - {property.address}
                   </option>

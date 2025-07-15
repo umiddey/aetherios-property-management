@@ -6,6 +6,7 @@ const API = `${BACKEND_URL}/api`;
 
 const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
   const [formData, setFormData] = useState({
+    id: '',
     name: '',
     property_type: 'apartment',
     street: '',
@@ -54,8 +55,22 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
       await axios.post(`${API}/properties`, submitData);
       onSuccess();
     } catch (error) {
-      console.log(error)
-      setError(error.response?.data?.detail || 'Failed to create property');
+      console.log(error);
+      
+      // Handle validation errors from FastAPI
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          // Handle validation error array
+          const errorMessages = error.response.data.detail.map(err => 
+            `${err.loc.join('.')}: ${err.msg}`
+          ).join(', ');
+          setError(`Validation errors: ${errorMessages}`);
+        } else {
+          setError(error.response.data.detail);
+        }
+      } else {
+        setError('Failed to create property');
+      }
     } finally {
       setLoading(false);
     }
@@ -84,6 +99,24 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Property ID *
+            </label>
+            <input
+              type="text"
+              name="id"
+              value={formData.id}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., ukd_apartment_001"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Format: [your_name]_[property_type]_[number] (e.g., ukd_apartment_001)
+            </p>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -243,7 +276,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Rent per m² ($)
+                Rent per m² ($) *
               </label>
               <input
                 type="number"
@@ -253,7 +286,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 step="0.01"
                 min="0"
-                placeholder="Leave empty if not applicable"
+                required
               />
             </div>
 

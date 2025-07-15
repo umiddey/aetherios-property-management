@@ -82,9 +82,14 @@ const PropertiesView = ({
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-900">{t('Properties')}</h2>
-          <button onClick={() => handleNav('create-property')} className="bg-blue-500 text-white px-4 py-2 rounded-md">
-            {t('Add Property')}
-          </button>
+          <div className="flex space-x-2">
+            <button onClick={() => handleNav('create-rental-agreement')} className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">
+              {t('Create Rental Agreement')}
+            </button>
+            <button onClick={() => handleNav('create-property')} className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">
+              {t('Add Property')}
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">

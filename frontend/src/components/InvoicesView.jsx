@@ -105,7 +105,7 @@ const InvoicesView = ({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {invoices.map(invoice => (
-                <tr key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className="cursor-pointer hover:bg-gray-50">
+                <tr key={invoice.id} onClick={() => handleNav(`invoices/${invoice.id}`)} className="cursor-pointer hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{invoice.invoice_number}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getTenantName(invoice.tenant_id)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getPropertyName(invoice.property_id)}</td>
@@ -129,22 +129,6 @@ const InvoicesView = ({
       </div>
 
       <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
-
-      {/* Selected Invoice Details */}
-      {selectedInvoice && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('Invoice Details')} - {selectedInvoice.invoice_number}</h3>
-          <div className="space-y-4">
-            <p><strong>{t('Tenant')}:</strong> {getTenantName(selectedInvoice.tenant_id)}</p>
-            <p><strong>{t('Property')}:</strong> {getPropertyName(selectedInvoice.property_id)}</p>
-            <p><strong>{t('Amount')}:</strong> {formatCurrency(selectedInvoice.amount)}</p>
-            <p><strong>{t('Description')}:</strong> {selectedInvoice.description}</p>
-            <p><strong>{t('Invoice Date')}:</strong> {formatDate(selectedInvoice.invoice_date)}</p>
-            <p><strong>{t('Due Date')}:</strong> {formatDate(selectedInvoice.due_date)}</p>
-            <p><strong>{t('Status')}:</strong> {selectedInvoice.status}</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

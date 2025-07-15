@@ -125,7 +125,7 @@ const TasksView = ({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTasks.map(task => (
-                <tr key={task.id} onClick={() => setSelectedTask(task)} className="cursor-pointer hover:bg-gray-50">
+                <tr key={task.id} onClick={() => handleNav(`tasks/${task.id}`)} className="cursor-pointer hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{task.subject}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(task.priority)}`}>

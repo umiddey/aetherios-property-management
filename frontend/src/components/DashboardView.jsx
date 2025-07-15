@@ -1,10 +1,13 @@
 // src/components/DashboardView.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import axios from 'axios';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const DashboardView = ({
   stats,
-  properties,
   assignedTasks,
   getPriorityColor,
   getStatusColor,
@@ -18,6 +21,26 @@ const DashboardView = ({
   logAction
 }) => {
   const { t: translate } = useTranslation(); // Use the translation hook
+  const [recentProperties, setRecentProperties] = useState([]);
+  const [loadingProperties, setLoadingProperties] = useState(true);
+
+  // Fetch recent properties independently of the properties page filter
+  useEffect(() => {
+    const fetchRecentProperties = async () => {
+      try {
+        setLoadingProperties(true);
+        const response = await axios.get(`${API}/properties/?archived=false&limit=5&sort=created_at&order=desc`);
+        setRecentProperties(response.data);
+      } catch (error) {
+        console.error('Error fetching recent properties:', error);
+        setRecentProperties([]);
+      } finally {
+        setLoadingProperties(false);
+      }
+    };
+
+    fetchRecentProperties();
+  }, []);
 
   const handleTaskClick = (taskId) => {
     logAction('view_task', { taskId });
@@ -30,6 +53,37 @@ const DashboardView = ({
 
   return (
     <div className="space-y-8">
+      {/* Quick Actions */}
+      <div className="bg-white shadow rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('Quick Actions')}</h3>
+        <div className="flex flex-wrap gap-2">
+          <button 
+            onClick={() => handleNav('create-rental-agreement')} 
+            className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors"
+          >
+            {t('Create Rental Agreement')}
+          </button>
+          <button 
+            onClick={() => handleNav('create-property')} 
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+          >
+            {t('Add Property')}
+          </button>
+          <button 
+            onClick={() => handleNav('create-tenant')} 
+            className="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 transition-colors"
+          >
+            {t('Add Tenant')}
+          </button>
+          <button 
+            onClick={() => handleNav('create-invoice')} 
+            className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition-colors"
+          >
+            {t('Create Invoice')}
+          </button>
+        </div>
+      </div>
+
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white shadow rounded-lg p-6 stats-card">
@@ -115,26 +169,34 @@ const DashboardView = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {properties.slice(0, 5).map(property => (
-                <tr key={property.id} onClick={() => handleNav('properties')} className="cursor-pointer hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{property.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPropertyTypeColor(property.property_type)}`}>
-                      {property.property_type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(property.status)}`}>
-                      {property.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(property.created_at)}</td>
-                </tr>
-              ))}
-              {properties.length === 0 && (
+              {loadingProperties ? (
                 <tr>
-                  <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">{t('No properties found')}</td>
+                  <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">{t('Loading recent properties...')}</td>
                 </tr>
+              ) : (
+                <>
+                  {recentProperties.map(property => (
+                    <tr key={property.id} onClick={() => handleNav('properties')} className="cursor-pointer hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{property.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPropertyTypeColor(property.property_type)}`}>
+                          {property.property_type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(property.status)}`}>
+                          {property.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(property.created_at)}</td>
+                    </tr>
+                  ))}
+                  {recentProperties.length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">{t('No properties found')}</td>
+                    </tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>

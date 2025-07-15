@@ -22,6 +22,11 @@ import CreateTaskForm from './CreateTaskForm';
 import CreateCustomerForm from './CreateCustomerForm';
 import UserForm from './UserForm';
 import PropertyDetailPage from './PropertyDetailPage';
+import TenantDetailPage from './TenantDetailPage';
+import InvoiceDetailPage from './InvoiceDetailPage';
+import TaskDetailPage from './TaskDetailPage';
+import AccountDetailPage from './AccountDetailPage';
+import CreateRentalAgreementForm from './CreateRentalAgreementForm';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -488,7 +493,6 @@ const Dashboard = () => {
         <Routes>
           <Route path="/" element={<DashboardView 
             stats={stats} 
-            properties={properties} 
             assignedTasks={assignedTasks} 
             getPriorityColor={getPriorityColor} 
             getStatusColor={getStatusColor} 
@@ -522,6 +526,37 @@ const Dashboard = () => {
             getTenantName={getTenantName}
             handleNav={handleNav}
           />} />
+          <Route path="/tenants/:id" element={<TenantDetailPage 
+            getStatusColor={getStatusColor} 
+            getPropertyTypeColor={getPropertyTypeColor} 
+            formatDate={formatDate} 
+            formatCurrency={formatCurrency} 
+            getPropertyName={getPropertyName}
+            handleNav={handleNav}
+          />} />
+          <Route path="/invoices/:id" element={<InvoiceDetailPage 
+            getStatusColor={getStatusColor} 
+            formatDate={formatDate} 
+            formatCurrency={formatCurrency} 
+            getTenantName={getTenantName}
+            getPropertyName={getPropertyName}
+            handleNav={handleNav}
+          />} />
+          <Route path="/tasks/:id" element={<TaskDetailPage 
+            getStatusColor={getStatusColor} 
+            getPriorityColor={getPriorityColor}
+            formatDate={formatDate} 
+            formatCurrency={formatCurrency} 
+            usersList={usersList}
+            handleNav={handleNav}
+          />} />
+          <Route path="/accounts/:id" element={<AccountDetailPage 
+            getStatusColor={getStatusColor} 
+            getPriorityColor={getPriorityColor}
+            formatDate={formatDate} 
+            formatCurrency={formatCurrency} 
+            handleNav={handleNav}
+          />} />
           <Route path="/tenants" element={<TenantsView 
             tenantFilters={tenantFilters} 
             handleTenantFilterChange={handleTenantFilterChange} 
@@ -529,21 +564,8 @@ const Dashboard = () => {
             totalPages={Math.ceil(tenants.length / ITEMS_PER_PAGE)} 
             currentPage={tenantPage} 
             onPageChange={setTenantPage}
-            setSelectedTenant={setSelectedTenant} 
-            selectedTenant={selectedTenant} 
-            tenantAgreements={tenantAgreements} 
-            tenantInvoices={tenantInvoices} 
-            getPropertyName={getPropertyName} 
-            getTenantName={getTenantName} 
-            selectedAgreement={selectedAgreement} 
-            setSelectedAgreement={setSelectedAgreement} 
-            selectedInvoice={selectedInvoice} 
-            setSelectedInvoice={setSelectedInvoice} 
-            handleClickInvoice={handleClickInvoice} 
-            handleClickAgreement={handleClickAgreement} 
             handleNav={handleNav} 
             formatDate={formatDate} 
-            formatCurrency={formatCurrency} 
             t={t}
             logAction={logAction}
           />} />
@@ -640,7 +662,6 @@ const Dashboard = () => {
               fetchData();
               handleNav('invoices');
             }} 
-            properties={properties} 
             tenants={tenants} 
             t={t}
             logAction={logAction}
@@ -684,6 +705,15 @@ const Dashboard = () => {
               handleNav('users');
             }} 
             initialData={selectedUser} 
+            t={t}
+            logAction={logAction}
+          />} />
+          <Route path="/create-rental-agreement" element={<CreateRentalAgreementForm 
+            onBack={() => handleNav('tenants')} 
+            onSuccess={() => {
+              fetchData();
+              handleNav('tenants');
+            }} 
             t={t}
             logAction={logAction}
           />} />
