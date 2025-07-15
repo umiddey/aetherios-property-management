@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -604,36 +604,71 @@ async def get_activities(task_order_id: str, current_user: User = Depends(get_cu
 
 # Dashboard stats
 @api_router.get("/dashboard/stats")
-async def get_dashboard_stats(current_user: User = Depends(get_current_user)):
+async def get_dashboard_stats(
+    from_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
+    to_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    current_user: User = Depends(get_current_user)
+):
     # Use aggregation pipelines for better performance
     try:
-        # Task Order Stats - single aggregation
-        task_stats = await db.task_orders.aggregate([
-            {
-                "$group": {
-                    "_id": None,
-                    "total_tasks": {"$sum": 1},
-                    "pending_tasks": {
-                        "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.PENDING]}, 1, 0]}
-                    },
-                    "in_progress_tasks": {
-                        "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.IN_PROGRESS]}, 1, 0]}
-                    },
-                    "completed_tasks": {
-                        "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.COMPLETED]}, 1, 0]}
-                    }
+        # Build date filter
+        date_filter = {}
+        if from_date and to_date:
+            date_filter = {
+                "created_at": {
+                    "$gte": datetime.strptime(from_date, "%Y-%m-%d"),
+                    "$lte": datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1)
                 }
             }
-        ]).to_list(1)
         
-        # Property, tenant, and customer counts (faster individual calls for simple counts)
+        # Task Order Stats - single aggregation with date filter
+        task_pipeline = []
+        if date_filter:
+            task_pipeline.append({"$match": date_filter})
+        
+        task_pipeline.append({
+            "$group": {
+                "_id": None,
+                "total_tasks": {"$sum": 1},
+                "pending_tasks": {
+                    "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.PENDING]}, 1, 0]}
+                },
+                "in_progress_tasks": {
+                    "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.IN_PROGRESS]}, 1, 0]}
+                },
+                "completed_tasks": {
+                    "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.COMPLETED]}, 1, 0]}
+                }
+            }
+        })
+        
+        task_stats = await db.task_orders.aggregate(task_pipeline).to_list(1)
+        
+        # Build filters for other collections
+        property_filter = {"is_archived": False}
+        tenant_filter = {"is_archived": False}
+        customer_filter = {}
+        agreement_filter = {"is_active": True, "is_archived": False}
+        invoice_filter = {"is_archived": False}
+        unpaid_invoice_filter = {"status": {"$in": [InvoiceStatus.DRAFT, InvoiceStatus.SENT, InvoiceStatus.OVERDUE]}, "is_archived": False}
+        
+        # Add date filtering if provided
+        if date_filter:
+            property_filter.update(date_filter)
+            tenant_filter.update(date_filter)
+            customer_filter.update(date_filter)
+            agreement_filter.update(date_filter)
+            invoice_filter.update(date_filter)
+            unpaid_invoice_filter.update(date_filter)
+        
+        # Property, tenant, and customer counts with date filtering
         total_properties, total_tenants, total_customers, active_agreements, total_invoices, unpaid_invoices = await asyncio.gather(
-            db.properties.count_documents({"is_archived": False}),
-            db.tenants.count_documents({"is_archived": False}),
-            db.customers.count_documents({}),
-            db.rental_agreements.count_documents({"is_active": True, "is_archived": False}),
-            db.invoices.count_documents({"is_archived": False}),
-            db.invoices.count_documents({"status": {"$in": [InvoiceStatus.DRAFT, InvoiceStatus.SENT, InvoiceStatus.OVERDUE]}, "is_archived": False})
+            db.properties.count_documents(property_filter),
+            db.tenants.count_documents(tenant_filter),
+            db.customers.count_documents(customer_filter),
+            db.rental_agreements.count_documents(agreement_filter),
+            db.invoices.count_documents(invoice_filter),
+            db.invoices.count_documents(unpaid_invoice_filter)
         )
         
         # Extract task stats or use defaults

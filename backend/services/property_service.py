@@ -143,6 +143,17 @@ class PropertyService(BaseService):
         if filters.city:
             query["city"] = {"$regex": filters.city, "$options": "i"}
         
+        if filters.search:
+            # Search across multiple fields: name, street, city, postcode, house_nr
+            query["$or"] = [
+                {"name": {"$regex": filters.search, "$options": "i"}},
+                {"street": {"$regex": filters.search, "$options": "i"}},
+                {"city": {"$regex": filters.search, "$options": "i"}},
+                {"postcode": {"$regex": filters.search, "$options": "i"}},
+                {"house_nr": {"$regex": filters.search, "$options": "i"}},
+                {"id": {"$regex": filters.search, "$options": "i"}}
+            ]
+        
         if filters.parent_id:
             query["parent_id"] = filters.parent_id
         

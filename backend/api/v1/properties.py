@@ -37,6 +37,7 @@ async def get_properties(
     city: Optional[str] = Query(None),
     archived: Optional[bool] = Query(None),
     parent_id: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(1000, ge=1, le=1000),
     current_user = Depends(get_current_user),
@@ -53,7 +54,8 @@ async def get_properties(
             status=status,
             city=city,
             archived=archived,
-            parent_id=parent_id
+            parent_id=parent_id,
+            search=search
         )
         
         properties = await property_service.get_properties_with_filters(

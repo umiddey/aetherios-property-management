@@ -27,6 +27,7 @@ import InvoiceDetailPage from './InvoiceDetailPage';
 import TaskDetailPage from './TaskDetailPage';
 import AccountDetailPage from './AccountDetailPage';
 import CreateRentalAgreementForm from './CreateRentalAgreementForm';
+import Breadcrumb from './Breadcrumb';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -62,7 +63,8 @@ const Dashboard = () => {
     max_rooms: '',
     min_surface: '',
     max_surface: '',
-    archived: false
+    archived: false,
+    search: ''
   });
   const [tenantFilters, setTenantFilters] = useState({
     archived: false,
@@ -160,10 +162,15 @@ const Dashboard = () => {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (dateFilters = null) => {
     try {
+      let statsUrl = `${API}/dashboard/stats`;
+      if (dateFilters && dateFilters.from && dateFilters.to) {
+        statsUrl += `?from=${dateFilters.from}&to=${dateFilters.to}`;
+      }
+      
       const [statsRes, tasksRes, accountsRes, assignedTasksRes] = await Promise.all([
-        cachedAxios.get(`${API}/dashboard/stats`),
+        cachedAxios.get(statsUrl),
         cachedAxios.get(`${API}/task-orders`),
         cachedAxios.get(`${API}/customers`),
         cachedAxios.get(`${API}/task-orders?assigned_to=${user?.id}`)
@@ -202,6 +209,7 @@ const Dashboard = () => {
       if (propertyFilters.max_rooms) params.append('max_rooms', propertyFilters.max_rooms);
       if (propertyFilters.min_surface) params.append('min_surface', propertyFilters.min_surface);
       if (propertyFilters.max_surface) params.append('max_surface', propertyFilters.max_surface);
+      if (propertyFilters.search) params.append('search', propertyFilters.search);
       params.append('archived', propertyFilters.archived);
       
       const response = await cachedAxios.get(`${API}/properties?${params.toString()}`);
@@ -428,6 +436,71 @@ const Dashboard = () => {
     }
   };
 
+
+  const generateBreadcrumbs = () => {
+    const path = location.pathname;
+    const breadcrumbs = [{ label: t('Dashboard'), href: '' }];
+    
+    if (path === '/') {
+      return breadcrumbs;
+    }
+    
+    const pathParts = path.split('/').filter(Boolean);
+    
+    // Handle different routes
+    if (pathParts[0] === 'properties') {
+      breadcrumbs.push({ label: t('Properties'), href: pathParts.length === 1 ? null : 'properties' });
+      if (pathParts.length > 1) {
+        breadcrumbs.push({ label: t('Property Details'), href: null });
+      }
+    } else if (pathParts[0] === 'tenants') {
+      breadcrumbs.push({ label: t('Tenants'), href: pathParts.length === 1 ? null : 'tenants' });
+      if (pathParts.length > 1) {
+        breadcrumbs.push({ label: t('Tenant Details'), href: null });
+      }
+    } else if (pathParts[0] === 'invoices') {
+      breadcrumbs.push({ label: t('Invoices'), href: pathParts.length === 1 ? null : 'invoices' });
+      if (pathParts.length > 1) {
+        breadcrumbs.push({ label: t('Invoice Details'), href: null });
+      }
+    } else if (pathParts[0] === 'tasks') {
+      breadcrumbs.push({ label: t('Tasks'), href: pathParts.length === 1 ? null : 'tasks' });
+      if (pathParts.length > 1) {
+        breadcrumbs.push({ label: t('Task Details'), href: null });
+      }
+    } else if (pathParts[0] === 'accounts') {
+      breadcrumbs.push({ label: t('Accounts'), href: pathParts.length === 1 ? null : 'accounts' });
+      if (pathParts.length > 1) {
+        breadcrumbs.push({ label: t('Account Details'), href: null });
+      }
+    } else if (pathParts[0] === 'users') {
+      breadcrumbs.push({ label: t('Users'), href: pathParts.length === 1 ? null : 'users' });
+      if (pathParts.length > 1) {
+        breadcrumbs.push({ label: t('User Details'), href: null });
+      }
+    } else if (pathParts[0] === 'create-property') {
+      breadcrumbs.push({ label: t('Properties'), href: 'properties' });
+      breadcrumbs.push({ label: t('Create Property'), href: null });
+    } else if (pathParts[0] === 'create-tenant') {
+      breadcrumbs.push({ label: t('Tenants'), href: 'tenants' });
+      breadcrumbs.push({ label: t('Create Tenant'), href: null });
+    } else if (pathParts[0] === 'create-invoice') {
+      breadcrumbs.push({ label: t('Invoices'), href: 'invoices' });
+      breadcrumbs.push({ label: t('Create Invoice'), href: null });
+    } else if (pathParts[0] === 'create-task') {
+      breadcrumbs.push({ label: t('Tasks'), href: 'tasks' });
+      breadcrumbs.push({ label: t('Create Task'), href: null });
+    } else if (pathParts[0] === 'create-account') {
+      breadcrumbs.push({ label: t('Accounts'), href: 'accounts' });
+      breadcrumbs.push({ label: t('Create Account'), href: null });
+    } else if (pathParts[0] === 'create-rental-agreement') {
+      breadcrumbs.push({ label: t('Properties'), href: 'properties' });
+      breadcrumbs.push({ label: t('Create Rental Agreement'), href: null });
+    }
+    
+    return breadcrumbs;
+  };
+
   const handleNav = (view, state = {}) => {
     logAction('navigation', { view });
     navigate(`/${view}`, { state });
@@ -460,29 +533,41 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center py-4 space-y-4 md:space-y-0">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Property ERP</h1>
-              <p className="text-sm text-gray-600">Welcome back, {user?.full_name}</p>
+          <div className="flex flex-col md:flex-row justify-between items-center py-6 space-y-4 md:space-y-0">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Property ERP</h1>
+                <p className="text-sm text-gray-600">Welcome back, <span className="font-medium text-gray-900">{user?.full_name}</span></p>
+              </div>
             </div>
             <div className="flex flex-wrap items-center space-x-4 space-y-2 md:space-y-0">
-              <nav className="flex flex-wrap space-x-6 space-y-2 md:space-y-0">
-                <button onClick={() => handleNav('')} className={currentViewFromPath === '' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Dashboard')}</button>
-                <button onClick={() => handleNav('properties')} className={currentViewFromPath === 'properties' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Properties')}</button>
-                <button onClick={() => handleNav('tenants')} className={currentViewFromPath === 'tenants' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Tenants')}</button>
-                <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Invoices')}</button>
-                <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Tasks')}</button>
-                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Accounts')}</button>
+              <nav className="flex flex-wrap space-x-2 space-y-2 md:space-y-0">
+                <button onClick={() => handleNav('')} className={currentViewFromPath === '' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Dashboard')}</button>
+                <button onClick={() => handleNav('properties')} className={currentViewFromPath === 'properties' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Properties')}</button>
+                <button onClick={() => handleNav('tenants')} className={currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Tenants')}</button>
+                <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Invoices')}</button>
+                <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Tasks')}</button>
+                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Accounts')}</button>
                 {user?.role === 'super_admin' && (
-                  <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700' : 'px-3 py-2 rounded-md text-sm font-medium text-gray-500 hover:text-gray-700'}>{t('Users')}</button>
+                  <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Users')}</button>
                 )}
               </nav>
-              <button onClick={logout} className="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-600">
-                {t('Logout')}
+              <button onClick={logout} className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span>{t('Logout')}</span>
+                </div>
               </button>
             </div>
           </div>
@@ -490,6 +575,7 @@ const Dashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Breadcrumb items={generateBreadcrumbs()} onNavigate={handleNav} />
         <Routes>
           <Route path="/" element={<DashboardView 
             stats={stats} 

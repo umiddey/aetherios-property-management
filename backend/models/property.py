@@ -98,3 +98,4 @@ class PropertyFilters(BaseModel):
     archived: Optional[bool] = None
     city: Optional[str] = None
     parent_id: Optional[str] = None
+    search: Optional[str] = None
