@@ -1,6 +1,6 @@
 // src/components/InvoicesView.js
 import React, { useState, useEffect} from 'react';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 import Pagination from './Pagination';
 import { exportInvoices } from '../utils/exportUtils';
 
@@ -22,10 +22,9 @@ const InvoicesView = ({
   getStatusColor,
   formatDate,
   formatCurrency,
-  t,
   logAction
 }) => {
-  const { t: translate } = useTranslation();
+  const { t } = useLanguage();
 
   // If selectedInvoiceId is set (from navigation), find the invoice
   useEffect(() => {
@@ -45,7 +44,7 @@ const InvoicesView = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
           </div>
-          {t('Filters')}
+          {t('common.filters')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <select
@@ -53,18 +52,18 @@ const InvoicesView = ({
             onChange={(e) => handleInvoiceFilterChange('status', e.target.value)}
             className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
           >
-            <option value="">{t('All Statuses')}</option>
-            <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
-            <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
+            <option value="">{t('invoices.allStatuses')}</option>
+            <option value="draft">Entwurf</option>
+            <option value="sent">Versendet</option>
+            <option value="paid">{t('invoices.paid')}</option>
+            <option value="overdue">{t('invoices.overdue')}</option>
           </select>
           <select
             value={invoiceFilters.tenant_id}
             onChange={(e) => handleInvoiceFilterChange('tenant_id', e.target.value)}
             className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
           >
-            <option value="">{t('All Tenants')}</option>
+            <option value="">{t('invoices.allTenants')}</option>
             {tenants.map(tenant => (
               <option key={tenant.id} value={tenant.id}>{getTenantName(tenant.id)}</option>
             ))}
@@ -74,7 +73,7 @@ const InvoicesView = ({
             onChange={(e) => handleInvoiceFilterChange('property_id', e.target.value)}
             className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
           >
-            <option value="">{t('All Properties')}</option>
+            <option value="">{t('invoices.allProperties')}</option>
             {properties.map(prop => (
               <option key={prop.id} value={prop.id}>{getPropertyName(prop.id)}</option>
             ))}
@@ -86,7 +85,7 @@ const InvoicesView = ({
               onChange={(e) => handleInvoiceFilterChange('archived', e.target.checked)}
               className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
             />
-            <span className="text-sm font-medium text-gray-700">{t('Show Archived')}</span>
+            <span className="text-sm font-medium text-gray-700">{t('invoices.showArchived')}</span>
           </label>
         </div>
       </div>
@@ -101,7 +100,7 @@ const InvoicesView = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </div>
-              {t('Invoices')}
+              {t('invoices.title')}
             </h2>
             <div className="flex space-x-2">
               <button 
@@ -111,10 +110,10 @@ const InvoicesView = ({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                {t('Export')}
+                {t('common.export')}
               </button>
               <button onClick={() => handleNav('create-invoice')} className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-xl hover:from-orange-600 hover:to-red-600 transition-all duration-300 shadow-lg hover:shadow-xl">
-                {t('Create Invoice')}
+                {t('invoices.createInvoice')}
               </button>
             </div>
           </div>
@@ -123,12 +122,12 @@ const InvoicesView = ({
           <table className="min-w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Invoice #')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Tenant')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Property')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Amount')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Status')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Due Date')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('invoices.invoiceNumber')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('invoices.tenant')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('invoices.property')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('invoices.amount')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('invoices.status')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('invoices.dueDate')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -186,7 +185,7 @@ const InvoicesView = ({
                       <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                       </svg>
-                      <p className="text-sm font-medium">{t('No invoices found')}</p>
+                      <p className="text-sm font-medium">{t('invoices.noInvoicesFound')}</p>
                     </div>
                   </td>
                 </tr>

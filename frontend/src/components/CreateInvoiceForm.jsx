@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     tenant_id: '',
     property_id: '',
     amount: '',
     description: '',
     invoice_date: new Date().toISOString().split('T')[0],
-    due_date: ''
+    due_date: '',
+    status: 'pending'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +26,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
     const fetchAllProperties = async () => {
       try {
         setLoadingProperties(true);
-        const response = await axios.get(`${API}/properties/?archived=false`);
+        const response = await axios.get(`${API}/v1/properties/?archived=false`);
         setAllProperties(response.data);
       } catch (error) {
         console.error('Error fetching properties:', error);
@@ -49,7 +52,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
         due_date: new Date(formData.due_date).toISOString()
       };
 
-      await axios.post(`${API}/invoices/`, submitData);
+      await axios.post(`${API}/v1/invoices/`, submitData);
       onSuccess();
     } catch (error) {
       console.log(error)
@@ -72,7 +75,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        Back to Invoices
+{t('forms.backTo')} {t('navigation.invoices')}
       </button>
       
       <div className="bg-white shadow-lg rounded-2xl p-8 border border-gray-100">
@@ -82,7 +85,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Create New Invoice</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('forms.createInvoice.title')}</h2>
         </div>
         
         {error && (
@@ -103,14 +106,14 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Invoice Recipients</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createInvoice.invoiceRecipients')}</h3>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Tenant *
+{t('forms.createInvoice.tenant')} *
               </label>
               <select
                 name="tenant_id"
@@ -119,7 +122,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
                 required
               >
-                <option value="">Select tenant</option>
+                <option value="">{t('forms.createInvoice.selectTenant')}</option>
                 {tenants.map(tenant => (
                   <option key={tenant.id} value={tenant.id}>
                     {tenant.first_name} {tenant.last_name}
@@ -130,7 +133,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Property *
+{t('forms.createInvoice.property')} *
               </label>
               <select
                 name="property_id"
@@ -141,7 +144,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
                 disabled={loadingProperties}
               >
                 <option value="">
-                  {loadingProperties ? 'Loading properties...' : 'Select property'}
+                  {loadingProperties ? t('forms.createInvoice.loadingProperties') : t('forms.createInvoice.selectProperty')}
                 </option>
                 {allProperties.map(property => (
                   <option key={property.id} value={property.id}>
@@ -160,13 +163,13 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Invoice Details</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createInvoice.invoiceDetails')}</h3>
             </div>
           </div>
           
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Amount ($) *
+{t('forms.createInvoice.amount')} (€) *
             </label>
             <input
               type="number"
@@ -182,7 +185,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Description *
+{t('forms.createInvoice.description')} *
             </label>
             <textarea
               name="description"
@@ -190,7 +193,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
               onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
               rows="3"
-              placeholder="Invoice description..."
+              placeholder={t('forms.createInvoice.descriptionPlaceholder')}
               required
             />
           </div>
@@ -203,14 +206,14 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Invoice Dates</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createInvoice.invoiceDates')}</h3>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Invoice Date *
+{t('forms.createInvoice.invoiceDate')} *
               </label>
               <input
                 type="date"
@@ -224,7 +227,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Due Date *
+{t('forms.createInvoice.dueDate')} *
               </label>
               <input
                 type="date"
@@ -237,13 +240,31 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
             </div>
           </div>
 
+          <div className="mt-6">
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              {t('common.status')} *
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+              required
+            >
+              <option value="pending">{t('invoices.pending')}</option>
+              <option value="paid">{t('invoices.paid')}</option>
+              <option value="overdue">{t('invoices.overdue')}</option>
+              <option value="draft">Entwurf</option>
+            </select>
+          </div>
+
           <div className="flex justify-end space-x-4 pt-8 border-t border-gray-200 mt-8">
             <button
               type="button"
               onClick={onBack}
               className="px-6 py-3 text-gray-700 bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-300 font-medium"
             >
-              Cancel
+{t('forms.cancelButton')}
             </button>
             <button
               type="submit"
@@ -256,14 +277,14 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating...
+                  {t('forms.createInvoice.creating')}
                 </>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Create Invoice
+                  {t('forms.createButton')} {t('invoices.title').slice(0, -1)}
                 </>
               )}
             </button>

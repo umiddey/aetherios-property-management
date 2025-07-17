@@ -78,6 +78,9 @@ class TenantService(BaseService):
             tenant.setdefault("email", "")
             tenant.setdefault("phone", "")
             tenant.setdefault("address", "")
+            
+            # Compute status based on active rental agreements
+            tenant["status"] = await self._compute_tenant_status(tenant["id"])
         return tenant
     
     async def get_tenant_by_email(self, email: str) -> Optional[Dict[str, Any]]:
@@ -110,13 +113,16 @@ class TenantService(BaseService):
             kwargs['skip'] = kwargs.pop('offset')
         tenants = await self.get_all(query, **kwargs)
         
-        # Ensure all tenants have required fields
+        # Ensure all tenants have required fields and compute status
         for tenant in tenants:
             tenant.setdefault("first_name", "")
             tenant.setdefault("last_name", "")
             tenant.setdefault("email", "")
             tenant.setdefault("phone", "")
             tenant.setdefault("address", "")
+            
+            # Compute status based on active rental agreements
+            tenant["status"] = await self._compute_tenant_status(tenant["id"])
         
         return tenants
     
@@ -201,5 +207,39 @@ class TenantService(BaseService):
             tenant.setdefault("email", "")
             tenant.setdefault("phone", "")
             tenant.setdefault("address", "")
+            
+            # Compute status based on active rental agreements
+            tenant["status"] = await self._compute_tenant_status(tenant["id"])
         
         return tenants
+    
+    async def _compute_tenant_status(self, tenant_id: str) -> str:
+        """Compute tenant status based on active rental agreements."""
+        try:
+            # Check if tenant has active rental agreements
+            rental_agreements = await self.db.rental_agreements.find({
+                "tenant_id": tenant_id,
+                "is_active": True,
+                "is_archived": False
+            }).to_list(length=None)
+            
+            if rental_agreements:
+                # Check if any agreement is currently active (within date range)
+                from datetime import datetime
+                current_date = datetime.utcnow()
+                
+                for agreement in rental_agreements:
+                    start_date = agreement.get("start_date")
+                    end_date = agreement.get("end_date")
+                    
+                    # If start_date is in the past (or today) and end_date is in the future (or None)
+                    if start_date and start_date <= current_date:
+                        if end_date is None or end_date >= current_date:
+                            return "active"
+                
+                return "inactive"
+            else:
+                return "inactive"
+        except Exception as e:
+            logger.error(f"Error computing tenant status for {tenant_id}: {str(e)}")
+            return "inactive"

@@ -29,6 +29,10 @@ from api.v1.invoices import router as invoices_router
 from api.v1.customers import router as customers_router
 from api.v1.rental_agreements import router as rental_agreements_router
 from api.v1.users import router as users_router
+from api.v1.tasks import router as tasks_router
+from api.v1.activities import router as activities_router
+from api.v1.dashboard import router as dashboard_router
+from api.v1.analytics import router as analytics_router
 from repositories.property_repository import PropertyRepository
 from migrations.runner import run_all_migrations
 
@@ -48,9 +52,19 @@ JWT_EXPIRATION_HOURS = 24
 # Create the main app
 app = FastAPI(title="ERP Property Management System", version="1.0.0")
 
-# Socket.io setup
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins="*")
-app.mount("/socket.io", socketio.ASGIApp(sio))
+# Socket.io setup - Create combined ASGI app
+sio = socketio.AsyncServer(
+    async_mode='asgi', 
+    cors_allowed_origins="*",
+    logger=True,
+    engineio_logger=True
+)
+# Create combined Socket.io + FastAPI app
+combined_app = socketio.ASGIApp(sio, other_asgi_app=app)
+
+# Set Socket.io instance for tasks module
+from api.v1.tasks import set_socketio_instance
+set_socketio_instance(sio)
 
 # Socket.io event handlers
 @sio.on('connect')
@@ -411,66 +425,9 @@ async def login(user_data: UserLogin):
         logger.error(f"Login error for user '{user_data.username}': {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error during login")
 
-# User management routes for super admin
-@api_router.post("/users", response_model=UserResponse)
-async def create_user(user_data: UserCreate, super_admin: User = Depends(get_super_admin)):
-    existing_user = await db.users.find_one({"$or": [{"username": user_data.username}, {"email": user_data.email}]})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username or email already registered")
-    
-    hashed_password = hash_password(user_data.password)
-    user = User(
-        username=user_data.username,
-        email=user_data.email,
-        full_name=user_data.full_name,
-        hashed_password=hashed_password,
-        role=user_data.role
-    )
-    
-    await db.users.insert_one(user.dict())
-    return UserResponse(**user.dict())
+# User management routes moved to api/v1/users.py
 
-@api_router.get("/users", response_model=List[UserResponse])
-async def get_users(current_user: User = Depends(get_current_user)):
-    users = await db.users.find().to_list(1000)
-    return [UserResponse(**user) for user in users]
-
-@api_router.get("/users/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return UserResponse(**current_user.dict())
-
-@api_router.put("/users/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, update_data: UserUpdate, super_admin: User = Depends(get_super_admin)):
-    user = await db.users.find_one({"id": user_id})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
-    if "password" in update_dict:
-        update_dict["hashed_password"] = hash_password(update_dict.pop("password"))
-    
-    if update_dict:
-        await db.users.update_one({"id": user_id}, {"$set": update_dict})
-    
-    updated_user = await db.users.find_one({"id": user_id})
-    return UserResponse(**updated_user)
-
-@api_router.delete("/users/{user_id}")
-async def delete_user(user_id: str, super_admin: User = Depends(get_super_admin)):
-    if user_id == super_admin.id:
-        raise HTTPException(status_code=400, detail="Cannot delete own account")
-    
-    result = await db.users.delete_one({"id": user_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"message": "User deleted successfully"}
-
-# Analytics endpoint
-@api_router.post("/analytics/log")
-async def log_analytics(log_data: AnalyticsLog, current_user: User = Depends(get_current_user)):
-  # Log to DB or file
-  logging.info(f"Analytics: {log_data.action} - {log_data.details} by user {current_user.id}")
-  return {"message": "Logged"}
+# Analytics endpoint moved to api/v1/analytics.py
 
 # Customer routes now handled by api/v1/customers.py
 
@@ -488,6 +445,33 @@ async def create_rental_agreement(rental_data: RentalAgreementCreate, current_us
         raise HTTPException(status_code=404, detail="Property not found")
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    
+    # Check for overlapping rental agreements for the same property
+    existing_agreements = await db.rental_agreements.find({
+        "property_id": rental_data.property_id,
+        "is_active": True,
+        "is_archived": False
+    }).to_list(length=None)
+    
+    for agreement in existing_agreements:
+        # Check for date overlap
+        existing_start = agreement.get("start_date")
+        existing_end = agreement.get("end_date")
+        new_start = rental_data.start_date
+        new_end = rental_data.end_date
+        
+        # If no end date, assume ongoing
+        if existing_end is None:
+            existing_end = datetime(2099, 12, 31)  # Far future date
+        if new_end is None:
+            new_end = datetime(2099, 12, 31)  # Far future date
+        
+        # Check for overlap: new_start <= existing_end AND new_end >= existing_start
+        if new_start <= existing_end and new_end >= existing_start:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Rental agreement dates overlap with existing agreement for this property (Agreement ID: {agreement.get('id')})"
+            )
     
     rental_agreement = RentalAgreement(**rental_data.dict(), created_by=current_user.id)
     await db.rental_agreements.insert_one(rental_agreement.dict())
@@ -517,212 +501,26 @@ async def get_rental_agreements(
 # Invoice routes now handled by api/v1/invoices.py
 
 
-# Task Order routes (existing)
-@api_router.post("/task-orders", response_model=TaskOrder)
-async def create_task_order(task_data: TaskOrderCreate, current_user: User = Depends(get_current_user)):
-    customer = await db.customers.find_one({"id": task_data.customer_id})
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    
-    if task_data.property_id:
-        property = await db.properties.find_one({"id": task_data.property_id})
-        if not property:
-            raise HTTPException(status_code=404, detail="Property not found")
-    
-    task_order = TaskOrder(**task_data.dict(), created_by=current_user.id)
-    await db.task_orders.insert_one(task_order.dict())
-    await sio.emit('new_task', task_order.dict())  # Changed from app.sio to sio
-    return task_order
-
-@api_router.get("/task-orders", response_model=List[TaskOrder])
-async def get_task_orders(
-    status: Optional[TaskStatus] = None,
-    priority: Optional[Priority] = None,
-    customer_id: Optional[str] = None,
-    assigned_to: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
-):
-    query = {}
-    if status:
-        query["status"] = status
-    if priority:
-        query["priority"] = priority
-    if customer_id:
-        query["customer_id"] = customer_id
-    if assigned_to:
-        query["assigned_to"] = assigned_to
-    
-    task_orders = await db.task_orders.find(query).sort("created_at", -1).to_list(1000)
-    return [TaskOrder(**task_order) for task_order in task_orders]
-
-@api_router.get("/task-orders/{task_order_id}", response_model=TaskOrder)
-async def get_task_order(task_order_id: str, current_user: User = Depends(get_current_user)):
-    task_order = await db.task_orders.find_one({"id": task_order_id})
-    if not task_order:
-        raise HTTPException(status_code=404, detail="Task order not found")
-    return TaskOrder(**task_order)
-
-@api_router.put("/task-orders/{task_order_id}", response_model=TaskOrder)
-async def update_task_order(
-    task_order_id: str,
-    task_data: TaskOrderUpdate,
-    current_user: User = Depends(get_current_user)
-):
-    task_order = await db.task_orders.find_one({"id": task_order_id})
-    if not task_order:
-        raise HTTPException(status_code=404, detail="Task order not found")
-    
-    update_data = {k: v for k, v in task_data.dict().items() if v is not None}
-    update_data["updated_at"] = datetime.utcnow()
-    
-    await db.task_orders.update_one({"id": task_order_id}, {"$set": update_data})
-    updated_task = await db.task_orders.find_one({"id": task_order_id})
-    return TaskOrder(**updated_task)
-
-@api_router.delete("/task-orders/{task_order_id}")
-async def delete_task_order(task_order_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.task_orders.delete_one({"id": task_order_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Task order not found")
-    return {"message": "Task order deleted successfully"}
-
-# Activity routes
-@api_router.post("/activities", response_model=Activity)
-async def create_activity(activity_data: ActivityCreate, current_user: User = Depends(get_current_user)):
-    task_order = await db.task_orders.find_one({"id": activity_data.task_order_id})
-    if not task_order:
-        raise HTTPException(status_code=404, detail="Task order not found")
-    
-    activity = Activity(**activity_data.dict(), created_by=current_user.id)
-    await db.activities.insert_one(activity.dict())
-    return activity
-
-@api_router.get("/activities/{task_order_id}", response_model=List[Activity])
-async def get_activities(task_order_id: str, current_user: User = Depends(get_current_user)):
-    activities = await db.activities.find({"task_order_id": task_order_id}).sort("activity_date", -1).to_list(1000)
-    return [Activity(**activity) for activity in activities]
-
-# Dashboard stats
-@api_router.get("/dashboard/stats")
-async def get_dashboard_stats(
-    from_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    to_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
-    current_user: User = Depends(get_current_user)
-):
-    # Use aggregation pipelines for better performance
-    try:
-        # Build date filter
-        date_filter = {}
-        if from_date and to_date:
-            date_filter = {
-                "created_at": {
-                    "$gte": datetime.strptime(from_date, "%Y-%m-%d"),
-                    "$lte": datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1)
-                }
-            }
-        
-        # Task Order Stats - single aggregation with date filter
-        task_pipeline = []
-        if date_filter:
-            task_pipeline.append({"$match": date_filter})
-        
-        task_pipeline.append({
-            "$group": {
-                "_id": None,
-                "total_tasks": {"$sum": 1},
-                "pending_tasks": {
-                    "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.PENDING]}, 1, 0]}
-                },
-                "in_progress_tasks": {
-                    "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.IN_PROGRESS]}, 1, 0]}
-                },
-                "completed_tasks": {
-                    "$sum": {"$cond": [{"$eq": ["$status", TaskStatus.COMPLETED]}, 1, 0]}
-                }
-            }
-        })
-        
-        task_stats = await db.task_orders.aggregate(task_pipeline).to_list(1)
-        
-        # Build filters for other collections
-        property_filter = {"is_archived": False}
-        tenant_filter = {"is_archived": False}
-        customer_filter = {}
-        agreement_filter = {"is_active": True, "is_archived": False}
-        invoice_filter = {"is_archived": False}
-        unpaid_invoice_filter = {"status": {"$in": [InvoiceStatus.DRAFT, InvoiceStatus.SENT, InvoiceStatus.OVERDUE]}, "is_archived": False}
-        
-        # Add date filtering if provided
-        if date_filter:
-            property_filter.update(date_filter)
-            tenant_filter.update(date_filter)
-            customer_filter.update(date_filter)
-            agreement_filter.update(date_filter)
-            invoice_filter.update(date_filter)
-            unpaid_invoice_filter.update(date_filter)
-        
-        # Property, tenant, and customer counts with date filtering
-        total_properties, total_tenants, total_customers, active_agreements, total_invoices, unpaid_invoices = await asyncio.gather(
-            db.properties.count_documents(property_filter),
-            db.tenants.count_documents(tenant_filter),
-            db.customers.count_documents(customer_filter),
-            db.rental_agreements.count_documents(agreement_filter),
-            db.invoices.count_documents(invoice_filter),
-            db.invoices.count_documents(unpaid_invoice_filter)
-        )
-        
-        # Extract task stats or use defaults
-        task_data = task_stats[0] if task_stats else {
-            "total_tasks": 0, "pending_tasks": 0, "in_progress_tasks": 0, "completed_tasks": 0
-        }
-        
-        return {
-            "total_tasks": task_data["total_tasks"],
-            "pending_tasks": task_data["pending_tasks"],
-            "in_progress_tasks": task_data["in_progress_tasks"],
-            "completed_tasks": task_data["completed_tasks"],
-            "total_customers": total_customers,
-            "total_properties": total_properties,
-            "total_tenants": total_tenants,
-            "active_agreements": active_agreements,
-            "total_invoices": total_invoices,
-            "unpaid_invoices": unpaid_invoices
-        }
-    except Exception as e:
-        logger.error(f"Error fetching dashboard stats: {str(e)}")
-        # Return default values on error
-        return {
-            "total_tasks": 0,
-            "pending_tasks": 0,
-            "in_progress_tasks": 0,
-            "completed_tasks": 0,
-            "total_customers": 0,
-            "total_properties": 0,
-            "total_tenants": 0,
-            "active_agreements": 0,
-            "total_invoices": 0,
-            "unpaid_invoices": 0
-        }
+# Task Order routes moved to api/v1/tasks.py
+# Activity routes moved to api/v1/activities.py  
+# Dashboard stats moved to api/v1/dashboard.py
 
 # Archive routes
 
 # Archive routes for tenants and invoices now handled by their respective service modules
 
 # Include routers in the main app
-app.include_router(api_router)
+app.include_router(api_router)  # Auth routes only
 app.include_router(properties_router, prefix="/api/v1")
 app.include_router(tenants_router, prefix="/api/v1")
 app.include_router(invoices_router, prefix="/api/v1")
 app.include_router(customers_router, prefix="/api/v1")
 app.include_router(rental_agreements_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
-# Backward compatibility: also mount under old API path
-app.include_router(properties_router, prefix="/api")
-app.include_router(tenants_router, prefix="/api")
-app.include_router(invoices_router, prefix="/api")
-app.include_router(customers_router, prefix="/api")
-app.include_router(rental_agreements_router, prefix="/api")
-app.include_router(users_router, prefix="/api")
+app.include_router(tasks_router, prefix="/api/v1")
+app.include_router(activities_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1")
+app.include_router(analytics_router, prefix="/api/v1")
 
 # Configure logging
 logging.basicConfig(
@@ -773,3 +571,6 @@ async def health_check():
 async def root():
     """Root endpoint."""
     return {"message": "ERP Property Management System API", "version": "1.0.0"}
+
+# Replace the main app with the combined app
+app = combined_app

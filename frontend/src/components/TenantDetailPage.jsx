@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useTranslation } from 'react-i18next';
+import cachedAxios from '../utils/cachedAxios';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -16,7 +16,7 @@ const TenantDetailPage = ({
 }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t } = useLanguage();
   
   const [tenant, setTenant] = useState(null);
   const [agreements, setAgreements] = useState([]);
@@ -31,9 +31,9 @@ const TenantDetailPage = ({
       try {
         setLoading(true);
         const [tenantRes, agreementsRes, invoicesRes] = await Promise.all([
-          axios.get(`${API}/tenants/${id}`),
-          axios.get(`${API}/rental-agreements?tenant_id=${id}`),
-          axios.get(`${API}/invoices?tenant_id=${id}`)
+          cachedAxios.get(`${API}/v1/tenants/${id}`),
+          cachedAxios.get(`${API}/v1/rental-agreements?tenant_id=${id}`),
+          cachedAxios.get(`${API}/v1/invoices?tenant_id=${id}`)
         ]);
         
         setTenant(tenantRes.data);
@@ -67,7 +67,7 @@ const TenantDetailPage = ({
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">{t('Loading...')}</p>
+          <p className="mt-4 text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );

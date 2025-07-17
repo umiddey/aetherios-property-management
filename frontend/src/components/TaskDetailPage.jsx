@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import cachedAxios from '../utils/cachedAxios';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -15,7 +15,7 @@ const TaskDetailPage = ({
 }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t } = useLanguage();
   
   const [task, setTask] = useState(null);
   const [customer, setCustomer] = useState(null);
@@ -23,12 +23,14 @@ const TaskDetailPage = ({
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [updating, setUpdating] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     const fetchTaskDetails = async () => {
       try {
         setLoading(true);
-        const taskRes = await cachedAxios.get(`${API}/task-orders/${id}`);
+        const taskRes = await cachedAxios.get(`${API}/v1/tasks/${id}`);
         const taskData = taskRes.data;
         setTask(taskData);
         
@@ -36,19 +38,19 @@ const TaskDetailPage = ({
         const promises = [];
         
         if (taskData.customer_id) {
-          promises.push(cachedAxios.get(`${API}/customers/${taskData.customer_id}`));
+          promises.push(cachedAxios.get(`${API}/v1/customers/${taskData.customer_id}`));
         } else {
           promises.push(Promise.resolve(null));
         }
         
         if (taskData.assigned_to) {
-          promises.push(cachedAxios.get(`${API}/users/${taskData.assigned_to}`));
+          promises.push(cachedAxios.get(`${API}/v1/users/${taskData.assigned_to}`));
         } else {
           promises.push(Promise.resolve(null));
         }
         
         // Fetch activities/updates for this task
-        promises.push(cachedAxios.get(`${API}/activities/${id}`).catch(() => ({ data: [] })));
+        promises.push(cachedAxios.get(`${API}/v1/activities/task/${id}`).catch(() => ({ data: [] })));
         
         const [customerRes, userRes, activitiesRes] = await Promise.all(promises);
         
@@ -120,12 +122,98 @@ const TaskDetailPage = ({
 
   const isOverdue = task && new Date(task.due_date) < new Date() && task.status !== 'completed';
 
+  const handleStatusUpdate = async (newStatus) => {
+    try {
+      setActionLoading(true);
+      await cachedAxios.put(`${API}/v1/tasks/${id}`, {
+        ...task,
+        status: newStatus
+      });
+      setTask(prev => ({ ...prev, status: newStatus }));
+      
+      // Add activity log
+      const activityData = {
+        description: `Task status changed to ${newStatus}`,
+        task_id: id,
+        created_at: new Date().toISOString()
+      };
+      
+      try {
+        await cachedAxios.post(`${API}/v1/activities/`, activityData);
+        setActivities(prev => [activityData, ...prev]);
+      } catch (error) {
+        console.error('Error logging activity:', error);
+      }
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      setError('Failed to update task status');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAddActivity = async () => {
+    const description = prompt('Enter activity description:');
+    if (description && description.trim()) {
+      try {
+        setActionLoading(true);
+        const activityData = {
+          description: description.trim(),
+          task_id: id,
+          created_at: new Date().toISOString()
+        };
+        
+        await cachedAxios.post(`${API}/v1/activities/`, activityData);
+        setActivities(prev => [activityData, ...prev]);
+      } catch (error) {
+        console.error('Error adding activity:', error);
+        setError('Failed to add activity');
+      } finally {
+        setActionLoading(false);
+      }
+    }
+  };
+
+  const handleEditTask = () => {
+    // For now, navigate back to tasks list with edit indication
+    // In a full implementation, this would open an edit form
+    navigate('/tasks', { state: { editTaskId: id } });
+  };
+
+  const handleMarkComplete = async () => {
+    try {
+      setActionLoading(true);
+      await cachedAxios.put(`${API}/v1/tasks/${id}`, { status: 'completed' });
+      setTask({ ...task, status: 'completed' });
+      alert('Task marked as complete!');
+    } catch (error) {
+      console.error('Error marking task as complete:', error);
+      setError('Failed to mark task as complete');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStartTask = async () => {
+    try {
+      setActionLoading(true);
+      await cachedAxios.put(`${API}/v1/tasks/${id}`, { status: 'in_progress' });
+      setTask({ ...task, status: 'in_progress' });
+      alert('Task started!');
+    } catch (error) {
+      console.error('Error starting task:', error);
+      setError('Failed to start task');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">{t('Loading...')}</p>
+          <p className="mt-4 text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -174,7 +262,7 @@ const TaskDetailPage = ({
             </div>
             {isOverdue && (
               <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                {t('Overdue')}
+                {t('invoices.overdue')}
               </span>
             )}
           </div>
@@ -363,20 +451,36 @@ const TaskDetailPage = ({
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions</h3>
               <div className="space-y-3">
                 {task.status !== 'completed' && (
-                  <button className="w-full bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors">
-                    Mark as Complete
+                  <button 
+                    onClick={() => handleStatusUpdate('completed')}
+                    disabled={actionLoading}
+                    className="w-full bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actionLoading ? 'Updating...' : 'Mark as Complete'}
                   </button>
                 )}
                 {task.status === 'pending' && (
-                  <button className="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors">
-                    Start Task
+                  <button 
+                    onClick={() => handleStatusUpdate('in_progress')}
+                    disabled={actionLoading}
+                    className="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actionLoading ? 'Updating...' : 'Start Task'}
                   </button>
                 )}
-                <button className="w-full bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors">
+                <button 
+                  onClick={handleEditTask}
+                  disabled={actionLoading}
+                  className="w-full bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   Edit Task
                 </button>
-                <button className="w-full bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 transition-colors">
-                  Add Activity
+                <button 
+                  onClick={handleAddActivity}
+                  disabled={actionLoading}
+                  className="w-full bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {actionLoading ? 'Adding...' : 'Add Activity'}
                 </button>
               </div>
             </div>

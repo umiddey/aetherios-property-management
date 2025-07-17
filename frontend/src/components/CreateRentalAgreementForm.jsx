@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
-  const { t: translate } = useTranslation();
+const CreateRentalAgreementForm = ({ onBack, onSuccess, logAction }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     property_id: '',
     tenant_id: '',
@@ -28,8 +28,8 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
       try {
         setLoadingData(true);
         const [propertiesRes, tenantsRes] = await Promise.all([
-          axios.get(`${API}/properties/?archived=false`),
-          axios.get(`${API}/tenants/?archived=false`)
+          axios.get(`${API}/v1/properties/?archived=false`),
+          axios.get(`${API}/v1/tenants/?archived=false`)
         ]);
         
         setProperties(propertiesRes.data);
@@ -114,7 +114,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">{t('Loading...')}</p>
+          <p className="mt-4 text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -131,7 +131,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
         </button>
         
         <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6">{t('Create Rental Agreement')}</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">{t('dashboard.createRentalAgreement')}</h2>
           
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -144,7 +144,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('Property')} *
+                  {t('properties.title')} *
                 </label>
                 <select
                   name="property_id"
@@ -153,7 +153,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
-                  <option value="">{t('Select Property')}</option>
+                  <option value="">{t('forms.createInvoice.selectProperty')}</option>
                   {properties.map(property => (
                     <option key={property.id} value={property.id}>
                       {property.name} - {property.street} {property.house_nr}, {property.city}
@@ -164,7 +164,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('Tenant')} *
+                  {t('tenants.title')} *
                 </label>
                 <select
                   name="tenant_id"
@@ -173,7 +173,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 >
-                  <option value="">{t('Select Tenant')}</option>
+                  <option value="">{t('forms.createInvoice.selectTenant')}</option>
                   {tenants.map(tenant => (
                     <option key={tenant.id} value={tenant.id}>
                       {tenant.first_name} {tenant.last_name} - {tenant.email}
@@ -186,13 +186,13 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
             {/* Selected Property and Tenant Preview */}
             {formData.property_id && formData.tenant_id && (
               <div className="bg-blue-50 p-4 rounded-md">
-                <h3 className="text-sm font-medium text-blue-900 mb-2">{t('Agreement Summary')}</h3>
+                <h3 className="text-sm font-medium text-blue-900 mb-2">{t('common.details')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p><strong>{t('Property')}:</strong> {getPropertyName(formData.property_id)}</p>
+                    <p><strong>{t('properties.title')}:</strong> {getPropertyName(formData.property_id)}</p>
                   </div>
                   <div>
-                    <p><strong>{t('Tenant')}:</strong> {getTenantName(formData.tenant_id)}</p>
+                    <p><strong>{t('tenants.title')}:</strong> {getTenantName(formData.tenant_id)}</p>
                   </div>
                 </div>
               </div>
@@ -202,7 +202,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('Monthly Rent')} ($) *
+                  {t('properties.rent')} ({t('common.currency')}) *
                 </label>
                 <input
                   type="number"
@@ -219,7 +219,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('Security Deposit')} ($)
+                  {t('forms.createProperty.securityDeposit')} ({t('common.currency')})
                 </label>
                 <input
                   type="number"
@@ -238,7 +238,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('Start Date')} *
+                  {t('common.date')} *
                 </label>
                 <input
                   type="date"
@@ -252,7 +252,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {t('End Date')} ({t('Optional - Leave empty for indefinite')})
+                  {t('invoices.dueDate')} ({t('forms.createProperty.optional')})
                 </label>
                 <input
                   type="date"
@@ -268,7 +268,7 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
             {/* Notes */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('Notes')} ({t('Optional')})
+                {t('common.notes')} ({t('forms.createProperty.optional')})
               </label>
               <textarea
                 name="notes"
@@ -276,23 +276,23 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows="4"
-                placeholder={t('Additional notes about the rental agreement...')}
+                placeholder={t('forms.createTenant.notesPlaceholder')}
               />
             </div>
 
             {/* Financial Summary */}
             {formData.monthly_rent && (
               <div className="bg-green-50 p-4 rounded-md">
-                <h3 className="text-sm font-medium text-green-900 mb-2">{t('Financial Summary')}</h3>
+                <h3 className="text-sm font-medium text-green-900 mb-2">{t('common.total')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
-                    <p><strong>{t('Monthly Rent')}:</strong> ${parseFloat(formData.monthly_rent || 0).toFixed(2)}</p>
+                    <p><strong>{t('properties.rent')}:</strong> {t('common.currency')}{parseFloat(formData.monthly_rent || 0).toFixed(2)}</p>
                   </div>
                   <div>
-                    <p><strong>{t('Security Deposit')}:</strong> ${parseFloat(formData.deposit || 0).toFixed(2)}</p>
+                    <p><strong>{t('forms.createProperty.securityDeposit')}:</strong> {t('common.currency')}{parseFloat(formData.deposit || 0).toFixed(2)}</p>
                   </div>
                   <div>
-                    <p><strong>{t('Annual Rent')}:</strong> ${(parseFloat(formData.monthly_rent || 0) * 12).toFixed(2)}</p>
+                    <p><strong>{t('properties.rent')} (Annual):</strong> {t('common.currency')}{(parseFloat(formData.monthly_rent || 0) * 12).toFixed(2)}</p>
                   </div>
                 </div>
               </div>
@@ -305,14 +305,14 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, t, logAction }) => {
                 onClick={onBack}
                 className="px-6 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
               >
-                {t('Cancel')}
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={loading || !formData.property_id || !formData.tenant_id || !formData.monthly_rent}
                 className="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {loading ? t('Creating...') : t('Create Rental Agreement')}
+                {loading ? t('forms.createTenant.creating') : t('dashboard.createRentalAgreement')}
               </button>
             </div>
           </form>

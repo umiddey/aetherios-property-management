@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const UserForm = ({ onBack, onSuccess, initialData = null }) => {
+  const { t } = useLanguage();
   const isEdit = !!initialData;
   const [formData, setFormData] = useState({
     username: initialData?.username || '',
@@ -165,7 +167,7 @@ const UserForm = ({ onBack, onSuccess, initialData = null }) => {
               disabled={loading}
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
             >
-              {loading ? 'Saving...' : (isEdit ? 'Update User' : 'Create User')}
+              {loading ? t('common.save') + '...' : (isEdit ? t('common.update') + ' ' + t('pages.users').slice(0, -1) : t('dashboard.createUser'))}
             </button>
           </div>
         </form>

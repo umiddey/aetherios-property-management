@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     subject: '',
     description: '',
@@ -39,7 +41,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
         submitData.property_id = context.propertyId;
       }
 
-      await axios.post(`${API}/task-orders`, submitData);
+      await axios.post(`${API}/v1/tasks/`, submitData);
       onSuccess();
     } catch (error) {
       setError(error.response?.data?.detail || 'Failed to create task');
@@ -200,7 +202,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
               disabled={loading}
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Task'}
+              {loading ? t('common.creating') : t('dashboard.createTask')}
             </button>
           </div>
         </form>

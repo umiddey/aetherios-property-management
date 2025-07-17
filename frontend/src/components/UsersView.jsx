@@ -29,22 +29,22 @@ const UsersView = ({
       {/* User List */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">{t('Users')}</h2>
+          <h2 className="text-xl font-semibold text-gray-900">{t('navigation.users')}</h2>
           <button onClick={() => handleNav('create-user')} className="bg-blue-500 text-white px-4 py-2 rounded-md">
-            {t('Create User')}
+            {t('dashboard.createUser')}
           </button>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Username')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Full Name')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Email')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Role')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Active')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Created')}</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Actions')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.name')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('tenants.fullName')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.email')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.status')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('tenants.active')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.created')}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -62,10 +62,10 @@ const UsersView = ({
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(user.created_at)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <button onClick={() => handleEditUser(user)} className="text-blue-600 hover:text-blue-900 mr-2">
-                      {t('Edit')}
+                      {t('common.edit')}
                     </button>
                     <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900">
-                      {t('Delete')}
+                      {t('common.delete')}
                     </button>
                   </td>
                 </tr>

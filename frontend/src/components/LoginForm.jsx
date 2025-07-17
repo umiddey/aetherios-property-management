@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const LoginForm = () => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -69,7 +71,7 @@ const LoginForm = () => {
             disabled={loading}
             className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           > 
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? t('common.loggingIn') : t('common.login')}
           </button>
         </form>
         <p className="text-center text-sm text-gray-600 mt-4">

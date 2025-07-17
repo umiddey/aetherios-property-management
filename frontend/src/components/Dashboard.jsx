@@ -3,11 +3,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import cachedAxios, { invalidateCache } from '../utils/cachedAxios';
-import io from 'socket.io-client';
 import { useAuth } from '../AuthContext';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 import useToast from '../hooks/useToast';
 import { ToastContainer } from './Toast';
+import io from 'socket.io-client';
 import DashboardView from './DashboardView';
 import PropertiesView from './PropertiesView';
 import TenantsView from './TenantsView';
@@ -28,15 +28,15 @@ import TaskDetailPage from './TaskDetailPage';
 import AccountDetailPage from './AccountDetailPage';
 import CreateRentalAgreementForm from './CreateRentalAgreementForm';
 import Breadcrumb from './Breadcrumb';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-const SOCKET_URL = BACKEND_URL;
 
 const ITEMS_PER_PAGE = 10;
 
 const Dashboard = () => {
-  const { t } = useTranslation();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [stats, setStats] = useState(null);
@@ -92,6 +92,32 @@ const Dashboard = () => {
   const { user, logout, loading: authLoading } = useAuth();
   const { toasts, removeToast, showError, showSuccess } = useToast();
 
+  // Socket.io connection
+  useEffect(() => {
+    if (user) {
+      const socket = io(BACKEND_URL);
+      
+      socket.on('connect', () => {
+        console.log('Connected to Socket.io server');
+      });
+
+      socket.on('new_task', (task) => {
+        console.log('New task received:', task);
+        showSuccess('New task created!');
+        // Refresh tasks data
+        fetchData();
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Disconnected from Socket.io server');
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
+  }, [user, showSuccess]);
+
   // Redirect to login if no user (but wait for auth loading to complete)
   useEffect(() => {
     if (!authLoading && !user) {
@@ -110,21 +136,6 @@ const Dashboard = () => {
     localStorage.setItem('viewedTasks', JSON.stringify(viewedTasks));
   }, [viewedTasks]);
 
-  useEffect(() => {
-    const socket = io(SOCKET_URL, { path: '/socket.io/' });
-    socket.on('new_task', (task) => {
-      if (task.assigned_to === user?.id) {
-        setAssignedTasks(prev => [...prev, task]);
-        notifyUser(`New task assigned: ${task.subject}`);
-      }
-    });
-
-    socket.on('reminder', (reminder) => {
-      notifyUser(reminder.message);
-    });
-
-    return () => socket.disconnect();
-  }, [user]);
 
   useEffect(() => {
     const checkReminders = () => {
@@ -164,16 +175,16 @@ const Dashboard = () => {
 
   const fetchData = async (dateFilters = null) => {
     try {
-      let statsUrl = `${API}/dashboard/stats`;
+      let statsUrl = `${API}/v1/dashboard/stats`;
       if (dateFilters && dateFilters.from && dateFilters.to) {
         statsUrl += `?from=${dateFilters.from}&to=${dateFilters.to}`;
       }
       
       const [statsRes, tasksRes, accountsRes, assignedTasksRes] = await Promise.all([
         cachedAxios.get(statsUrl),
-        cachedAxios.get(`${API}/task-orders`),
-        cachedAxios.get(`${API}/customers`),
-        cachedAxios.get(`${API}/task-orders?assigned_to=${user?.id}`)
+        cachedAxios.get(`${API}/v1/tasks`),
+        cachedAxios.get(`${API}/v1/customers`),
+        cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`)
       ]);
       
       setStats(statsRes.data);
@@ -188,7 +199,7 @@ const Dashboard = () => {
       ]);
 
       // All users can see other users for task assignment
-      const usersRes = await cachedAxios.get(`${API}/users`);
+      const usersRes = await cachedAxios.get(`${API}/v1/users`);
       setUsersList(usersRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -212,7 +223,7 @@ const Dashboard = () => {
       if (propertyFilters.search) params.append('search', propertyFilters.search);
       params.append('archived', propertyFilters.archived);
       
-      const response = await cachedAxios.get(`${API}/properties?${params.toString()}`);
+      const response = await cachedAxios.get(`${API}/v1/properties?${params.toString()}`);
       setProperties(response.data);
     } catch (error) {
       console.error('Error fetching properties:', error);
@@ -225,7 +236,7 @@ const Dashboard = () => {
       const params = new URLSearchParams();
       params.append('archived', tenantFilters.archived);
       
-      const response = await cachedAxios.get(`${API}/tenants?${params.toString()}`);
+      const response = await cachedAxios.get(`${API}/v1/tenants?${params.toString()}`);
       let filteredTenants = response.data;
       
       if (tenantFilters.search) {
@@ -251,7 +262,7 @@ const Dashboard = () => {
       if (invoiceFilters.property_id) params.append('property_id', invoiceFilters.property_id);
       params.append('archived', invoiceFilters.archived);
       
-      const response = await cachedAxios.get(`${API}/invoices?${params.toString()}`);
+      const response = await cachedAxios.get(`${API}/v1/invoices?${params.toString()}`);
       setInvoices(response.data);
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -260,7 +271,7 @@ const Dashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get(`${API}/users`);
+      const response = await axios.get(`${API}/v1/users`);
       setUsersList(response.data);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -273,8 +284,8 @@ const Dashboard = () => {
       if (selectedTenant) {
         try {
           const [agreementsRes, invoicesRes] = await Promise.all([
-            axios.get(`${API}/rental-agreements?tenant_id=${selectedTenant.id}`),
-            axios.get(`${API}/invoices?tenant_id=${selectedTenant.id}`)
+            axios.get(`${API}/v1/rental-agreements?tenant_id=${selectedTenant.id}`),
+            axios.get(`${API}/v1/invoices?tenant_id=${selectedTenant.id}`)
           ]);
           setTenantAgreements(agreementsRes.data);
           setTenantInvoices(invoicesRes.data);
@@ -290,7 +301,7 @@ const Dashboard = () => {
     const fetchAccountDetails = async () => {
       if (selectedAccount) {
         try {
-          const tasksRes = await axios.get(`${API}/task-orders?customer_id=${selectedAccount.id}`);
+          const tasksRes = await axios.get(`${API}/v1/tasks?customer_id=${selectedAccount.id}`);
           setAccountTasks(tasksRes.data);
         } catch (error) {
           console.error('Error fetching account details:', error);
@@ -355,7 +366,8 @@ const Dashboard = () => {
       case 'overdue': return 'bg-red-100 text-red-800';
       case 'active': return 'bg-green-100 text-green-800';
       case 'cancel': return 'bg-red-100 text-red-800';
-      case 'empty': return 'bg-gray-100 text-gray-800';
+      case 'empty': return 'bg-green-100 text-green-800'; // Available
+      case 'occupied': return 'bg-red-100 text-red-800'; // Occupied
       default: return 'bg-gray-100 text-gray-800';
     }
   }, []);
@@ -385,9 +397,9 @@ const Dashboard = () => {
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('de-DE', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EUR'
     }).format(amount);
   };
 
@@ -430,7 +442,7 @@ const Dashboard = () => {
 
   const logAction = async (action, details = {}) => {
     try {
-      await axios.post(`${API}/analytics/log`, { action, details });
+      await axios.post(`${API}/v1/analytics/log`, { action, details });
     } catch (error) {
       console.error('Error logging action:', error);
     }
@@ -439,7 +451,7 @@ const Dashboard = () => {
 
   const generateBreadcrumbs = () => {
     const path = location.pathname;
-    const breadcrumbs = [{ label: t('Dashboard'), href: '' }];
+    const breadcrumbs = [{ label: t('dashboard.title'), href: '' }];
     
     if (path === '/') {
       return breadcrumbs;
@@ -449,53 +461,53 @@ const Dashboard = () => {
     
     // Handle different routes
     if (pathParts[0] === 'properties') {
-      breadcrumbs.push({ label: t('Properties'), href: pathParts.length === 1 ? null : 'properties' });
+      breadcrumbs.push({ label: t('properties.title'), href: pathParts.length === 1 ? null : 'properties' });
       if (pathParts.length > 1) {
-        breadcrumbs.push({ label: t('Property Details'), href: null });
+        breadcrumbs.push({ label: t('pages.propertyDetails'), href: null });
       }
     } else if (pathParts[0] === 'tenants') {
-      breadcrumbs.push({ label: t('Tenants'), href: pathParts.length === 1 ? null : 'tenants' });
+      breadcrumbs.push({ label: t('tenants.title'), href: pathParts.length === 1 ? null : 'tenants' });
       if (pathParts.length > 1) {
-        breadcrumbs.push({ label: t('Tenant Details'), href: null });
+        breadcrumbs.push({ label: t('pages.tenantDetails'), href: null });
       }
     } else if (pathParts[0] === 'invoices') {
-      breadcrumbs.push({ label: t('Invoices'), href: pathParts.length === 1 ? null : 'invoices' });
+      breadcrumbs.push({ label: t('invoices.title'), href: pathParts.length === 1 ? null : 'invoices' });
       if (pathParts.length > 1) {
-        breadcrumbs.push({ label: t('Invoice Details'), href: null });
+        breadcrumbs.push({ label: t('pages.invoiceDetails'), href: null });
       }
     } else if (pathParts[0] === 'tasks') {
-      breadcrumbs.push({ label: t('Tasks'), href: pathParts.length === 1 ? null : 'tasks' });
+      breadcrumbs.push({ label: t('tasks.title'), href: pathParts.length === 1 ? null : 'tasks' });
       if (pathParts.length > 1) {
-        breadcrumbs.push({ label: t('Task Details'), href: null });
+        breadcrumbs.push({ label: t('pages.taskDetails'), href: null });
       }
     } else if (pathParts[0] === 'accounts') {
-      breadcrumbs.push({ label: t('Accounts'), href: pathParts.length === 1 ? null : 'accounts' });
+      breadcrumbs.push({ label: t('accounts.title'), href: pathParts.length === 1 ? null : 'accounts' });
       if (pathParts.length > 1) {
-        breadcrumbs.push({ label: t('Account Details'), href: null });
+        breadcrumbs.push({ label: t('accounts.accountDetails'), href: null });
       }
     } else if (pathParts[0] === 'users') {
-      breadcrumbs.push({ label: t('Users'), href: pathParts.length === 1 ? null : 'users' });
+      breadcrumbs.push({ label: t('pages.users'), href: pathParts.length === 1 ? null : 'users' });
       if (pathParts.length > 1) {
         breadcrumbs.push({ label: t('User Details'), href: null });
       }
     } else if (pathParts[0] === 'create-property') {
-      breadcrumbs.push({ label: t('Properties'), href: 'properties' });
-      breadcrumbs.push({ label: t('Create Property'), href: null });
+      breadcrumbs.push({ label: t('properties.title'), href: 'properties' });
+      breadcrumbs.push({ label: t('dashboard.addProperty'), href: null });
     } else if (pathParts[0] === 'create-tenant') {
-      breadcrumbs.push({ label: t('Tenants'), href: 'tenants' });
-      breadcrumbs.push({ label: t('Create Tenant'), href: null });
+      breadcrumbs.push({ label: t('tenants.title'), href: 'tenants' });
+      breadcrumbs.push({ label: t('pages.createTenant'), href: null });
     } else if (pathParts[0] === 'create-invoice') {
-      breadcrumbs.push({ label: t('Invoices'), href: 'invoices' });
-      breadcrumbs.push({ label: t('Create Invoice'), href: null });
+      breadcrumbs.push({ label: t('invoices.title'), href: 'invoices' });
+      breadcrumbs.push({ label: t('dashboard.createInvoice'), href: null });
     } else if (pathParts[0] === 'create-task') {
-      breadcrumbs.push({ label: t('Tasks'), href: 'tasks' });
-      breadcrumbs.push({ label: t('Create Task'), href: null });
+      breadcrumbs.push({ label: t('tasks.title'), href: 'tasks' });
+      breadcrumbs.push({ label: t('pages.createTask'), href: null });
     } else if (pathParts[0] === 'create-account') {
-      breadcrumbs.push({ label: t('Accounts'), href: 'accounts' });
-      breadcrumbs.push({ label: t('Create Account'), href: null });
+      breadcrumbs.push({ label: t('accounts.title'), href: 'accounts' });
+      breadcrumbs.push({ label: t('pages.createAccount'), href: null });
     } else if (pathParts[0] === 'create-rental-agreement') {
-      breadcrumbs.push({ label: t('Properties'), href: 'properties' });
-      breadcrumbs.push({ label: t('Create Rental Agreement'), href: null });
+      breadcrumbs.push({ label: t('properties.title'), href: 'properties' });
+      breadcrumbs.push({ label: t('dashboard.createRentalAgreement'), href: null });
     }
     
     return breadcrumbs;
@@ -527,7 +539,7 @@ const Dashboard = () => {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-        <p className="mt-4 text-gray-600">{t('Loading...')}</p>
+        <p className="mt-4 text-gray-600">{t('common.loading')}</p>
       </div>
     </div>;
   }
@@ -551,22 +563,23 @@ const Dashboard = () => {
             </div>
             <div className="flex flex-wrap items-center space-x-4 space-y-2 md:space-y-0">
               <nav className="flex flex-wrap space-x-2 space-y-2 md:space-y-0">
-                <button onClick={() => handleNav('')} className={currentViewFromPath === '' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Dashboard')}</button>
-                <button onClick={() => handleNav('properties')} className={currentViewFromPath === 'properties' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Properties')}</button>
-                <button onClick={() => handleNav('tenants')} className={currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Tenants')}</button>
-                <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Invoices')}</button>
-                <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Tasks')}</button>
-                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Accounts')}</button>
+                <button onClick={() => handleNav('')} className={currentViewFromPath === '' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.dashboard')}</button>
+                <button onClick={() => handleNav('properties')} className={currentViewFromPath === 'properties' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.properties')}</button>
+                <button onClick={() => handleNav('tenants')} className={currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tenants')}</button>
+                <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.invoices')}</button>
+                <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tasks')}</button>
+                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.accounts')}</button>
                 {user?.role === 'super_admin' && (
-                  <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('Users')}</button>
+                  <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.users')}</button>
                 )}
               </nav>
+              <LanguageSwitcher />
               <button onClick={logout} className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
                 <div className="flex items-center space-x-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
-                  <span>{t('Logout')}</span>
+                  <span>{t('navigation.logout')}</span>
                 </div>
               </button>
             </div>
@@ -588,7 +601,6 @@ const Dashboard = () => {
             handleNav={handleNav} 
             viewedTasks={viewedTasks}
             setViewedTasks={setViewedTasks}
-            t={t}
             logAction={logAction}
           />} />
           <Route path="/properties" element={<PropertiesView 
@@ -601,8 +613,7 @@ const Dashboard = () => {
             handleNav={handleNav} 
             getStatusColor={getStatusColor} 
             getPropertyTypeColor={getPropertyTypeColor} 
-            formatDate={formatDate} 
-            t={t}
+            formatDate={formatDate}
           />} />
           <Route path="/properties/:id" element={<PropertyDetailPage 
             getStatusColor={getStatusColor} 
@@ -652,7 +663,6 @@ const Dashboard = () => {
             onPageChange={setTenantPage}
             handleNav={handleNav} 
             formatDate={formatDate} 
-            t={t}
             logAction={logAction}
           />} />
           <Route path="/invoices" element={<InvoicesView 
@@ -673,7 +683,6 @@ const Dashboard = () => {
             getStatusColor={getStatusColor} 
             formatDate={formatDate} 
             formatCurrency={formatCurrency} 
-            t={t}
             logAction={logAction}
           />} />
           <Route path="/tasks" element={<TasksView 
@@ -689,7 +698,6 @@ const Dashboard = () => {
             formatDate={formatDate} 
             formatCurrency={formatCurrency} 
             usersList={usersList} 
-            t={t}
             logAction={logAction}
           />} />
           <Route path="/accounts" element={<AccountsView 
@@ -703,7 +711,6 @@ const Dashboard = () => {
             handleClickTask={handleClickTask} 
             handleNav={handleNav} 
             formatDate={formatDate} 
-            t={t}
             logAction={logAction}
           />} />
           <Route path="/users" element={<UsersView 
@@ -755,7 +762,7 @@ const Dashboard = () => {
           <Route path="/create-task" element={<CreateTaskForm 
             onBack={() => handleNav('tasks')} 
             onSuccess={() => {
-              invalidateCache('/api/task-orders'); // Clear tasks cache
+              invalidateCache('/api/v1/tasks'); // Clear tasks cache
               fetchData();
               handleNav('tasks');
             }} 

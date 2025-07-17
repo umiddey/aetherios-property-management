@@ -1,6 +1,6 @@
 // src/components/TenantsView.js
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 import Pagination from './Pagination';
 import { exportTenants } from '../utils/exportUtils';
 
@@ -13,10 +13,9 @@ const TenantsView = ({
   onPageChange,
   handleNav,
   formatDate,
-  t,
   logAction
 }) => {
-  const { t: translate } = useTranslation();
+  const { t } = useLanguage();
 
   return (
     <div className="space-y-8">
@@ -28,7 +27,7 @@ const TenantsView = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
           </div>
-          {t('Filters')}
+          {t('tenants.filters')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
@@ -39,7 +38,7 @@ const TenantsView = ({
             </div>
             <input
               type="text"
-              placeholder={t('Search by Name or Email')}
+              placeholder={t('tenants.searchPlaceholder')}
               value={tenantFilters.search}
               onChange={(e) => handleTenantFilterChange('search', e.target.value)}
               className="pl-10 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 w-full"
@@ -52,7 +51,7 @@ const TenantsView = ({
               onChange={(e) => handleTenantFilterChange('archived', e.target.checked)}
               className="mr-3 h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
             />
-            <span className="text-sm font-medium text-gray-700">{t('Show Archived')}</span>
+            <span className="text-sm font-medium text-gray-700">{t('tenants.showArchived')}</span>
           </label>
         </div>
       </div>
@@ -67,7 +66,7 @@ const TenantsView = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              {t('Tenants')}
+              {t('tenants.title')}
             </h2>
             <div className="flex space-x-2">
               <button 
@@ -77,13 +76,13 @@ const TenantsView = ({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                {t('Export')}
+                {t('common.export')}
               </button>
               <button onClick={() => handleNav('create-rental-agreement')} className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl">
-                {t('Create Rental Agreement')}
+                {t('dashboard.createRentalAgreement')}
               </button>
               <button onClick={() => handleNav('create-tenant')} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 shadow-lg hover:shadow-xl">
-                {t('Add Tenant')}
+                {t('tenants.addTenant')}
               </button>
             </div>
           </div>
@@ -92,15 +91,15 @@ const TenantsView = ({
           <table className="min-w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Name')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Contact')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Phone')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Created')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tenants.firstName')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tenants.lastName')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tenants.email')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tenants.status')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {tenants.map(tenant => (
-                <tr key={tenant.id} className="cursor-pointer hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 transition-all duration-300 hover:shadow-md">
+                <tr key={tenant.id} onClick={() => handleNav(`tenants/${tenant.id}`)} className="cursor-pointer hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50 transition-all duration-300 hover:shadow-md">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mr-3">
@@ -109,37 +108,31 @@ const TenantsView = ({
                         </svg>
                       </div>
                       <div>
-                        <button 
-                          onClick={() => handleNav(`tenants/${tenant.id}`)}
-                          className="text-sm font-bold text-gray-900 hover:text-purple-600 transition-colors duration-200"
-                        >
-                          {tenant.first_name} {tenant.last_name}
-                        </button>
+                        <span className="text-sm font-bold text-gray-900">
+                          {tenant.first_name}
+                        </span>
                         <p className="text-xs text-gray-500">ID: {tenant.id}</p>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span className="font-medium">{tenant.last_name}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex items-center">
                       <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                       </svg>
-                      <a href={`mailto:${tenant.email}`} className="text-blue-600 hover:text-blue-800 transition-colors duration-200">
+                      <a href={`mailto:${tenant.email}`} onClick={(e) => e.stopPropagation()} className="text-blue-600 hover:text-blue-800 transition-colors duration-200">
                         {tenant.email}
                       </a>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                      <a href={`tel:${tenant.phone}`} className="text-blue-600 hover:text-blue-800 transition-colors duration-200">
-                        {tenant.phone}
-                      </a>
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-3 py-1 text-xs font-bold rounded-full ${tenant.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {tenant.status === 'active' ? t('tenants.active') : t('tenants.inactive')}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">{formatDate(tenant.created_at)}</td>
                 </tr>
               ))}
               {tenants.length === 0 && (
@@ -149,7 +142,7 @@ const TenantsView = ({
                       <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
-                      <p className="text-sm font-medium">{t('No tenants found')}</p>
+                      <p className="text-sm font-medium">{t('tenants.noTenantsFound')}</p>
                     </div>
                   </td>
                 </tr>

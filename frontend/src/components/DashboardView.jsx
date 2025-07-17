@@ -1,6 +1,6 @@
 // src/components/DashboardView.js
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 import axios from 'axios';
 import { exportDashboardStats } from '../utils/exportUtils';
 
@@ -18,10 +18,9 @@ const DashboardView = ({
   handleNav,
   viewedTasks,
   setViewedTasks,
-  t,
   logAction
 }) => {
-  const { t: translate } = useTranslation(); // Use the translation hook
+  const { t } = useLanguage(); // Use the language context
   const [recentProperties, setRecentProperties] = useState([]);
   const [loadingProperties, setLoadingProperties] = useState(true);
 
@@ -30,7 +29,7 @@ const DashboardView = ({
     const fetchRecentProperties = async () => {
       try {
         setLoadingProperties(true);
-        const response = await axios.get(`${API}/properties/?archived=false&limit=5&sort=created_at&order=desc`);
+        const response = await axios.get(`${API}/v1/properties/?archived=false&limit=5&sort=created_at&order=desc`);
         setRecentProperties(response.data);
       } catch (error) {
         console.error('Error fetching recent properties:', error);
@@ -56,8 +55,8 @@ const DashboardView = ({
     <div className="space-y-8">
       {/* Welcome Header */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
-        <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
-        <p className="text-blue-100 text-lg">Here's what's happening with your property management today.</p>
+        <h1 className="text-3xl font-bold mb-2">{t('dashboard.welcome')}</h1>
+        <p className="text-blue-100 text-lg">{t('dashboard.welcomeMessage')}</p>
       </div>
 
       {/* Quick Actions */}
@@ -68,7 +67,7 @@ const DashboardView = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          {t('Quick Actions')}
+          {t('dashboard.quickActions')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <button 
@@ -78,7 +77,7 @@ const DashboardView = ({
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span className="font-semibold">{t('Create Rental Agreement')}</span>
+            <span className="font-semibold">{t('dashboard.createRentalAgreement')}</span>
           </button>
           <button 
             onClick={() => handleNav('create-property')} 
@@ -87,7 +86,7 @@ const DashboardView = ({
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
-            <span className="font-semibold">{t('Add Property')}</span>
+            <span className="font-semibold">{t('dashboard.addProperty')}</span>
           </button>
           <button 
             onClick={() => handleNav('create-tenant')} 
@@ -96,7 +95,7 @@ const DashboardView = ({
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            <span className="font-semibold">{t('Add Tenant')}</span>
+            <span className="font-semibold">{t('dashboard.addTenant')}</span>
           </button>
           <button 
             onClick={() => handleNav('create-invoice')} 
@@ -105,7 +104,7 @@ const DashboardView = ({
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
-            <span className="font-semibold">{t('Create Invoice')}</span>
+            <span className="font-semibold">{t('dashboard.createInvoice')}</span>
           </button>
         </div>
       </div>
@@ -119,7 +118,7 @@ const DashboardView = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            {t('Statistics Overview')}
+            {t('dashboard.statisticsOverview')}
           </h3>
           <button 
             onClick={() => exportDashboardStats(stats)}
@@ -128,7 +127,7 @@ const DashboardView = ({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            {t('Export Statistics')}
+            {t('dashboard.exportStatistics')}
           </button>
         </div>
         
@@ -142,7 +141,7 @@ const DashboardView = ({
               </div>
               <span className="text-xs font-semibold text-blue-600 bg-blue-200 px-2 py-1 rounded-full">PROPERTIES</span>
             </div>
-            <h3 className="text-sm font-medium text-blue-700 mb-2">{t('Total Properties')}</h3>
+            <h3 className="text-sm font-medium text-blue-700 mb-2">{t('dashboard.totalProperties')}</h3>
             <p className="text-3xl font-bold text-blue-600">{stats?.total_properties || 0}</p>
           </div>
           
@@ -155,7 +154,7 @@ const DashboardView = ({
               </div>
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-200 px-2 py-1 rounded-full">TENANTS</span>
             </div>
-            <h3 className="text-sm font-medium text-emerald-700 mb-2">{t('Total Tenants')}</h3>
+            <h3 className="text-sm font-medium text-emerald-700 mb-2">{t('dashboard.totalTenants')}</h3>
             <p className="text-3xl font-bold text-emerald-600">{stats?.total_tenants || 0}</p>
           </div>
           
@@ -168,7 +167,7 @@ const DashboardView = ({
               </div>
               <span className="text-xs font-semibold text-purple-600 bg-purple-200 px-2 py-1 rounded-full">ACTIVE</span>
             </div>
-            <h3 className="text-sm font-medium text-purple-700 mb-2">{t('Active Agreements')}</h3>
+            <h3 className="text-sm font-medium text-purple-700 mb-2">{t('dashboard.activeAgreements')}</h3>
             <p className="text-3xl font-bold text-purple-600">{stats?.active_agreements || 0}</p>
           </div>
           
@@ -181,7 +180,7 @@ const DashboardView = ({
               </div>
               <span className="text-xs font-semibold text-red-600 bg-red-200 px-2 py-1 rounded-full">UNPAID</span>
             </div>
-            <h3 className="text-sm font-medium text-red-700 mb-2">{t('Unpaid Invoices')}</h3>
+            <h3 className="text-sm font-medium text-red-700 mb-2">{t('dashboard.unpaidInvoices')}</h3>
             <p className="text-3xl font-bold text-red-600">{stats?.unpaid_invoices || 0}</p>
           </div>
         </div>
@@ -196,17 +195,17 @@ const DashboardView = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
             </div>
-            {t('Assigned Tasks')}
+            {t('dashboard.assignedTasks')}
           </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Subject')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Priority')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Status')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Due Date')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tasks.taskTitle')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tasks.priority')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('common.status')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tasks.dueDate')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -244,7 +243,7 @@ const DashboardView = ({
                       <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                       </svg>
-                      <p className="text-sm font-medium">{t('No assigned tasks')}</p>
+                      <p className="text-sm font-medium">{t('tasks.title')} - {t('common.loading')}</p>
                     </div>
                   </td>
                 </tr>
@@ -263,17 +262,17 @@ const DashboardView = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
             </div>
-            {t('Recent Properties')}
+            {t('dashboard.recentProperties')}
           </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Name')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Type')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Status')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Created')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('common.name')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('properties.propertyType')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('common.status')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('common.created')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -282,7 +281,7 @@ const DashboardView = ({
                   <td colSpan="4" className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
-                      <span className="ml-3 text-sm text-gray-500 font-medium">{t('Loading recent properties...')}</span>
+                      <span className="ml-3 text-sm text-gray-500 font-medium">{t('common.loading')}</span>
                     </div>
                   </td>
                 </tr>
@@ -311,7 +310,7 @@ const DashboardView = ({
                           <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                           </svg>
-                          <p className="text-sm font-medium">{t('No properties found')}</p>
+                          <p className="text-sm font-medium">{t('properties.title')} - {t('common.loading')}</p>
                         </div>
                       </td>
                     </tr>

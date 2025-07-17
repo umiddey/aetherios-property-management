@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import cachedAxios from '../utils/cachedAxios';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -15,7 +15,7 @@ const AccountDetailPage = ({
 }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t } = useLanguage();
   
   const [account, setAccount] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -27,8 +27,8 @@ const AccountDetailPage = ({
       try {
         setLoading(true);
         const [accountRes, tasksRes] = await Promise.all([
-          cachedAxios.get(`${API}/customers/${id}`),
-          cachedAxios.get(`${API}/task-orders?customer_id=${id}`)
+          cachedAxios.get(`${API}/v1/customers/${id}`),
+          cachedAxios.get(`${API}/v1/tasks?customer_id=${id}`)
         ]);
         
         setAccount(accountRes.data);
@@ -51,7 +51,7 @@ const AccountDetailPage = ({
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">{t('Loading...')}</p>
+          <p className="mt-4 text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );

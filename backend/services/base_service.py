@@ -31,6 +31,10 @@ class BaseService(ABC):
             if "is_archived" not in doc_dict:
                 doc_dict["is_archived"] = False
             
+            # Add default active field for most entities
+            if "is_active" not in doc_dict:
+                doc_dict["is_active"] = True
+            
             await self.collection.insert_one(doc_dict)
             
             # Remove MongoDB's _id before returning

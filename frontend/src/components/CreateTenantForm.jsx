@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const CreateTenantForm = ({ onBack, onSuccess }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -30,7 +32,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
         date_of_birth: formData.date_of_birth ? new Date(formData.date_of_birth).toISOString() : null
       };
 
-      await axios.post(`${API}/tenants`, submitData);
+      await axios.post(`${API}/v1/tenants/`, submitData);
       onSuccess();
     } catch (error) {
       console.log('Error creating tenant:', error);
@@ -53,7 +55,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        Back to Tenants
+{t('forms.backTo')} {t('navigation.tenants')}
       </button>
       
       <div className="bg-white shadow-lg rounded-2xl p-8 border border-gray-100">
@@ -63,7 +65,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Add New Tenant</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('forms.createTenant.title')}</h2>
         </div>
         
         {error && (
@@ -84,14 +86,14 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Personal Information</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createTenant.personalInfo')}</h3>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                First Name *
+                {t('forms.createTenant.firstName')} *
               </label>
               <input
                 type="text"
@@ -105,7 +107,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Last Name *
+                {t('forms.createTenant.lastName')} *
               </label>
               <input
                 type="text"
@@ -126,14 +128,14 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Contact Information</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createTenant.contactInfo')}</h3>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Email *
+                {t('forms.createTenant.email')} *
               </label>
               <input
                 type="email"
@@ -147,7 +149,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Phone
+                {t('forms.createTenant.phone')}
               </label>
               <input
                 type="tel"
@@ -161,7 +163,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Address *
+{t('forms.createTenant.address')} *
             </label>
             <input
               type="text"
@@ -176,7 +178,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Date of Birth
+                {t('forms.createTenant.dateOfBirth')}
               </label>
               <input
                 type="date"
@@ -189,7 +191,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Gender
+                {t('forms.createTenant.gender')}
               </label>
               <select
                 name="gender"
@@ -197,10 +199,10 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
               >
-                <option value="">Select gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
+                <option value="">{t('forms.createTenant.selectGender')}</option>
+                <option value="male">{t('tenants.male')}</option>
+                <option value="female">{t('tenants.female')}</option>
+                <option value="other">{t('tenants.other')}</option>
               </select>
             </div>
           </div>
@@ -213,13 +215,13 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Financial Information</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createTenant.financialInfo')}</h3>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Bank Account (Bank Konto)
+              {t('forms.createTenant.bankAccount')}
             </label>
             <input
               type="text"
@@ -227,13 +229,13 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
               value={formData.bank_account}
               onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
-              placeholder="Bank account details"
+              placeholder="{t('forms.createTenant.bankAccountPlaceholder')}"
             />
           </div>
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Notes
+              {t('forms.createTenant.notes')}
             </label>
             <textarea
               name="notes"
@@ -241,7 +243,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
               onChange={handleChange}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
               rows="3"
-              placeholder="Additional notes about the tenant..."
+              placeholder="{t('forms.createTenant.notesPlaceholder')}"
             />
           </div>
 
@@ -251,7 +253,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
               onClick={onBack}
               className="px-6 py-3 text-gray-700 bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-300 font-medium"
             >
-              Cancel
+              {t('forms.cancelButton')}
             </button>
             <button
               type="submit"
@@ -264,14 +266,14 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating...
+                  {t('forms.createTenant.creating')}
                 </>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Create Tenant
+                  {t('forms.createButton')} {t('tenants.title').slice(0, -1)}
                 </>
               )}
             </button>

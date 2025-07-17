@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import cachedAxios from '../utils/cachedAxios';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -16,26 +16,27 @@ const InvoiceDetailPage = ({
 }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t } = useLanguage();
   
   const [invoice, setInvoice] = useState(null);
   const [property, setProperty] = useState(null);
   const [tenant, setTenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   useEffect(() => {
     const fetchInvoiceDetails = async () => {
       try {
         setLoading(true);
-        const invoiceRes = await cachedAxios.get(`${API}/invoices/${id}`);
+        const invoiceRes = await cachedAxios.get(`${API}/v1/invoices/${id}`);
         const invoiceData = invoiceRes.data;
         setInvoice(invoiceData);
         
         // Fetch related property and tenant data
         const [propertyRes, tenantRes] = await Promise.all([
-          cachedAxios.get(`${API}/properties/${invoiceData.property_id}`),
-          cachedAxios.get(`${API}/tenants/${invoiceData.tenant_id}`)
+          cachedAxios.get(`${API}/v1/properties/${invoiceData.property_id}`),
+          cachedAxios.get(`${API}/v1/tenants/${invoiceData.tenant_id}`)
         ]);
         
         setProperty(propertyRes.data);
@@ -52,6 +53,22 @@ const InvoiceDetailPage = ({
       fetchInvoiceDetails();
     }
   }, [id]);
+
+  const handleStatusUpdate = async (newStatus) => {
+    try {
+      setStatusUpdating(true);
+      await cachedAxios.put(`${API}/invoices/${id}`, {
+        ...invoice,
+        status: newStatus
+      });
+      setInvoice(prev => ({ ...prev, status: newStatus }));
+    } catch (error) {
+      console.error('Error updating invoice status:', error);
+      setError('Failed to update invoice status');
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   const getStatusBadgeColor = (status) => {
     switch (status) {
@@ -99,7 +116,7 @@ const InvoiceDetailPage = ({
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">{t('Loading...')}</p>
+          <p className="mt-4 text-gray-600">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -142,7 +159,7 @@ const InvoiceDetailPage = ({
             </span>
             {isOverdue && (
               <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                {t('Overdue')}
+                {t('invoices.overdue')}
               </span>
             )}
           </div>
@@ -165,9 +182,40 @@ const InvoiceDetailPage = ({
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <span className={`px-2 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(invoice.status)}`}>
-                      {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                    </span>
+                    <div className="flex items-center gap-4">
+                      <span className={`px-2 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(invoice.status)}`}>
+                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                      </span>
+                      <div className="flex gap-2">
+                        {invoice.status !== 'paid' && (
+                          <button
+                            onClick={() => handleStatusUpdate('paid')}
+                            disabled={statusUpdating}
+                            className="px-3 py-1 bg-green-500 text-white text-sm rounded-md hover:bg-green-600 disabled:opacity-50"
+                          >
+                            {statusUpdating ? 'Updating...' : 'Mark Paid'}
+                          </button>
+                        )}
+                        {invoice.status !== 'pending' && (
+                          <button
+                            onClick={() => handleStatusUpdate('pending')}
+                            disabled={statusUpdating}
+                            className="px-3 py-1 bg-yellow-500 text-white text-sm rounded-md hover:bg-yellow-600 disabled:opacity-50"
+                          >
+                            {statusUpdating ? 'Updating...' : 'Mark Pending'}
+                          </button>
+                        )}
+                        {invoice.status !== 'overdue' && (
+                          <button
+                            onClick={() => handleStatusUpdate('overdue')}
+                            disabled={statusUpdating}
+                            className="px-3 py-1 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 disabled:opacity-50"
+                          >
+                            {statusUpdating ? 'Updating...' : 'Mark Overdue'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   
                   <div>

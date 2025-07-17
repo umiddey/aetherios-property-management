@@ -97,7 +97,7 @@ const AuthProvider = ({ children }) => {
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         try {
           // Test with a protected endpoint to validate token and fetch user
-          const response = await axios.get(`${API}/users/me`);
+          const response = await axios.get(`${API}/v1/users/me`);
           setUser(response.data);
         } catch (error) {
           if (error.response?.status === 401) {
@@ -123,7 +123,7 @@ const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post(`${API}/auth/login`, { username, password });
+      const response = await axios.post(`${API}/v1/auth/login`, { username, password });
       const { access_token, user: userData } = response.data;
       
       setToken(access_token);

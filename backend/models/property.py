@@ -10,6 +10,7 @@ class PropertyType(str, Enum):
     HOUSE = "house"
     OFFICE = "office"
     COMMERCIAL = "commercial"
+    BUILDING = "building"
     COMPLEX = "complex"
 
 
@@ -31,6 +32,7 @@ class Property(BaseModel):
     surface_area: float
     number_of_rooms: int
     num_toilets: Optional[int] = None
+    max_tenants: Optional[int] = None  # Maximum number of tenants allowed
     description: Optional[str] = None
     rent_per_sqm: Optional[float] = None
     cold_rent: Optional[float] = None
@@ -56,6 +58,7 @@ class PropertyCreate(BaseModel):
     surface_area: float
     number_of_rooms: int
     num_toilets: Optional[int] = None
+    max_tenants: Optional[int] = None  # Maximum number of tenants allowed
     description: Optional[str] = None
     rent_per_sqm: float
     cold_rent: Optional[float] = None
@@ -77,6 +80,7 @@ class PropertyUpdate(BaseModel):
     surface_area: Optional[float] = None
     number_of_rooms: Optional[int] = None
     num_toilets: Optional[int] = None
+    max_tenants: Optional[int] = None
     description: Optional[str] = None
     rent_per_sqm: Optional[float] = None
     cold_rent: Optional[float] = None

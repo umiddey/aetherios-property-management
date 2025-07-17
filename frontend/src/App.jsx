@@ -2,16 +2,15 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import Dashboard from './components/Dashboard';
 import LoginForm from './components/LoginForm'; // Adjust path if LoginForm is in a different folder
 import ErrorBoundary from './components/ErrorBoundary';
-import { I18nextProvider } from 'react-i18next';
-import i18n from './i18n'; // Create i18n.js for setup if not already done
 
 function App() {
   return (
     <ErrorBoundary>
-      <I18nextProvider i18n={i18n}>
+      <LanguageProvider>
         <Router>
           <AuthProvider>
             <Routes>
@@ -20,7 +19,7 @@ function App() {
             </Routes>
           </AuthProvider>
         </Router>
-      </I18nextProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }

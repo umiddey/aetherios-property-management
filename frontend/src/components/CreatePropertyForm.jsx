@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     id: '',
     name: '',
@@ -17,6 +19,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     surface_area: '',
     number_of_rooms: '',
     num_toilets: '',
+    max_tenants: '',
     description: '',
     rent_per_sqm: '',
     cold_rent: '',
@@ -47,12 +50,13 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
         surface_area: parseFloat(formData.surface_area),
         number_of_rooms: parseInt(formData.number_of_rooms),
         num_toilets: formData.num_toilets ? parseInt(formData.num_toilets) : null,
+        max_tenants: formData.max_tenants ? parseInt(formData.max_tenants) : null,
         rent_per_sqm: formData.rent_per_sqm ? parseFloat(formData.rent_per_sqm) : null,
         cold_rent: formData.cold_rent ? parseFloat(formData.cold_rent) : null,
         parent_id: formData.parent_id || null
       };
 
-      await axios.post(`${API}/properties`, submitData);
+      await axios.post(`${API}/v1/properties/`, submitData);
       onSuccess();
     } catch (error) {
       console.log(error);
@@ -89,7 +93,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        Back to Properties
+{t('forms.backTo')} {t('navigation.properties')}
       </button>
       
       <div className="bg-white shadow-lg rounded-2xl p-8 border border-gray-100">
@@ -99,7 +103,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Add New Property</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{t('forms.createProperty.title')}</h2>
         </div>
         
         {error && (
@@ -114,7 +118,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Property ID *
+{t('forms.createProperty.propertyId')} *
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -145,14 +149,14 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Basic Information</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.basicInfo')}</h3>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Property Name *
+{t('forms.createProperty.propertyName')} *
               </label>
               <input
                 type="text"
@@ -166,7 +170,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Property Type *
+                {t('forms.createProperty.propertyType')} *
               </label>
               <select
                 name="property_type"
@@ -175,11 +179,12 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 required
               >
-                <option value="apartment">Apartment</option>
-                <option value="house">House</option>
-                <option value="office">Office</option>
-                <option value="commercial">Commercial</option>
-                <option value="complex">Complex</option>
+                <option value="apartment">{t('properties.apartment')}</option>
+                <option value="house">{t('properties.house')}</option>
+                <option value="office">{t('properties.office')}</option>
+                <option value="commercial">{t('properties.commercial')}</option>
+                <option value="building">{t('properties.building')}</option>
+                <option value="complex">Komplex</option>
               </select>
             </div>
           </div>
@@ -193,14 +198,14 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Address Information</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.addressInfo')}</h3>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Street *
+                {t('forms.createProperty.street')} *
               </label>
               <input
                 type="text"
@@ -214,7 +219,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                House Nr. *
+                {t('forms.createProperty.houseNumber')} *
               </label>
               <input
                 type="text"
@@ -230,7 +235,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Postcode *
+                {t('forms.createProperty.postcode')} *
               </label>
               <input
                 type="text"
@@ -244,7 +249,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                City *
+                {t('forms.createProperty.city')} *
               </label>
               <input
                 type="text"
@@ -265,14 +270,14 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Property Details</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.propertyDetails')}</h3>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Floor (Etage)
+                {t('forms.createProperty.floor')}
               </label>
               <input
                 type="text"
@@ -286,7 +291,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Surface Area (m²) *
+                {t('forms.createProperty.surfaceArea')} (m²) *
               </label>
               <input
                 type="number"
@@ -302,7 +307,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Number of Rooms *
+                {t('forms.createProperty.numberOfRooms')} *
               </label>
               <input
                 type="number"
@@ -324,14 +329,14 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Rental Information</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.rentalInfo')}</h3>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Number of Toilets
+                {t('forms.createProperty.numberOfToilets')}
               </label>
               <input
                 type="number"
@@ -345,7 +350,22 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
 
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Rent per m² ($) *
+                {t('forms.createProperty.maxTenants')}
+              </label>
+              <input
+                type="number"
+                name="max_tenants"
+                value={formData.max_tenants}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                min="1"
+                placeholder="Leave empty for no limit"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                {t('forms.createProperty.rentPerSqm')} (€) *
               </label>
               <input
                 type="number"
@@ -361,7 +381,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
 
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Cold Rent ($)
+                {t('forms.createProperty.coldRent')}
               </label>
               <input
                 type="text"
@@ -380,13 +400,13 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Additional Information</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.additionalInfo')}</h3>
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Description
+              {t('common.description')}
             </label>
             <textarea
               name="description"
@@ -394,13 +414,13 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows="3"
-              placeholder="Additional details about the property..."
+              placeholder={t('forms.createProperty.additionalDetailsPlaceholder')}
             />
           </div>
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Status *
+              {t('common.status')} *
             </label>
             <select
               name="status"
@@ -409,15 +429,15 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             >
-              <option value="empty">Empty</option>
-              <option value="active">Active</option>
-              <option value="cancel">Cancel</option>
+              <option value="empty">{t('forms.createProperty.empty')}</option>
+              <option value="active">{t('forms.createProperty.active')}</option>
+              <option value="cancel">{t('forms.createProperty.cancelled')}</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Parent Property
+              {t('forms.createProperty.parentProperty')}
             </label>
             <select
               name="parent_id"
@@ -425,7 +445,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">None</option>
+              <option value="">{t('forms.createProperty.none')}</option>
               {properties.map(property => (
                 <option key={property.id || property._id} value={property.id || property._id}>
                   {property.name}
@@ -441,13 +461,13 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Owner Information</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.ownerInfo')}</h3>
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Owner Name
+                {t('forms.createProperty.ownerName')}
               </label>
               <input
                 type="text"
@@ -460,7 +480,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Owner Email
+                {t('forms.createProperty.ownerEmail')}
               </label>
               <input
                 type="email"
@@ -474,7 +494,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
 
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Owner Phone
+              {t('forms.createProperty.ownerPhone')}
             </label>
             <input
               type="tel"
@@ -491,7 +511,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
               onClick={onBack}
               className="px-6 py-3 text-gray-700 bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-300 font-medium"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -504,14 +524,14 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating...
+                  {t('forms.createTenant.creating')}
                 </>
               ) : (
                 <>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Create Property
+                  {t('forms.createButton')} {t('properties.title').slice(0, -1)}
                 </>
               )}
             </button>

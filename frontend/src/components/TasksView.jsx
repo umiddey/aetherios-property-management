@@ -1,7 +1,7 @@
 // src/components/TasksView.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
 import Pagination from './Pagination';
 import { exportTasks } from '../utils/exportUtils';
 
@@ -21,10 +21,9 @@ const TasksView = ({
   formatDate,
   formatCurrency,
   usersList,
-  t,
   logAction
 }) => {
-  const { t: translate } = useTranslation();
+  const { t } = useLanguage();
   const [taskActivities, setTaskActivities] = useState([]);
   const [taskFilter, setTaskFilter] = useState({
     status: '',
@@ -40,7 +39,7 @@ const TasksView = ({
 
   const fetchTaskActivities = async (taskId) => {
     try {
-      const response = await axios.get(`${API}/activities/${taskId}`);
+      const response = await axios.get(`${API}/v1/activities/task/${taskId}`);
       setTaskActivities(response.data);
     } catch (error) {
       console.error('Error fetching task activities:', error);
@@ -75,7 +74,7 @@ const TasksView = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
           </div>
-          {t('Filters')}
+          {t('common.filters')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <select
@@ -83,27 +82,27 @@ const TasksView = ({
             onChange={(e) => handleFilterChange('status', e.target.value)}
             className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
           >
-            <option value="">{t('All Statuses')}</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
+            <option value="">{t('tasks.allStatuses')}</option>
+            <option value="pending">{t('tasks.pending')}</option>
+            <option value="in_progress">{t('tasks.inProgress')}</option>
+            <option value="completed">{t('tasks.completed')}</option>
           </select>
           <select
             value={taskFilter.priority}
             onChange={(e) => handleFilterChange('priority', e.target.value)}
             className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
           >
-            <option value="">{t('All Priorities')}</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+            <option value="">{t('tasks.allPriorities')}</option>
+            <option value="high">{t('tasks.high')}</option>
+            <option value="medium">{t('tasks.medium')}</option>
+            <option value="low">{t('tasks.low')}</option>
           </select>
           <select
             value={taskFilter.assigned_to}
             onChange={(e) => handleFilterChange('assigned_to', e.target.value)}
             className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
           >
-            <option value="">{t('All Assignees')}</option>
+            <option value="">{t('tasks.allAssignees')}</option>
             {usersList.map(user => (
               <option key={user.id} value={user.id}>{user.full_name}</option>
             ))}
@@ -121,7 +120,7 @@ const TasksView = ({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
               </div>
-              {t('Task Orders')}
+              {t('tasks.taskOrders')}
             </h2>
             <div className="flex space-x-2">
               <button 
@@ -131,10 +130,10 @@ const TasksView = ({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                {t('Export')}
+                {t('common.export')}
               </button>
               <button onClick={() => handleNav('create-task')} className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-xl hover:from-indigo-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl">
-                {t('Create Task Order')}
+                {t('tasks.createTaskOrder')}
               </button>
             </div>
           </div>
@@ -143,12 +142,12 @@ const TasksView = ({
           <table className="min-w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Subject')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Priority')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Status')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Assigned To')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Due Date')}</th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('Budget')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tasks.subject')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tasks.priority')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('common.status')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tasks.assignedTo')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tasks.dueDate')}</th>
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">{t('tasks.budget')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -203,7 +202,7 @@ const TasksView = ({
                       <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                       </svg>
-                      <p className="text-sm font-medium">{t('No tasks found')}</p>
+                      <p className="text-sm font-medium">{t('tasks.noTasksFound')}</p>
                     </div>
                   </td>
                 </tr>
@@ -220,23 +219,23 @@ const TasksView = ({
       {/* Selected Task Details */}
       {selectedTask && (
         <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('Task Details')} - {selectedTask.subject}</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('tasks.taskDetails')} - {selectedTask.subject}</h3>
           <div className="space-y-4">
-            <p><strong>{t('Description')}:</strong> {selectedTask.description}</p>
-            <p><strong>{t('Priority')}:</strong> {selectedTask.priority}</p>
-            <p><strong>{t('Status')}:</strong> {selectedTask.status}</p>
-            <p><strong>{t('Assigned To')}:</strong> {getUserName(selectedTask.assigned_to)}</p>
-            <p><strong>{t('Due Date')}:</strong> {formatDate(selectedTask.due_date)}</p>
-            <p><strong>{t('Budget')}:</strong> {formatCurrency(selectedTask.budget)}</p>
+            <p><strong>{t('common.description')}:</strong> {selectedTask.description}</p>
+            <p><strong>{t('tasks.priority')}:</strong> {selectedTask.priority}</p>
+            <p><strong>{t('common.status')}:</strong> {selectedTask.status}</p>
+            <p><strong>{t('tasks.assignedTo')}:</strong> {getUserName(selectedTask.assigned_to)}</p>
+            <p><strong>{t('tasks.dueDate')}:</strong> {formatDate(selectedTask.due_date)}</p>
+            <p><strong>{t('tasks.budget')}:</strong> {formatCurrency(selectedTask.budget)}</p>
           </div>
-          <h4 className="text-md font-semibold text-gray-900 mt-6 mb-2">{t('Activities')}</h4>
+          <h4 className="text-md font-semibold text-gray-900 mt-6 mb-2">{t('tasks.activities')}</h4>
           <ul className="space-y-2">
             {taskActivities.map(activity => (
               <li key={activity.id} className="border-b py-2">
                 <p><strong>{formatDate(activity.activity_date)}:</strong> {activity.description} ({activity.hours_spent} hours)</p>
               </li>
             ))}
-            {taskActivities.length === 0 && <p className="text-sm text-gray-500">{t('No activities recorded')}</p>}
+            {taskActivities.length === 0 && <p className="text-sm text-gray-500">{t('tasks.noActivitiesRecorded')}</p>}
           </ul>
         </div>
       )}

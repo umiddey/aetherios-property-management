@@ -51,31 +51,84 @@ class RentalAgreementService(BaseService):
         if not tenant_doc:
             raise HTTPException(status_code=404, detail="Tenant not found")
         
+        # Validate tenant capacity for the property
+        from .property_service import PropertyService
+        property_service = PropertyService(self.db)
+        
+        # Count existing active tenants for this property
+        active_agreements = await self.collection.find({
+            "property_id": data.property_id,
+            "$or": [
+                {"is_active": True},
+                {"is_active": None}
+            ],
+            "is_archived": False
+        }).to_list(length=None)
+        
+        # Count unique tenants in active agreements
+        existing_tenant_ids = set()
+        for agreement in active_agreements:
+            existing_tenant_ids.add(agreement.get("tenant_id"))
+        
+        # Add the new tenant if not already in the property
+        if data.tenant_id not in existing_tenant_ids:
+            total_tenants = len(existing_tenant_ids) + 1
+        else:
+            total_tenants = len(existing_tenant_ids)
+        
+        # Validate tenant capacity
+        await property_service.validate_tenant_capacity(data.property_id, total_tenants)
+        
         # Check for overlapping active agreements for the same property
+        # Handle both new agreements (is_active: True) and existing ones (is_active: None)
         query = {
             "property_id": data.property_id,
-            "is_active": True,
+            "$or": [
+                {"is_active": True},
+                {"is_active": None}
+            ],
             "is_archived": False
         }
         
-        if data.end_date:
-            query["$or"] = [
-                {"end_date": None},  # Indefinite agreements
-                {"end_date": {"$gte": data.start_date}},  # Agreements ending after our start
-                {"start_date": {"$lte": data.end_date}}   # Agreements starting before our end
-            ]
-        else:
-            query["$or"] = [
-                {"end_date": None},  # Indefinite agreements
-                {"end_date": {"$gte": data.start_date}}  # Agreements ending after our start
-            ]
+        logger.info(f"Validation query: {query}")
+        existing_agreements = await self.collection.find(query).to_list(length=None)
         
-        existing_agreement = await self.collection.find_one(query)
-        if existing_agreement:
-            raise HTTPException(
-                status_code=400, 
-                detail="Property already has an active rental agreement for this period"
-            )
+        logger.info(f"Found {len(existing_agreements)} existing agreements for property {data.property_id}")
+        
+        # DEBUG: Let's also check without the boolean filters
+        debug_query = {"property_id": data.property_id}
+        debug_agreements = await self.collection.find(debug_query).to_list(length=None)
+        logger.info(f"DEBUG: Found {len(debug_agreements)} total agreements for property {data.property_id}")
+        
+        if debug_agreements:
+            sample_agreement = debug_agreements[0]
+            logger.info(f"DEBUG: Sample agreement fields - is_active: {sample_agreement.get('is_active')} ({type(sample_agreement.get('is_active'))}), is_archived: {sample_agreement.get('is_archived')} ({type(sample_agreement.get('is_archived'))})")
+        
+        for agreement in existing_agreements:
+            existing_start = agreement.get("start_date")
+            existing_end = agreement.get("end_date")
+            new_start = data.start_date
+            new_end = data.end_date
+            
+            logger.info(f"Checking overlap - Existing: {existing_start} ({type(existing_start)}) to {existing_end} ({type(existing_end)}), New: {new_start} ({type(new_start)}) to {new_end} ({type(new_end)})")
+            
+            # If no end date, assume ongoing (far future)
+            if existing_end is None:
+                existing_end = datetime(2099, 12, 31)
+            if new_end is None:
+                new_end = datetime(2099, 12, 31)
+            
+            # Check for overlap: new_start <= existing_end AND new_end >= existing_start
+            overlap_condition1 = new_start <= existing_end
+            overlap_condition2 = new_end >= existing_start
+            logger.info(f"Overlap check: new_start <= existing_end: {overlap_condition1}, new_end >= existing_start: {overlap_condition2}")
+            
+            if overlap_condition1 and overlap_condition2:
+                logger.warning(f"Overlap detected! Rejecting rental agreement")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Property already has an active rental agreement that overlaps with this period (Agreement ID: {agreement.get('id')})"
+                )
         
         # Validate dates
         if data.end_date and data.end_date <= data.start_date:

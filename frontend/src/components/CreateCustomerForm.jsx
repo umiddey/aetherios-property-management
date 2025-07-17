@@ -21,7 +21,7 @@ const CreateCustomerForm = ({ onBack, onSuccess }) => {
     setError('');
 
     try {
-      await axios.post(`${API}/customers`, formData);
+      await axios.post(`${API}/v1/customers/`, formData);
       onSuccess();
     } catch (error) {
       console.log(error)

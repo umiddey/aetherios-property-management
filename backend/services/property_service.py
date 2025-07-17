@@ -37,6 +37,9 @@ class PropertyService(BaseService):
                         raise HTTPException(status_code=404, detail="Parent property not found")
                 except Exception:
                     raise HTTPException(status_code=404, detail="Parent property not found")
+            
+            # Validate property hierarchy logic
+            await self._validate_property_hierarchy(data.property_type, data.parent_id)
         
         # Validate required numeric fields
         if data.surface_area <= 0:
@@ -102,9 +105,11 @@ class PropertyService(BaseService):
             property_doc.setdefault("city", "")
             property_doc.setdefault("name", f"Property {property_doc.get('id', 'Unknown')}")
             property_doc.setdefault("property_type", "apartment")
-            property_doc.setdefault("status", "active")
             property_doc.setdefault("surface_area", 0)
             property_doc.setdefault("number_of_rooms", 0)
+            
+            # Compute availability based on active rental agreements
+            property_doc["status"] = await self._compute_property_availability(property_doc["id"])
         
         return property_doc
     
@@ -159,7 +164,7 @@ class PropertyService(BaseService):
         
         properties = await self.get_all(query, **kwargs)
         
-        # Ensure all properties have required fields
+        # Ensure all properties have required fields and compute availability
         for prop in properties:
             prop.setdefault("street", "")
             prop.setdefault("house_nr", "")
@@ -167,9 +172,11 @@ class PropertyService(BaseService):
             prop.setdefault("city", "")
             prop.setdefault("name", f"Property {prop.get('id', 'Unknown')}")
             prop.setdefault("property_type", "apartment")
-            prop.setdefault("status", "active")
             prop.setdefault("surface_area", 0)
             prop.setdefault("number_of_rooms", 0)
+            
+            # Compute availability based on active rental agreements
+            prop["status"] = await self._compute_property_availability(prop["id"])
         
         return properties
     
@@ -234,3 +241,135 @@ class PropertyService(BaseService):
         except Exception as e:
             logger.error(f"Error getting property stats: {str(e)}")
             raise
+    
+    async def _compute_property_availability(self, property_id: str) -> str:
+        """Compute property availability based on active rental agreements."""
+        try:
+            # Check if property has active rental agreements
+            rental_agreements = await self.db.rental_agreements.find({
+                "property_id": property_id,
+                "is_active": True,
+                "is_archived": False
+            }).to_list(length=None)
+            
+            if rental_agreements:
+                # Check if any agreement is currently active (within date range)
+                from datetime import datetime
+                current_date = datetime.utcnow()
+                
+                for agreement in rental_agreements:
+                    start_date = agreement.get("start_date")
+                    end_date = agreement.get("end_date")
+                    
+                    # If start_date is in the past (or today) and end_date is in the future (or None)
+                    if start_date and start_date <= current_date:
+                        if end_date is None or end_date >= current_date:
+                            return "occupied"
+                
+                return "empty"
+            else:
+                return "empty"
+        except Exception as e:
+            logger.error(f"Error computing property availability for {property_id}: {str(e)}")
+            return "empty"
+    
+    async def _validate_property_hierarchy(self, property_type: str, parent_id: str) -> None:
+        """Validate property hierarchy logic.
+        
+        Hierarchy rules:
+        - Complex: Can have no parent
+        - Building: Can only have Complex as parent
+        - Apartment/Office: Can only have Building as parent
+        - House: Can have Complex or Building as parent (or none)
+        """
+        parent_property = await self.get_by_id(parent_id)
+        if not parent_property:
+            # Try to find by ObjectId for backward compatibility
+            try:
+                parent_property = await self.collection.find_one({"_id": ObjectId(parent_id)})
+                if parent_property and "_id" in parent_property:
+                    parent_property["id"] = str(parent_property["_id"])
+                    del parent_property["_id"]
+            except Exception:
+                pass
+        
+        if not parent_property:
+            raise HTTPException(status_code=404, detail="Parent property not found")
+        
+        parent_type = parent_property.get("property_type")
+        
+        # Define valid parent-child relationships
+        valid_relationships = {
+            "complex": [],  # Complex can have no parent
+            "building": ["complex"],  # Building can only have Complex as parent
+            "apartment": ["building"],  # Apartment can only have Building as parent
+            "office": ["building"],  # Office can only have Building as parent
+            "house": ["complex", "building"],  # House can have Complex or Building as parent
+            "commercial": ["building"]  # Commercial can only have Building as parent
+        }
+        
+        if property_type not in valid_relationships:
+            raise HTTPException(status_code=400, detail=f"Invalid property type: {property_type}")
+        
+        valid_parents = valid_relationships[property_type]
+        
+        # If no valid parents are defined, this property type cannot have a parent
+        if not valid_parents:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Property type '{property_type}' cannot have a parent property"
+            )
+        
+        # Check if parent type is valid for this property type
+        if parent_type not in valid_parents:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Property type '{property_type}' cannot have '{parent_type}' as parent. Valid parents: {', '.join(valid_parents)}"
+            )
+        
+        # Check for circular references
+        await self._check_circular_reference(parent_id, property_type)
+    
+    async def _check_circular_reference(self, parent_id: str, property_type: str) -> None:
+        """Check for circular parent-child references."""
+        visited = set()
+        current_id = parent_id
+        
+        while current_id:
+            if current_id in visited:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Circular reference detected in property hierarchy"
+                )
+            
+            visited.add(current_id)
+            
+            # Get the current property
+            current_property = await self.get_by_id(current_id)
+            if not current_property:
+                # Try to find by ObjectId for backward compatibility
+                try:
+                    current_property = await self.collection.find_one({"_id": ObjectId(current_id)})
+                    if current_property and "_id" in current_property:
+                        current_property["id"] = str(current_property["_id"])
+                        del current_property["_id"]
+                except Exception:
+                    break
+            
+            if not current_property:
+                break
+            
+            current_id = current_property.get("parent_id")
+    
+    async def validate_tenant_capacity(self, property_id: str, tenant_count: int) -> None:
+        """Validate that the number of tenants doesn't exceed property capacity."""
+        property_doc = await self.get_by_id(property_id)
+        if not property_doc:
+            raise HTTPException(status_code=404, detail="Property not found")
+        
+        max_tenants = property_doc.get("max_tenants")
+        if max_tenants is not None and tenant_count > max_tenants:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Property can accommodate maximum {max_tenants} tenants, but {tenant_count} tenants specified"
+            )
