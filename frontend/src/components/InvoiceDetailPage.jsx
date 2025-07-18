@@ -57,7 +57,7 @@ const InvoiceDetailPage = ({
   const handleStatusUpdate = async (newStatus) => {
     try {
       setStatusUpdating(true);
-      await cachedAxios.put(`${API}/invoices/${id}`, {
+      await cachedAxios.put(`${API}/v1/invoices/${id}`, {
         ...invoice,
         status: newStatus
       });
@@ -73,7 +73,7 @@ const InvoiceDetailPage = ({
   const getStatusBadgeColor = (status) => {
     switch (status) {
       case 'paid': return 'bg-green-100 text-green-800';
-      case 'sent': return 'bg-blue-100 text-blue-800';
+      case 'pending': return 'bg-blue-100 text-blue-800';
       case 'overdue': return 'bg-red-100 text-red-800';
       case 'draft': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
@@ -94,7 +94,7 @@ const InvoiceDetailPage = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         );
-      case 'sent':
+      case 'pending':
         return (
           <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
