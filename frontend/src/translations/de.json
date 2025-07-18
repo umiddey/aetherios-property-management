@@ -32,7 +32,10 @@
     "loggingIn": "Anmeldung...",
     "creating": "Erstellen...",
     "updating": "Aktualisieren...",
-    "adding": "Hinzufügen..."
+    "adding": "Hinzufügen...",
+    "select": "Auswählen",
+    "view": "Ansehen",
+    "remove": "Entfernen"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -41,6 +44,7 @@
     "invoices": "Rechnungen",
     "tasks": "Aufgaben",
     "accounts": "Konten",
+    "contracts": "Verträge",
     "users": "Benutzer",
     "logout": "Abmelden"
   },
@@ -95,7 +99,6 @@
     "rooms": "Zimmer",
     "available": "Verfügbar",
     "occupied": "Belegt",
-    "empty": "Verfügbar",
     "apartment": "Wohnung",
     "house": "Haus",
     "office": "Büro",
@@ -113,7 +116,8 @@
     "showArchived": "Archivierte anzeigen",
     "details": "Details",
     "created": "Erstellt",
-    "noPropertiesFound": "Keine Immobilien gefunden"
+    "noPropertiesFound": "Keine Immobilien gefunden",
+    "empty": "Verfügbar"
   },
   "tenants": {
     "title": "Mieter",
@@ -313,6 +317,136 @@
     "invalidEmail": "Ungültige E-Mail-Adresse",
     "invalidPhone": "Ungültige Telefonnummer",
     "invalidAmount": "Ungültiger Betrag"
+  },
+  "contracts": {
+    "title": "Verträge",
+    "createContract": "Vertrag erstellen",
+    "createRentalContract": "Mietvertrag erstellen",
+    "contractList": "Vertragsliste",
+    "contractDetails": "Vertragsdetails",
+    "contractId": "Vertrags-ID",
+    "contractType": "Vertragstyp",
+    "parties": "Vertragsparteien",
+    "party": "Vertragspartei",
+    "partyName": "Name der Partei",
+    "partyRole": "Rolle der Partei",
+    "partyEmail": "E-Mail der Partei",
+    "partyPhone": "Telefon der Partei",
+    "partyNamePlaceholder": "Name der Partei eingeben",
+    "partyRolePlaceholder": "Rolle der Partei eingeben",
+    "partyEmailPlaceholder": "E-Mail der Partei eingeben",
+    "partyPhonePlaceholder": "Telefon der Partei eingeben",
+    "addParty": "Partei hinzufügen",
+    "startDate": "Startdatum",
+    "endDate": "Enddatum",
+    "value": "Wert",
+    "currency": "Währung",
+    "relatedProperty": "Zugehörige Immobilie",
+    "relatedTenant": "Zugehöriger Mieter",
+    "relatedUser": "Zugehöriger Benutzer",
+    "relatedEntities": "Zugehörige Entitäten",
+    "basicInformation": "Grundinformationen",
+    "datesAndValue": "Daten und Wert",
+    "typeSpecificFields": "Typspezifische Felder",
+    "terms": "Vertragsbedingungen",
+    "termsPlaceholder": "Vertragsbedingungen eingeben...",
+    "metadata": "Metadaten",
+    "createdAt": "Erstellt am",
+    "updatedAt": "Aktualisiert am",
+    "editContract": "Vertrag bearbeiten",
+    "downloadContract": "Vertrag herunterladen",
+    "terminateContract": "Vertrag kündigen",
+    "backToContracts": "Zurück zu Verträge",
+    "notFound": "Vertrag nicht gefunden",
+    "createContractDescription": "Erstellen Sie einen neuen Vertrag, indem Sie das unten stehende Formular ausfüllen.",
+    "titlePlaceholder": "Vertragstitel eingeben",
+    "descriptionPlaceholder": "Vertragsbeschreibung eingeben",
+    "description": "Beschreibung",
+    "allTypes": "Alle Typen",
+    "allStatuses": "Alle Status",
+    "searchPlaceholder": "Verträge nach Titel oder Beschreibung suchen",
+    "noContractsFound": "Keine Verträge gefunden",
+    "noContractsDescription": "Beginnen Sie, indem Sie Ihren ersten Vertrag erstellen.",
+    "createFirstContract": "Ersten Vertrag erstellen",
+    "more": "weitere",
+    "types": {
+      "rental": "Mietvertrag",
+      "service": "Dienstleistungsvertrag",
+      "vendor": "Lieferantenvertrag",
+      "employment": "Arbeitsvertrag",
+      "financial": "Finanzvertrag"
+    },
+    "statuses": {
+      "draft": "Entwurf",
+      "active": "Aktiv",
+      "pending": "Ausstehend",
+      "expired": "Abgelaufen",
+      "terminated": "Gekündigt"
+    },
+    "rental": {
+      "details": "Mietdetails",
+      "monthlyRent": "Monatliche Miete",
+      "securityDeposit": "Kaution",
+      "utilitiesIncluded": "Nebenkosten inklusive",
+      "petAllowed": "Haustiere erlaubt",
+      "furnished": "Möbliert"
+    },
+    "service": {
+      "details": "Dienstleistungsdetails",
+      "serviceType": "Dienstleistungstyp",
+      "frequency": "Häufigkeit",
+      "scopeOfWork": "Arbeitsumfang",
+      "scopeOfWorkPlaceholder": "Arbeitsumfang beschreiben...",
+      "types": {
+        "maintenance": "Wartung",
+        "cleaning": "Reinigung",
+        "security": "Sicherheit",
+        "landscaping": "Landschaftspflege"
+      },
+      "frequencies": {
+        "daily": "Täglich",
+        "weekly": "Wöchentlich",
+        "monthly": "Monatlich",
+        "quarterly": "Vierteljährlich",
+        "yearly": "Jährlich",
+        "oneTime": "Einmalig"
+      }
+    },
+    "vendor": {
+      "details": "Lieferantendetails",
+      "supplierName": "Lieferantenname",
+      "deliveryTerms": "Lieferbedingungen",
+      "paymentTerms": "Zahlungsbedingungen",
+      "goodsServices": "Waren/Dienstleistungen"
+    },
+    "employment": {
+      "details": "Arbeitsvertragsdetails",
+      "position": "Position",
+      "department": "Abteilung",
+      "salary": "Gehalt",
+      "benefits": "Leistungen",
+      "workingHours": "Arbeitszeiten"
+    },
+    "financial": {
+      "details": "Finanzvertragsdetails",
+      "loanAmount": "Darlehensbetrag",
+      "interestRate": "Zinssatz",
+      "repaymentTerms": "Rückzahlungsbedingungen",
+      "collateral": "Sicherheiten"
+    },
+    "messages": {
+      "contractCreated": "Vertrag erfolgreich erstellt",
+      "contractUpdated": "Vertrag erfolgreich aktualisiert",
+      "contractDeleted": "Vertrag erfolgreich gelöscht",
+      "createError": "Fehler beim Erstellen des Vertrags",
+      "updateError": "Fehler beim Aktualisieren des Vertrags",
+      "deleteError": "Fehler beim Löschen des Vertrags"
+    },
+    "errors": {
+      "invalidEndDate": "Enddatum muss nach Startdatum liegen",
+      "minimumParties": "Mindestens 2 Parteien sind erforderlich",
+      "invalidValue": "Wert muss eine positive Zahl sein"
+    }
   },
   "language": {
     "switchLanguage": "Sprache wechseln",

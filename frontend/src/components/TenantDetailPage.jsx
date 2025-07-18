@@ -20,24 +20,26 @@ const TenantDetailPage = ({
   
   const [tenant, setTenant] = useState(null);
   const [agreements, setAgreements] = useState([]);
+  const [contracts, setContracts] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedAgreement, setSelectedAgreement] = useState(null);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   useEffect(() => {
     const fetchTenantDetails = async () => {
       try {
         setLoading(true);
-        const [tenantRes, agreementsRes, invoicesRes] = await Promise.all([
+        const [tenantRes, agreementsRes, contractsRes, invoicesRes] = await Promise.all([
           cachedAxios.get(`${API}/v1/tenants/${id}`),
           cachedAxios.get(`${API}/v1/rental-agreements?tenant_id=${id}`),
+          cachedAxios.get(`${API}/v1/contracts?contract_type=rental&related_tenant_id=${id}`),
           cachedAxios.get(`${API}/v1/invoices?tenant_id=${id}`)
         ]);
         
         setTenant(tenantRes.data);
         setAgreements(agreementsRes.data);
+        setContracts(contractsRes.data);
         setInvoices(invoicesRes.data);
       } catch (error) {
         console.error('Error fetching tenant details:', error);
@@ -58,8 +60,7 @@ const TenantDetailPage = ({
   };
 
   const handleClickInvoice = (invoiceId) => {
-    const invoice = invoices.find(inv => inv.id === invoiceId);
-    setSelectedInvoice(invoice);
+    navigate(`/invoices/${invoiceId}`);
   };
 
   if (loading) {
@@ -177,8 +178,8 @@ const TenantDetailPage = ({
               <div className="bg-blue-50 p-4 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-blue-600">Active Agreements</p>
-                    <p className="text-2xl font-bold text-blue-900">{agreements.length}</p>
+                    <p className="text-sm font-medium text-blue-600">Active Contracts</p>
+                    <p className="text-2xl font-bold text-blue-900">{contracts.length}</p>
                   </div>
                   <div className="text-blue-400">
                     <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
@@ -208,7 +209,7 @@ const TenantDetailPage = ({
                   <div>
                     <p className="text-sm font-medium text-purple-600">Monthly Rent</p>
                     <p className="text-2xl font-bold text-purple-900">
-                      {agreements.length > 0 ? formatCurrency(agreements.reduce((total, agreement) => total + agreement.monthly_rent, 0)) : formatCurrency(0)}
+                      {contracts.length > 0 ? formatCurrency(contracts.reduce((total, contract) => total + (contract.type_specific_data?.monthly_rent || 0), 0)) : formatCurrency(0)}
                     </p>
                   </div>
                   <div className="text-purple-400">
@@ -223,11 +224,53 @@ const TenantDetailPage = ({
           </div>
         </div>
 
-        {/* Rental Agreements */}
+        {/* Rental Contracts */}
         <div className="mt-8 bg-white shadow rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Rental Agreements</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Rental Contracts</h2>
           
-          {agreements.length > 0 ? (
+          {contracts.length > 0 ? (
+            <div className="space-y-4">
+              {contracts.map(contract => (
+                <div key={contract.id} className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/contracts/${contract.id}`)}>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{contract.title}</h3>
+                      <p className="text-sm text-gray-600">
+                        {formatDate(contract.start_date)} - {contract.end_date ? formatDate(contract.end_date) : 'Ongoing'}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Status: <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(contract.status)}`}>
+                          {contract.status}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-green-600">{formatCurrency(contract.type_specific_data?.monthly_rent || 0)}/month</p>
+                      <p className="text-sm text-gray-500">Deposit: {formatCurrency(contract.type_specific_data?.security_deposit || 0)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      Click to view contract details
+                    </div>
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 italic">No rental contracts found for this tenant</p>
+          )}
+        </div>
+
+        {/* Legacy Rental Agreements */}
+        {agreements.length > 0 && (
+          <div className="mt-8 bg-white shadow rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Legacy Rental Agreements</h2>
+            
             <div className="space-y-4">
               {agreements.map(agreement => (
                 <div key={agreement.id} className="border rounded-lg p-4 hover:bg-gray-50">
@@ -276,10 +319,8 @@ const TenantDetailPage = ({
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-gray-500 italic">No rental agreements found for this tenant</p>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Invoices */}
         <div className="mt-8 bg-white shadow rounded-lg p-6">
@@ -319,29 +360,6 @@ const TenantDetailPage = ({
           )}
         </div>
 
-        {/* Selected Invoice Details */}
-        {selectedInvoice && (
-          <div className="mt-8 bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoice Details - {selectedInvoice.invoice_number}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p><strong>Amount:</strong> {formatCurrency(selectedInvoice.amount)}</p>
-                <p><strong>Status:</strong> {selectedInvoice.status}</p>
-                <p><strong>Invoice Date:</strong> {formatDate(selectedInvoice.invoice_date)}</p>
-                <p><strong>Due Date:</strong> {formatDate(selectedInvoice.due_date)}</p>
-              </div>
-              <div>
-                <p><strong>Property:</strong> {getPropertyName(selectedInvoice.property_id)}</p>
-                <p><strong>Created:</strong> {formatDate(selectedInvoice.created_at)}</p>
-              </div>
-            </div>
-            {selectedInvoice.description && (
-              <div className="mt-4">
-                <p><strong>Description:</strong> {selectedInvoice.description}</p>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

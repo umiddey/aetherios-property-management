@@ -26,7 +26,9 @@ import TenantDetailPage from './TenantDetailPage';
 import InvoiceDetailPage from './InvoiceDetailPage';
 import TaskDetailPage from './TaskDetailPage';
 import AccountDetailPage from './AccountDetailPage';
-import CreateRentalAgreementForm from './CreateRentalAgreementForm';
+import ContractsView from './ContractsView';
+import CreateContractForm from './CreateContractForm';
+import ContractDetailPage from './ContractDetailPage';
 import Breadcrumb from './Breadcrumb';
 import LanguageSwitcher from './LanguageSwitcher';
 
@@ -505,9 +507,14 @@ const Dashboard = () => {
     } else if (pathParts[0] === 'create-account') {
       breadcrumbs.push({ label: t('accounts.title'), href: 'accounts' });
       breadcrumbs.push({ label: t('pages.createAccount'), href: null });
-    } else if (pathParts[0] === 'create-rental-agreement') {
-      breadcrumbs.push({ label: t('properties.title'), href: 'properties' });
-      breadcrumbs.push({ label: t('dashboard.createRentalAgreement'), href: null });
+    } else if (pathParts[0] === 'contracts') {
+      breadcrumbs.push({ label: t('contracts.title'), href: pathParts.length === 1 ? null : 'contracts' });
+      if (pathParts.length > 1) {
+        breadcrumbs.push({ label: t('contracts.contractDetails'), href: null });
+      }
+    } else if (pathParts[0] === 'create-contract') {
+      breadcrumbs.push({ label: t('contracts.title'), href: 'contracts' });
+      breadcrumbs.push({ label: t('contracts.createContract'), href: null });
     }
     
     return breadcrumbs;
@@ -569,6 +576,7 @@ const Dashboard = () => {
                 <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.invoices')}</button>
                 <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tasks')}</button>
                 <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.accounts')}</button>
+                <button onClick={() => handleNav('contracts')} className={currentViewFromPath === 'contracts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.contracts')}</button>
                 {user?.role === 'super_admin' && (
                   <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.users')}</button>
                 )}
@@ -801,15 +809,9 @@ const Dashboard = () => {
             t={t}
             logAction={logAction}
           />} />
-          <Route path="/create-rental-agreement" element={<CreateRentalAgreementForm 
-            onBack={() => handleNav('tenants')} 
-            onSuccess={() => {
-              fetchData();
-              handleNav('tenants');
-            }} 
-            t={t}
-            logAction={logAction}
-          />} />
+          <Route path="/contracts" element={<ContractsView />} />
+          <Route path="/contracts/:id" element={<ContractDetailPage />} />
+          <Route path="/create-contract" element={<CreateContractForm />} />
         </Routes>
       </main>
     </div>

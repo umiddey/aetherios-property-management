@@ -33,6 +33,7 @@ from api.v1.tasks import router as tasks_router
 from api.v1.activities import router as activities_router
 from api.v1.dashboard import router as dashboard_router
 from api.v1.analytics import router as analytics_router
+from api.v1.contracts import router as contracts_router
 from repositories.property_repository import PropertyRepository
 from migrations.runner import run_all_migrations
 
@@ -521,6 +522,7 @@ app.include_router(tasks_router, prefix="/api/v1")
 app.include_router(activities_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(contracts_router, prefix="/api/v1")
 
 # Configure logging
 logging.basicConfig(

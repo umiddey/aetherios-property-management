@@ -32,7 +32,10 @@
     "loggingIn": "Logging in...",
     "creating": "Creating...",
     "updating": "Updating...",
-    "adding": "Adding..."
+    "adding": "Adding...",
+    "select": "Select",
+    "view": "View",
+    "remove": "Remove"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -41,6 +44,7 @@
     "invoices": "Invoices",
     "tasks": "Tasks",
     "accounts": "Accounts",
+    "contracts": "Contracts",
     "users": "Users",
     "logout": "Logout"
   },
@@ -111,7 +115,8 @@
     "showArchived": "Show Archived",
     "details": "Details",
     "created": "Created",
-    "building": "Building"
+    "building": "Building",
+    "empty": "Available"
   },
   "tenants": {
     "title": "Tenants",
@@ -303,6 +308,136 @@
     "invalidEmail": "Invalid email address",
     "invalidPhone": "Invalid phone number",
     "invalidAmount": "Invalid amount"
+  },
+  "contracts": {
+    "title": "Contracts",
+    "createContract": "Create Contract",
+    "createRentalContract": "Create Rental Contract",
+    "contractList": "Contract List",
+    "contractDetails": "Contract Details",
+    "contractId": "Contract ID",
+    "contractType": "Contract Type",
+    "parties": "Parties",
+    "party": "Party",
+    "partyName": "Party Name",
+    "partyRole": "Party Role",
+    "partyEmail": "Party Email",
+    "partyPhone": "Party Phone",
+    "partyNamePlaceholder": "Enter party name",
+    "partyRolePlaceholder": "Enter party role",
+    "partyEmailPlaceholder": "Enter party email",
+    "partyPhonePlaceholder": "Enter party phone",
+    "addParty": "Add Party",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "value": "Value",
+    "currency": "Currency",
+    "relatedProperty": "Related Property",
+    "relatedTenant": "Related Tenant",
+    "relatedUser": "Related User",
+    "relatedEntities": "Related Entities",
+    "basicInformation": "Basic Information",
+    "datesAndValue": "Dates and Value",
+    "typeSpecificFields": "Type-Specific Fields",
+    "terms": "Terms",
+    "termsPlaceholder": "Enter contract terms and conditions...",
+    "metadata": "Metadata",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At",
+    "editContract": "Edit Contract",
+    "downloadContract": "Download Contract",
+    "terminateContract": "Terminate Contract",
+    "backToContracts": "Back to Contracts",
+    "notFound": "Contract not found",
+    "createContractDescription": "Create a new contract by filling out the form below.",
+    "titlePlaceholder": "Enter contract title",
+    "descriptionPlaceholder": "Enter contract description",
+    "description": "Description",
+    "allTypes": "All Types",
+    "allStatuses": "All Statuses",
+    "searchPlaceholder": "Search contracts by title or description",
+    "noContractsFound": "No contracts found",
+    "noContractsDescription": "Get started by creating your first contract.",
+    "createFirstContract": "Create First Contract",
+    "more": "more",
+    "types": {
+      "rental": "Rental Agreement",
+      "service": "Service Contract",
+      "vendor": "Vendor Contract",
+      "employment": "Employment Contract",
+      "financial": "Financial Contract"
+    },
+    "statuses": {
+      "draft": "Draft",
+      "active": "Active",
+      "pending": "Pending",
+      "expired": "Expired",
+      "terminated": "Terminated"
+    },
+    "rental": {
+      "details": "Rental Details",
+      "monthlyRent": "Monthly Rent",
+      "securityDeposit": "Security Deposit",
+      "utilitiesIncluded": "Utilities Included",
+      "petAllowed": "Pet Allowed",
+      "furnished": "Furnished"
+    },
+    "service": {
+      "details": "Service Details",
+      "serviceType": "Service Type",
+      "frequency": "Frequency",
+      "scopeOfWork": "Scope of Work",
+      "scopeOfWorkPlaceholder": "Describe the scope of work...",
+      "types": {
+        "maintenance": "Maintenance",
+        "cleaning": "Cleaning",
+        "security": "Security",
+        "landscaping": "Landscaping"
+      },
+      "frequencies": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "quarterly": "Quarterly",
+        "yearly": "Yearly",
+        "oneTime": "One Time"
+      }
+    },
+    "vendor": {
+      "details": "Vendor Details",
+      "supplierName": "Supplier Name",
+      "deliveryTerms": "Delivery Terms",
+      "paymentTerms": "Payment Terms",
+      "goodsServices": "Goods/Services"
+    },
+    "employment": {
+      "details": "Employment Details",
+      "position": "Position",
+      "department": "Department",
+      "salary": "Salary",
+      "benefits": "Benefits",
+      "workingHours": "Working Hours"
+    },
+    "financial": {
+      "details": "Financial Details",
+      "loanAmount": "Loan Amount",
+      "interestRate": "Interest Rate",
+      "repaymentTerms": "Repayment Terms",
+      "collateral": "Collateral"
+    },
+    "messages": {
+      "contractCreated": "Contract created successfully",
+      "contractUpdated": "Contract updated successfully",
+      "contractDeleted": "Contract deleted successfully",
+      "createError": "Error creating contract",
+      "updateError": "Error updating contract",
+      "deleteError": "Error deleting contract"
+    },
+    "errors": {
+      "invalidEndDate": "End date must be after start date",
+      "minimumParties": "At least 2 parties are required",
+      "invalidValue": "Value must be a positive number"
+    }
   },
   "language": {
     "switchLanguage": "Switch Language",

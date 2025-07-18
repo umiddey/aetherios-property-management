@@ -78,9 +78,6 @@ const TenantsView = ({
                 </svg>
                 {t('common.export')}
               </button>
-              <button onClick={() => handleNav('create-rental-agreement')} className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl">
-                {t('dashboard.createRentalAgreement')}
-              </button>
               <button onClick={() => handleNav('create-tenant')} className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 shadow-lg hover:shadow-xl">
                 {t('tenants.addTenant')}
               </button>

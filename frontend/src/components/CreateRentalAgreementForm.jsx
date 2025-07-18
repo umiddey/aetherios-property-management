@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -7,8 +8,11 @@ const API = `${BACKEND_URL}/api`;
 
 const CreateRentalAgreementForm = ({ onBack, onSuccess, logAction }) => {
   const { t } = useLanguage();
+  const location = useLocation();
+  const prefilledData = location.state?.prefilledData || {};
+  
   const [formData, setFormData] = useState({
-    property_id: '',
+    property_id: prefilledData.property_id || '',
     tenant_id: '',
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
@@ -21,6 +25,18 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, logAction }) => {
   const [properties, setProperties] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [isPropertyLocked, setIsPropertyLocked] = useState(!!prefilledData.property_id);
+
+  // Handle prefilled data when component mounts or location changes
+  useEffect(() => {
+    if (prefilledData.property_id) {
+      setFormData(prev => ({
+        ...prev,
+        property_id: prefilledData.property_id
+      }));
+      setIsPropertyLocked(true);
+    }
+  }, [prefilledData]);
 
   // Fetch properties and tenants for dropdowns
   useEffect(() => {
@@ -145,21 +161,55 @@ const CreateRentalAgreementForm = ({ onBack, onSuccess, logAction }) => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {t('properties.title')} *
+                  {isPropertyLocked && (
+                    <span className="ml-2 inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Pre-selected
+                    </span>
+                  )}
                 </label>
-                <select
-                  name="property_id"
-                  value={formData.property_id}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">{t('forms.createInvoice.selectProperty')}</option>
-                  {properties.map(property => (
-                    <option key={property.id} value={property.id}>
-                      {property.name} - {property.street} {property.house_nr}, {property.city}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="property_id"
+                    value={formData.property_id}
+                    onChange={handleChange}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      isPropertyLocked ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
+                    disabled={isPropertyLocked}
+                    required
+                  >
+                    <option value="">{t('forms.createInvoice.selectProperty')}</option>
+                    {properties.map(property => (
+                      <option key={property.id} value={property.id}>
+                        {property.name} - {property.street} {property.house_nr}, {property.city}
+                      </option>
+                    ))}
+                  </select>
+                  {isPropertyLocked && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {isPropertyLocked && (
+                  <div className="mt-1 flex items-center justify-between">
+                    <p className="text-sm text-blue-600">
+                      Property pre-selected from {prefilledData.property_name || 'property detail page'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsPropertyLocked(false)}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Change Property
+                    </button>
+                  </div>
+                )}
               </div>
               
               <div>

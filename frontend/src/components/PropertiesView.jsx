@@ -125,9 +125,6 @@ const PropertiesView = ({
                 </svg>
                 {t('common.export')}
               </button>
-              <button onClick={() => handleNav('create-rental-agreement')} className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-xl hover:from-emerald-600 hover:to-green-600 transition-all duration-300 shadow-lg hover:shadow-xl">
-                {t('dashboard.createRentalAgreement')}
-              </button>
               <button onClick={() => handleNav('create-property')} className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl">
                 {t('properties.addProperty')}
               </button>
