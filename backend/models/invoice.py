@@ -7,7 +7,7 @@ import uuid
 
 class InvoiceStatus(str, Enum):
     DRAFT = "draft"
-    SENT = "sent"
+    PENDING = "pending"
     PAID = "paid"
     OVERDUE = "overdue"
 
