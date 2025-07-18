@@ -1,11 +1,11 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timedelta
@@ -13,6 +13,29 @@ import jwt
 import bcrypt
 from enum import Enum
 from fastapi.middleware.cors import CORSMiddleware
+import socketio
+import asyncio
+
+# Import new architecture components
+from middleware.error_handler import (
+    ErrorHandlerMiddleware, 
+    RequestLoggingMiddleware,
+    DatabaseErrorMiddleware,
+    ValidationErrorMiddleware
+)
+from api.v1.properties import router as properties_router
+from api.v1.tenants import router as tenants_router
+from api.v1.invoices import router as invoices_router
+from api.v1.customers import router as customers_router
+from api.v1.rental_agreements import router as rental_agreements_router
+from api.v1.users import router as users_router
+from api.v1.tasks import router as tasks_router
+from api.v1.activities import router as activities_router
+from api.v1.dashboard import router as dashboard_router
+from api.v1.analytics import router as analytics_router
+from api.v1.contracts import router as contracts_router
+from repositories.property_repository import PropertyRepository
+from migrations.runner import run_all_migrations
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -27,8 +50,31 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production'
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24
 
-# Create the main app without a prefix
-app = FastAPI()
+# Create the main app
+app = FastAPI(title="ERP Property Management System", version="1.0.0")
+
+# Socket.io setup - Create combined ASGI app
+sio = socketio.AsyncServer(
+    async_mode='asgi', 
+    cors_allowed_origins="*",
+    logger=True,
+    engineio_logger=True
+)
+# Create combined Socket.io + FastAPI app
+combined_app = socketio.ASGIApp(sio, other_asgi_app=app)
+
+# Set Socket.io instance for tasks module
+from api.v1.tasks import set_socketio_instance
+set_socketio_instance(sio)
+
+# Socket.io event handlers
+@sio.on('connect')
+async def connect(sid, environ):
+    logging.info(f'Client connected: {sid}')
+
+@sio.on('disconnect')
+async def disconnect(sid):
+    logging.info(f'Client disconnected: {sid}')
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -36,12 +82,18 @@ api_router = APIRouter(prefix="/api")
 # Security
 security = HTTPBearer()
 
+# Add middleware (order matters - first added is outermost)
+app.add_middleware(ErrorHandlerMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(DatabaseErrorMiddleware)
+app.add_middleware(ValidationErrorMiddleware)
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"]
 )
 
@@ -57,11 +109,6 @@ class TaskStatus(str, Enum):
     COMPLETED = "completed"
     ARCHIVED = "archived"
 
-class PropertyType(str, Enum):
-    APARTMENT = "apartment"
-    HOUSE = "house"
-    OFFICE = "office"
-    COMMERCIAL = "commercial"
 
 class InvoiceStatus(str, Enum):
     DRAFT = "draft"
@@ -69,27 +116,37 @@ class InvoiceStatus(str, Enum):
     PAID = "paid"
     OVERDUE = "overdue"
 
-class PaymentMethod(str, Enum):
-    CASH = "cash"
-    BANK_TRANSFER = "bank_transfer"
-    CARD = "card"
-    CHECK = "check"
+
+class UserRole(str, Enum):
+    SUPER_ADMIN = "super_admin"
+    ADMIN = "admin"
+    USER = "user"
 
 # Models
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     username: str
-    email: str
+    email: EmailStr
     full_name: str
     hashed_password: str
+    role: UserRole = UserRole.USER
     created_at: datetime = Field(default_factory=datetime.utcnow)
     is_active: bool = True
 
 class UserCreate(BaseModel):
-    username: str
-    email: str
-    full_name: str
-    password: str
+    username: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    full_name: str = Field(..., min_length=2, max_length=100)
+    password: str = Field(..., min_length=6, max_length=100)
+    role: UserRole = UserRole.USER
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None
 
 class UserLogin(BaseModel):
     username: str
@@ -100,6 +157,7 @@ class UserResponse(BaseModel):
     username: str
     email: str
     full_name: str
+    role: UserRole
     created_at: datetime
     is_active: bool
 
@@ -125,41 +183,6 @@ class CustomerCreate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
 
-# New Property Management Models
-class Property(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    property_type: PropertyType
-    address: str
-    floor: Optional[str] = None  # Etage
-    surface_area: float  # Flache in square meters
-    number_of_rooms: int  # Anzahl Räume
-    description: Optional[str] = None
-    monthly_rent: Optional[float] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by: str
-    is_archived: bool = False
-
-class PropertyCreate(BaseModel):
-    name: str
-    property_type: PropertyType
-    address: str
-    floor: Optional[str] = None
-    surface_area: float
-    number_of_rooms: int
-    description: Optional[str] = None
-    monthly_rent: Optional[float] = None
-
-class PropertyUpdate(BaseModel):
-    name: Optional[str] = None
-    property_type: Optional[PropertyType] = None
-    address: Optional[str] = None
-    floor: Optional[str] = None
-    surface_area: Optional[float] = None
-    number_of_rooms: Optional[int] = None
-    description: Optional[str] = None
-    monthly_rent: Optional[float] = None
-    is_archived: Optional[bool] = None
 
 # Tenant Management Models
 class Tenant(BaseModel):
@@ -178,15 +201,15 @@ class Tenant(BaseModel):
     is_archived: bool = False
 
 class TenantCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: str
-    phone: Optional[str] = None
-    address: str
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    email: EmailStr
+    phone: Optional[str] = Field(None, max_length=50)
+    address: str = Field(..., min_length=5, max_length=500)
     date_of_birth: Optional[datetime] = None
-    gender: Optional[str] = None
-    bank_account: Optional[str] = None
-    notes: Optional[str] = None
+    gender: Optional[str] = Field(None, max_length=20)
+    bank_account: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 class TenantUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -254,23 +277,6 @@ class InvoiceUpdate(BaseModel):
     due_date: Optional[datetime] = None
     status: Optional[InvoiceStatus] = None
 
-# Payment Models (Kasse)
-class Payment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    invoice_id: str
-    amount: float
-    payment_date: datetime
-    payment_method: PaymentMethod
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by: str
-
-class PaymentCreate(BaseModel):
-    invoice_id: str
-    amount: float
-    payment_date: datetime
-    payment_method: PaymentMethod
-    notes: Optional[str] = None
 
 class TaskOrder(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -281,6 +287,7 @@ class TaskOrder(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     budget: Optional[float] = None
     due_date: Optional[datetime] = None
+    property_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str
@@ -294,6 +301,7 @@ class TaskOrderCreate(BaseModel):
     budget: Optional[float] = None
     due_date: Optional[datetime] = None
     assigned_to: Optional[str] = None
+    property_id: Optional[str] = None
 
 class TaskOrderUpdate(BaseModel):
     subject: Optional[str] = None
@@ -304,6 +312,7 @@ class TaskOrderUpdate(BaseModel):
     budget: Optional[float] = None
     due_date: Optional[datetime] = None
     assigned_to: Optional[str] = None
+    property_id: Optional[str] = None
 
 class Activity(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -319,6 +328,10 @@ class ActivityCreate(BaseModel):
     description: str
     hours_spent: float
     activity_date: datetime
+
+class AnalyticsLog(BaseModel):
+  action: str
+  details: dict = {}
 
 # Utility functions
 def hash_password(password: str) -> str:
@@ -348,19 +361,30 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="User not found")
     return User(**user)
 
+async def get_super_admin(current_user: User = Depends(get_current_user)):
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Insufficient privileges")
+    return current_user
+
 # Auth routes
 @api_router.post("/auth/register", response_model=UserResponse)
 async def register(user_data: UserCreate):
+    users_count = await db.users.count_documents({})
+    if users_count > 0 and user_data.role == UserRole.SUPER_ADMIN:
+        raise HTTPException(status_code=403, detail="Cannot create another super admin via public registration")
+
     existing_user = await db.users.find_one({"$or": [{"username": user_data.username}, {"email": user_data.email}]})
     if existing_user:
         raise HTTPException(status_code=400, detail="Username or email already registered")
     
     hashed_password = hash_password(user_data.password)
+    role = UserRole.SUPER_ADMIN if users_count == 0 else user_data.role
     user = User(
         username=user_data.username,
         email=user_data.email,
         full_name=user_data.full_name,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        role=role
     )
     
     await db.users.insert_one(user.dict())
@@ -368,143 +392,48 @@ async def register(user_data: UserCreate):
 
 @api_router.post("/auth/login", response_model=Token)
 async def login(user_data: UserLogin):
-    user = await db.users.find_one({"username": user_data.username})
-    if not user or not verify_password(user_data.password, user["hashed_password"]):
-        raise HTTPException(status_code=401, detail="Incorrect username or password")
-    
-    if not user["is_active"]:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    
-    access_token = create_access_token(data={"sub": user["id"]})
-    return Token(
-        access_token=access_token,
-        token_type="bearer",
-        user=UserResponse(**user)
-    )
+    try:
+        # Try to find user with exact username first
+        user = await db.users.find_one({"username": user_data.username})
+        
+        # If not found, try case-insensitive search
+        if not user:
+            user = await db.users.find_one({"username": {"$regex": f"^{user_data.username}$", "$options": "i"}})
+        
+        if not user:
+            logger.info(f"Login attempt failed: User '{user_data.username}' not found")
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+        
+        if not verify_password(user_data.password, user["hashed_password"]):
+            logger.info(f"Login attempt failed: Invalid password for user '{user_data.username}'")
+            raise HTTPException(status_code=401, detail="Incorrect username or password")
+        
+        if not user["is_active"]:
+            logger.info(f"Login attempt failed: User '{user_data.username}' is inactive")
+            raise HTTPException(status_code=400, detail="Inactive user")
+        
+        access_token = create_access_token(data={"sub": user["id"]})
+        logger.info(f"User '{user_data.username}' logged in successfully")
+        
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            user=UserResponse(**user)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error for user '{user_data.username}': {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during login")
 
-# Customer routes
-@api_router.post("/customers", response_model=Customer)
-async def create_customer(customer_data: CustomerCreate, current_user: User = Depends(get_current_user)):
-    customer = Customer(**customer_data.dict(), created_by=current_user.id)
-    await db.customers.insert_one(customer.dict())
-    return customer
+# User management routes moved to api/v1/users.py
 
-@api_router.get("/customers", response_model=List[Customer])
-async def get_customers(current_user: User = Depends(get_current_user)):
-    customers = await db.customers.find().to_list(1000)
-    return [Customer(**customer) for customer in customers]
+# Analytics endpoint moved to api/v1/analytics.py
 
-@api_router.get("/customers/{customer_id}", response_model=Customer)
-async def get_customer(customer_id: str, current_user: User = Depends(get_current_user)):
-    customer = await db.customers.find_one({"id": customer_id})
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    return Customer(**customer)
+# Customer routes now handled by api/v1/customers.py
 
-# Property routes
-@api_router.post("/properties", response_model=Property)
-async def create_property(property_data: PropertyCreate, current_user: User = Depends(get_current_user)):
-    property_obj = Property(**property_data.dict(), created_by=current_user.id)
-    await db.properties.insert_one(property_obj.dict())
-    return property_obj
 
-@api_router.get("/properties", response_model=List[Property])
-async def get_properties(
-    property_type: Optional[PropertyType] = None,
-    min_rooms: Optional[int] = None,
-    max_rooms: Optional[int] = None,
-    min_surface: Optional[float] = None,
-    max_surface: Optional[float] = None,
-    archived: Optional[bool] = None,
-    current_user: User = Depends(get_current_user)
-):
-    query = {}
-    if property_type:
-        query["property_type"] = property_type
-    if min_rooms is not None:
-        query["number_of_rooms"] = {"$gte": min_rooms}
-    if max_rooms is not None:
-        if "number_of_rooms" in query:
-            query["number_of_rooms"]["$lte"] = max_rooms
-        else:
-            query["number_of_rooms"] = {"$lte": max_rooms}
-    if min_surface is not None:
-        query["surface_area"] = {"$gte": min_surface}
-    if max_surface is not None:
-        if "surface_area" in query:
-            query["surface_area"]["$lte"] = max_surface
-        else:
-            query["surface_area"] = {"$lte": max_surface}
-    if archived is not None:
-        query["is_archived"] = archived
-    
-    properties = await db.properties.find(query).sort("created_at", -1).to_list(1000)
-    return [Property(**property) for property in properties]
-
-@api_router.get("/properties/{property_id}", response_model=Property)
-async def get_property(property_id: str, current_user: User = Depends(get_current_user)):
-    property = await db.properties.find_one({"id": property_id})
-    if not property:
-        raise HTTPException(status_code=404, detail="Property not found")
-    return Property(**property)
-
-@api_router.put("/properties/{property_id}", response_model=Property)
-async def update_property(
-    property_id: str,
-    property_data: PropertyUpdate,
-    current_user: User = Depends(get_current_user)
-):
-    property = await db.properties.find_one({"id": property_id})
-    if not property:
-        raise HTTPException(status_code=404, detail="Property not found")
-    
-    update_data = {k: v for k, v in property_data.dict().items() if v is not None}
-    
-    await db.properties.update_one({"id": property_id}, {"$set": update_data})
-    updated_property = await db.properties.find_one({"id": property_id})
-    return Property(**updated_property)
-
-# Tenant routes
-@api_router.post("/tenants", response_model=Tenant)
-async def create_tenant(tenant_data: TenantCreate, current_user: User = Depends(get_current_user)):
-    tenant = Tenant(**tenant_data.dict(), created_by=current_user.id)
-    await db.tenants.insert_one(tenant.dict())
-    return tenant
-
-@api_router.get("/tenants", response_model=List[Tenant])
-async def get_tenants(
-    archived: Optional[bool] = None,
-    current_user: User = Depends(get_current_user)
-):
-    query = {}
-    if archived is not None:
-        query["is_archived"] = archived
-    
-    tenants = await db.tenants.find(query).sort("created_at", -1).to_list(1000)
-    return [Tenant(**tenant) for tenant in tenants]
-
-@api_router.get("/tenants/{tenant_id}", response_model=Tenant)
-async def get_tenant(tenant_id: str, current_user: User = Depends(get_current_user)):
-    tenant = await db.tenants.find_one({"id": tenant_id})
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    return Tenant(**tenant)
-
-@api_router.put("/tenants/{tenant_id}", response_model=Tenant)
-async def update_tenant(
-    tenant_id: str,
-    tenant_data: TenantUpdate,
-    current_user: User = Depends(get_current_user)
-):
-    tenant = await db.tenants.find_one({"id": tenant_id})
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    
-    update_data = {k: v for k, v in tenant_data.dict().items() if v is not None}
-    
-    await db.tenants.update_one({"id": tenant_id}, {"$set": update_data})
-    updated_tenant = await db.tenants.find_one({"id": tenant_id})
-    return Tenant(**updated_tenant)
+# Tenant routes now handled by api/v1/tenants.py
 
 # Rental Agreement routes
 @api_router.post("/rental-agreements", response_model=RentalAgreement)
@@ -517,6 +446,33 @@ async def create_rental_agreement(rental_data: RentalAgreementCreate, current_us
         raise HTTPException(status_code=404, detail="Property not found")
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
+    
+    # Check for overlapping rental agreements for the same property
+    existing_agreements = await db.rental_agreements.find({
+        "property_id": rental_data.property_id,
+        "is_active": True,
+        "is_archived": False
+    }).to_list(length=None)
+    
+    for agreement in existing_agreements:
+        # Check for date overlap
+        existing_start = agreement.get("start_date")
+        existing_end = agreement.get("end_date")
+        new_start = rental_data.start_date
+        new_end = rental_data.end_date
+        
+        # If no end date, assume ongoing
+        if existing_end is None:
+            existing_end = datetime(2099, 12, 31)  # Far future date
+        if new_end is None:
+            new_end = datetime(2099, 12, 31)  # Far future date
+        
+        # Check for overlap: new_start <= existing_end AND new_end >= existing_start
+        if new_start <= existing_end and new_end >= existing_start:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Rental agreement dates overlap with existing agreement for this property (Agreement ID: {agreement.get('id')})"
+            )
     
     rental_agreement = RentalAgreement(**rental_data.dict(), created_by=current_user.id)
     await db.rental_agreements.insert_one(rental_agreement.dict())
@@ -543,246 +499,30 @@ async def get_rental_agreements(
     agreements = await db.rental_agreements.find(query).sort("created_at", -1).to_list(1000)
     return [RentalAgreement(**agreement) for agreement in agreements]
 
-# Invoice routes (Rechnungen)
-@api_router.post("/invoices", response_model=Invoice)
-async def create_invoice(invoice_data: InvoiceCreate, current_user: User = Depends(get_current_user)):
-    # Verify tenant and property exist
-    tenant = await db.tenants.find_one({"id": invoice_data.tenant_id})
-    property = await db.properties.find_one({"id": invoice_data.property_id})
-    
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    if not property:
-        raise HTTPException(status_code=404, detail="Property not found")
-    
-    # Generate invoice number
-    invoice_count = await db.invoices.count_documents({})
-    invoice_number = f"INV-{invoice_count + 1:06d}"
-    
-    invoice = Invoice(
-        **invoice_data.dict(),
-        invoice_number=invoice_number,
-        created_by=current_user.id
-    )
-    await db.invoices.insert_one(invoice.dict())
-    return invoice
+# Invoice routes now handled by api/v1/invoices.py
 
-@api_router.get("/invoices", response_model=List[Invoice])
-async def get_invoices(
-    tenant_id: Optional[str] = None,
-    property_id: Optional[str] = None,
-    status: Optional[InvoiceStatus] = None,
-    archived: Optional[bool] = None,
-    current_user: User = Depends(get_current_user)
-):
-    query = {}
-    if tenant_id:
-        query["tenant_id"] = tenant_id
-    if property_id:
-        query["property_id"] = property_id
-    if status:
-        query["status"] = status
-    if archived is not None:
-        query["is_archived"] = archived
-    
-    invoices = await db.invoices.find(query).sort("created_at", -1).to_list(1000)
-    return [Invoice(**invoice) for invoice in invoices]
 
-@api_router.put("/invoices/{invoice_id}", response_model=Invoice)
-async def update_invoice(
-    invoice_id: str,
-    invoice_data: InvoiceUpdate,
-    current_user: User = Depends(get_current_user)
-):
-    invoice = await db.invoices.find_one({"id": invoice_id})
-    if not invoice:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    
-    update_data = {k: v for k, v in invoice_data.dict().items() if v is not None}
-    
-    await db.invoices.update_one({"id": invoice_id}, {"$set": update_data})
-    updated_invoice = await db.invoices.find_one({"id": invoice_id})
-    return Invoice(**updated_invoice)
-
-# Payment routes (Kasse)
-@api_router.post("/payments", response_model=Payment)
-async def create_payment(payment_data: PaymentCreate, current_user: User = Depends(get_current_user)):
-    # Verify invoice exists
-    invoice = await db.invoices.find_one({"id": payment_data.invoice_id})
-    if not invoice:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    
-    payment = Payment(**payment_data.dict(), created_by=current_user.id)
-    await db.payments.insert_one(payment.dict())
-    
-    # Update invoice status if fully paid
-    total_payments = await db.payments.aggregate([
-        {"$match": {"invoice_id": payment_data.invoice_id}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
-    ]).to_list(1)
-    
-    if total_payments and total_payments[0]["total"] >= invoice["amount"]:
-        await db.invoices.update_one(
-            {"id": payment_data.invoice_id},
-            {"$set": {"status": InvoiceStatus.PAID}}
-        )
-    
-    return payment
-
-@api_router.get("/payments", response_model=List[Payment])
-async def get_payments(
-    invoice_id: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
-):
-    query = {}
-    if invoice_id:
-        query["invoice_id"] = invoice_id
-    
-    payments = await db.payments.find(query).sort("created_at", -1).to_list(1000)
-    return [Payment(**payment) for payment in payments]
-
-# Task Order routes (existing)
-@api_router.post("/task-orders", response_model=TaskOrder)
-async def create_task_order(task_data: TaskOrderCreate, current_user: User = Depends(get_current_user)):
-    customer = await db.customers.find_one({"id": task_data.customer_id})
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    
-    task_order = TaskOrder(**task_data.dict(), created_by=current_user.id)
-    await db.task_orders.insert_one(task_order.dict())
-    return task_order
-
-@api_router.get("/task-orders", response_model=List[TaskOrder])
-async def get_task_orders(
-    status: Optional[TaskStatus] = None,
-    priority: Optional[Priority] = None,
-    customer_id: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
-):
-    query = {}
-    if status:
-        query["status"] = status
-    if priority:
-        query["priority"] = priority
-    if customer_id:
-        query["customer_id"] = customer_id
-    
-    task_orders = await db.task_orders.find(query).sort("created_at", -1).to_list(1000)
-    return [TaskOrder(**task_order) for task_order in task_orders]
-
-@api_router.get("/task-orders/{task_order_id}", response_model=TaskOrder)
-async def get_task_order(task_order_id: str, current_user: User = Depends(get_current_user)):
-    task_order = await db.task_orders.find_one({"id": task_order_id})
-    if not task_order:
-        raise HTTPException(status_code=404, detail="Task order not found")
-    return TaskOrder(**task_order)
-
-@api_router.put("/task-orders/{task_order_id}", response_model=TaskOrder)
-async def update_task_order(
-    task_order_id: str,
-    task_data: TaskOrderUpdate,
-    current_user: User = Depends(get_current_user)
-):
-    task_order = await db.task_orders.find_one({"id": task_order_id})
-    if not task_order:
-        raise HTTPException(status_code=404, detail="Task order not found")
-    
-    update_data = {k: v for k, v in task_data.dict().items() if v is not None}
-    update_data["updated_at"] = datetime.utcnow()
-    
-    await db.task_orders.update_one({"id": task_order_id}, {"$set": update_data})
-    updated_task = await db.task_orders.find_one({"id": task_order_id})
-    return TaskOrder(**updated_task)
-
-@api_router.delete("/task-orders/{task_order_id}")
-async def delete_task_order(task_order_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.task_orders.delete_one({"id": task_order_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Task order not found")
-    return {"message": "Task order deleted successfully"}
-
-# Activity routes
-@api_router.post("/activities", response_model=Activity)
-async def create_activity(activity_data: ActivityCreate, current_user: User = Depends(get_current_user)):
-    task_order = await db.task_orders.find_one({"id": activity_data.task_order_id})
-    if not task_order:
-        raise HTTPException(status_code=404, detail="Task order not found")
-    
-    activity = Activity(**activity_data.dict(), created_by=current_user.id)
-    await db.activities.insert_one(activity.dict())
-    return activity
-
-@api_router.get("/activities/{task_order_id}", response_model=List[Activity])
-async def get_activities(task_order_id: str, current_user: User = Depends(get_current_user)):
-    activities = await db.activities.find({"task_order_id": task_order_id}).sort("activity_date", -1).to_list(1000)
-    return [Activity(**activity) for activity in activities]
-
-# Dashboard stats
-@api_router.get("/dashboard/stats")
-async def get_dashboard_stats(current_user: User = Depends(get_current_user)):
-    # Task Order Stats
-    total_tasks = await db.task_orders.count_documents({})
-    pending_tasks = await db.task_orders.count_documents({"status": TaskStatus.PENDING})
-    in_progress_tasks = await db.task_orders.count_documents({"status": TaskStatus.IN_PROGRESS})
-    completed_tasks = await db.task_orders.count_documents({"status": TaskStatus.COMPLETED})
-    
-    # Property Management Stats
-    total_properties = await db.properties.count_documents({"is_archived": False})
-    total_tenants = await db.tenants.count_documents({"is_archived": False})
-    active_agreements = await db.rental_agreements.count_documents({"is_active": True, "is_archived": False})
-    
-    # Financial Stats
-    total_invoices = await db.invoices.count_documents({"is_archived": False})
-    unpaid_invoices = await db.invoices.count_documents({"status": {"$in": [InvoiceStatus.DRAFT, InvoiceStatus.SENT, InvoiceStatus.OVERDUE]}, "is_archived": False})
-    
-    total_customers = await db.customers.count_documents({})
-    
-    return {
-        "total_tasks": total_tasks,
-        "pending_tasks": pending_tasks,
-        "in_progress_tasks": in_progress_tasks,
-        "completed_tasks": completed_tasks,
-        "total_customers": total_customers,
-        "total_properties": total_properties,
-        "total_tenants": total_tenants,
-        "active_agreements": active_agreements,
-        "total_invoices": total_invoices,
-        "unpaid_invoices": unpaid_invoices
-    }
+# Task Order routes moved to api/v1/tasks.py
+# Activity routes moved to api/v1/activities.py  
+# Dashboard stats moved to api/v1/dashboard.py
 
 # Archive routes
-@api_router.put("/archive/properties/{property_id}")
-async def archive_property(property_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.properties.update_one(
-        {"id": property_id},
-        {"$set": {"is_archived": True}}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Property not found")
-    return {"message": "Property archived successfully"}
 
-@api_router.put("/archive/tenants/{tenant_id}")
-async def archive_tenant(tenant_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.tenants.update_one(
-        {"id": tenant_id},
-        {"$set": {"is_archived": True}}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    return {"message": "Tenant archived successfully"}
+# Archive routes for tenants and invoices now handled by their respective service modules
 
-@api_router.put("/archive/invoices/{invoice_id}")
-async def archive_invoice(invoice_id: str, current_user: User = Depends(get_current_user)):
-    result = await db.invoices.update_one(
-        {"id": invoice_id},
-        {"$set": {"is_archived": True}}
-    )
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    return {"message": "Invoice archived successfully"}
-
-# Include the router in the main app
-app.include_router(api_router)
+# Include routers in the main app
+app.include_router(api_router)  # Auth routes only
+app.include_router(properties_router, prefix="/api/v1")
+app.include_router(tenants_router, prefix="/api/v1")
+app.include_router(invoices_router, prefix="/api/v1")
+app.include_router(customers_router, prefix="/api/v1")
+app.include_router(rental_agreements_router, prefix="/api/v1")
+app.include_router(users_router, prefix="/api/v1")
+app.include_router(tasks_router, prefix="/api/v1")
+app.include_router(activities_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1")
+app.include_router(analytics_router, prefix="/api/v1")
+app.include_router(contracts_router, prefix="/api/v1")
 
 # Configure logging
 logging.basicConfig(
@@ -791,6 +531,48 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database migrations, indexes and other startup tasks."""
+    try:
+        # Run database migrations first
+        await run_all_migrations(db)
+        
+        # Initialize property repository indexes (migrations handle this now, but keeping for safety)
+        property_repo = PropertyRepository(db)
+        await property_repo.setup_indexes()
+        
+        logger.info("Application started successfully")
+        
+    except Exception as e:
+        logger.error(f"Startup error: {str(e)}")
+        raise
+
+# Shutdown event
 @app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+async def shutdown_event():
+    """Cleanup resources on shutdown."""
+    try:
+        # Close database connection
+        client.close()
+        
+        logger.info("Application shutdown complete")
+        
+    except Exception as e:
+        logger.error(f"Shutdown error: {str(e)}")
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "service": "ERP Property Management System"}
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {"message": "ERP Property Management System API", "version": "1.0.0"}
+
+# Replace the main app with the combined app
+app = combined_app

@@ -1,0 +1,13 @@
+{
+  "name": "erp-ai-testing",
+  "version": "1.0.0",
+  "description": "Automated testing for ERP application",
+  "scripts": {
+    "test": "node test-automation.js",
+    "test:headless": "HEADLESS=true node test-automation.js",
+    "install-browsers": "npx playwright install"
+  },
+  "devDependencies": {
+    "playwright": "^1.54.1"
+  }
+}
