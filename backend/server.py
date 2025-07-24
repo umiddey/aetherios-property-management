@@ -27,7 +27,6 @@ from api.v1.properties import router as properties_router
 from api.v1.tenants import router as tenants_router
 from api.v1.invoices import router as invoices_router
 from api.v1.customers import router as customers_router
-from api.v1.rental_agreements import router as rental_agreements_router
 from api.v1.users import router as users_router
 from api.v1.tasks import router as tasks_router
 from api.v1.activities import router as activities_router
@@ -35,7 +34,6 @@ from api.v1.dashboard import router as dashboard_router
 from api.v1.analytics import router as analytics_router
 from api.v1.contracts import router as contracts_router
 from repositories.property_repository import PropertyRepository
-from migrations.runner import run_all_migrations
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -89,9 +87,11 @@ app.add_middleware(DatabaseErrorMiddleware)
 app.add_middleware(ValidationErrorMiddleware)
 
 # Configure CORS
+cors_origins = os.environ.get('CORS_ORIGINS',
+                              'http://localhost:3000').split(',')
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"]
@@ -223,29 +223,6 @@ class TenantUpdate(BaseModel):
     notes: Optional[str] = None
     is_archived: Optional[bool] = None
 
-# Rental Agreement Models
-class RentalAgreement(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    property_id: str
-    tenant_id: str
-    start_date: datetime
-    end_date: Optional[datetime] = None
-    monthly_rent: float
-    deposit: Optional[float] = None
-    notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by: str
-    is_active: bool = True
-    is_archived: bool = False
-
-class RentalAgreementCreate(BaseModel):
-    property_id: str
-    tenant_id: str
-    start_date: datetime
-    end_date: Optional[datetime] = None
-    monthly_rent: float
-    deposit: Optional[float] = None
-    notes: Optional[str] = None
 
 # Invoice Models (Rechnungen)
 class Invoice(BaseModel):
@@ -366,67 +343,7 @@ async def get_super_admin(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Insufficient privileges")
     return current_user
 
-# Auth routes
-@api_router.post("/auth/register", response_model=UserResponse)
-async def register(user_data: UserCreate):
-    users_count = await db.users.count_documents({})
-    if users_count > 0 and user_data.role == UserRole.SUPER_ADMIN:
-        raise HTTPException(status_code=403, detail="Cannot create another super admin via public registration")
-
-    existing_user = await db.users.find_one({"$or": [{"username": user_data.username}, {"email": user_data.email}]})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Username or email already registered")
-    
-    hashed_password = hash_password(user_data.password)
-    role = UserRole.SUPER_ADMIN if users_count == 0 else user_data.role
-    user = User(
-        username=user_data.username,
-        email=user_data.email,
-        full_name=user_data.full_name,
-        hashed_password=hashed_password,
-        role=role
-    )
-    
-    await db.users.insert_one(user.dict())
-    return UserResponse(**user.dict())
-
-@api_router.post("/auth/login", response_model=Token)
-async def login(user_data: UserLogin):
-    try:
-        # Try to find user with exact username first
-        user = await db.users.find_one({"username": user_data.username})
-        
-        # If not found, try case-insensitive search
-        if not user:
-            user = await db.users.find_one({"username": {"$regex": f"^{user_data.username}$", "$options": "i"}})
-        
-        if not user:
-            logger.info(f"Login attempt failed: User '{user_data.username}' not found")
-            raise HTTPException(status_code=401, detail="Incorrect username or password")
-        
-        if not verify_password(user_data.password, user["hashed_password"]):
-            logger.info(f"Login attempt failed: Invalid password for user '{user_data.username}'")
-            raise HTTPException(status_code=401, detail="Incorrect username or password")
-        
-        if not user["is_active"]:
-            logger.info(f"Login attempt failed: User '{user_data.username}' is inactive")
-            raise HTTPException(status_code=400, detail="Inactive user")
-        
-        access_token = create_access_token(data={"sub": user["id"]})
-        logger.info(f"User '{user_data.username}' logged in successfully")
-        
-        return Token(
-            access_token=access_token,
-            token_type="bearer",
-            user=UserResponse(**user)
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Login error for user '{user_data.username}': {str(e)}")
-        raise HTTPException(status_code=500, detail="Internal server error during login")
-
-# User management routes moved to api/v1/users.py
+# Auth routes moved to api/v1/users.py
 
 # Analytics endpoint moved to api/v1/analytics.py
 
@@ -435,69 +352,6 @@ async def login(user_data: UserLogin):
 
 # Tenant routes now handled by api/v1/tenants.py
 
-# Rental Agreement routes
-@api_router.post("/rental-agreements", response_model=RentalAgreement)
-async def create_rental_agreement(rental_data: RentalAgreementCreate, current_user: User = Depends(get_current_user)):
-    # Verify property and tenant exist
-    property = await db.properties.find_one({"id": rental_data.property_id})
-    tenant = await db.tenants.find_one({"id": rental_data.tenant_id})
-    
-    if not property:
-        raise HTTPException(status_code=404, detail="Property not found")
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    
-    # Check for overlapping rental agreements for the same property
-    existing_agreements = await db.rental_agreements.find({
-        "property_id": rental_data.property_id,
-        "is_active": True,
-        "is_archived": False
-    }).to_list(length=None)
-    
-    for agreement in existing_agreements:
-        # Check for date overlap
-        existing_start = agreement.get("start_date")
-        existing_end = agreement.get("end_date")
-        new_start = rental_data.start_date
-        new_end = rental_data.end_date
-        
-        # If no end date, assume ongoing
-        if existing_end is None:
-            existing_end = datetime(2099, 12, 31)  # Far future date
-        if new_end is None:
-            new_end = datetime(2099, 12, 31)  # Far future date
-        
-        # Check for overlap: new_start <= existing_end AND new_end >= existing_start
-        if new_start <= existing_end and new_end >= existing_start:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Rental agreement dates overlap with existing agreement for this property (Agreement ID: {agreement.get('id')})"
-            )
-    
-    rental_agreement = RentalAgreement(**rental_data.dict(), created_by=current_user.id)
-    await db.rental_agreements.insert_one(rental_agreement.dict())
-    return rental_agreement
-
-@api_router.get("/rental-agreements", response_model=List[RentalAgreement])
-async def get_rental_agreements(
-    property_id: Optional[str] = None,
-    tenant_id: Optional[str] = None,
-    active: Optional[bool] = None,
-    archived: Optional[bool] = None,
-    current_user: User = Depends(get_current_user)
-):
-    query = {}
-    if property_id:
-        query["property_id"] = property_id
-    if tenant_id:
-        query["tenant_id"] = tenant_id
-    if active is not None:
-        query["is_active"] = active
-    if archived is not None:
-        query["is_archived"] = archived
-    
-    agreements = await db.rental_agreements.find(query).sort("created_at", -1).to_list(1000)
-    return [RentalAgreement(**agreement) for agreement in agreements]
 
 # Invoice routes now handled by api/v1/invoices.py
 
@@ -511,12 +365,10 @@ async def get_rental_agreements(
 # Archive routes for tenants and invoices now handled by their respective service modules
 
 # Include routers in the main app
-app.include_router(api_router)  # Auth routes only
 app.include_router(properties_router, prefix="/api/v1")
 app.include_router(tenants_router, prefix="/api/v1")
 app.include_router(invoices_router, prefix="/api/v1")
 app.include_router(customers_router, prefix="/api/v1")
-app.include_router(rental_agreements_router, prefix="/api/v1")
 app.include_router(users_router, prefix="/api/v1")
 app.include_router(tasks_router, prefix="/api/v1")
 app.include_router(activities_router, prefix="/api/v1")
@@ -536,9 +388,6 @@ logger = logging.getLogger(__name__)
 async def startup_event():
     """Initialize database migrations, indexes and other startup tasks."""
     try:
-        # Run database migrations first
-        await run_all_migrations(db)
-        
         # Initialize property repository indexes (migrations handle this now, but keeping for safety)
         property_repo = PropertyRepository(db)
         await property_repo.setup_indexes()

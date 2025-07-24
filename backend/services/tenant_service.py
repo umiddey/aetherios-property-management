@@ -214,23 +214,24 @@ class TenantService(BaseService):
         return tenants
     
     async def _compute_tenant_status(self, tenant_id: str) -> str:
-        """Compute tenant status based on active rental agreements."""
+        """Compute tenant status based on active rental contracts."""
         try:
-            # Check if tenant has active rental agreements
-            rental_agreements = await self.db.rental_agreements.find({
-                "tenant_id": tenant_id,
-                "is_active": True,
+            # Check if tenant has active rental contracts
+            rental_contracts = await self.db.contracts.find({
+                "related_tenant_id": tenant_id,
+                "contract_type": "rental",
+                "status": "active",
                 "is_archived": False
             }).to_list(length=None)
             
-            if rental_agreements:
-                # Check if any agreement is currently active (within date range)
+            if rental_contracts:
+                # Check if any contract is currently active (within date range)
                 from datetime import datetime
                 current_date = datetime.utcnow()
                 
-                for agreement in rental_agreements:
-                    start_date = agreement.get("start_date")
-                    end_date = agreement.get("end_date")
+                for contract in rental_contracts:
+                    start_date = contract.get("start_date")
+                    end_date = contract.get("end_date")
                     
                     # If start_date is in the past (or today) and end_date is in the future (or None)
                     if start_date and start_date <= current_date:

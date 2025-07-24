@@ -7,17 +7,19 @@ const cachedAxios = axios.create();
 // Cache configuration per endpoint
 const cacheConfig = {
   // Cache dashboard stats for 2 minutes
-  '/api/dashboard/stats': { ttl: 2 * 60 * 1000 },
+  '/api/v1/dashboard/stats': { ttl: 2 * 60 * 1000 },
   
   // Cache properties, tenants, etc. for 5 minutes
-  '/api/properties': { ttl: 5 * 60 * 1000 },
-  '/api/tenants': { ttl: 5 * 60 * 1000 },
-  '/api/customers': { ttl: 5 * 60 * 1000 },
-  '/api/invoices': { ttl: 3 * 60 * 1000 },
+  '/api/v1/properties': { ttl: 5 * 60 * 1000 },
+  '/api/v1/tenants': { ttl: 5 * 60 * 1000 },
+  '/api/v1/customers': { ttl: 5 * 60 * 1000 },
+  '/api/v1/invoices': { ttl: 3 * 60 * 1000 },
+  '/api/v1/tasks': { ttl: 2 * 60 * 1000 },
+  '/api/v1/contracts': { ttl: 5 * 60 * 1000 },
   
-  // Cache user data for 10 minutes
-  '/api/users/me': { ttl: 10 * 60 * 1000 },
-  '/api/users': { ttl: 5 * 60 * 1000 },
+  // Cache user data for 5-10 minutes
+  '/api/v1/users': { ttl: 5 * 60 * 1000 },
+  '/api/v1/users/me': { ttl: 10 * 60 * 1000 },
 };
 
 // Check if URL should be cached
@@ -110,15 +112,8 @@ export const invalidateCache = (pattern) => {
     const keys = Array.from(apiCache.cache.keys());
     keys.forEach(key => {
       if (key.includes(pattern)) {
-        try {
-          const [url, options] = key.split(':', 2);
-          const parsedOptions = options ? JSON.parse(options) : {};
-          apiCache.delete(url, parsedOptions);
-        } catch (error) {
-          // If parsing fails, just clear the entry directly
-          console.warn('Failed to parse cache key, clearing directly:', key);
-          apiCache.cache.delete(key);
-        }
+        // Just delete the key directly since we don't need to parse it
+        apiCache.cache.delete(key);
       }
     });
   } else {

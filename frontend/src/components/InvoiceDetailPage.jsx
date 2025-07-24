@@ -70,6 +70,45 @@ const InvoiceDetailPage = ({
     }
   };
 
+  const handleDownloadPDF = () => {
+    if (!invoice) return;
+    
+    // Generate invoice PDF content as text
+    const invoiceText = `
+INVOICE - ${invoice.invoice_number}
+===================================
+
+Amount: ${formatCurrency(invoice.amount)}
+Status: ${invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+Invoice Date: ${formatDate(invoice.invoice_date)}
+Due Date: ${formatDate(invoice.due_date)}
+
+${invoice.description ? `Description:\n${invoice.description}\n` : ''}
+
+Property: ${property ? `${property.name} - ${property.street} ${property.house_nr}, ${property.postcode} ${property.city}` : 'Not available'}
+Tenant: ${tenant ? `${tenant.first_name} ${tenant.last_name} (${tenant.email})` : 'Not available'}
+
+Generated on: ${new Date().toLocaleDateString('de-DE')} ${new Date().toLocaleTimeString('de-DE')}
+    `.trim();
+
+    // Create and download file
+    const blob = new Blob([invoiceText], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invoice_${invoice.invoice_number}_${invoice.id.slice(0, 8)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleSendReminder = () => {
+    // Simulate sending reminder (in a real app, this would call an API)
+    alert(`Reminder sent for invoice ${invoice.invoice_number} to ${tenant ? tenant.email : 'tenant'}`);
+    console.log('Reminder sent for invoice:', invoice.invoice_number);
+  };
+
   const getStatusBadgeColor = (status) => {
     switch (status) {
       case 'paid': return 'bg-green-100 text-green-800';
@@ -328,14 +367,24 @@ const InvoiceDetailPage = ({
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions</h3>
               <div className="space-y-3">
                 {invoice.status !== 'paid' && (
-                  <button className="w-full bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors">
-                    Mark as Paid
+                  <button 
+                    onClick={() => handleStatusUpdate('paid')}
+                    disabled={statusUpdating}
+                    className="w-full bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors disabled:opacity-50"
+                  >
+                    {statusUpdating ? 'Updating...' : 'Mark as Paid'}
                   </button>
                 )}
-                <button className="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors">
+                <button 
+                  onClick={() => handleDownloadPDF()}
+                  className="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
+                >
                   Download PDF
                 </button>
-                <button className="w-full bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors">
+                <button 
+                  onClick={() => handleSendReminder()}
+                  className="w-full bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
+                >
                   Send Reminder
                 </button>
               </div>

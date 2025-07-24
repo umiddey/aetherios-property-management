@@ -35,7 +35,7 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
       await axios.post(`${API}/v1/tenants/`, submitData);
       onSuccess();
     } catch (error) {
-      console.log('Error creating tenant:', error);
+      // Error creating tenant - not logged for security
       setError(error.response?.data?.detail || 'Failed to create tenant');
     } finally {
       setLoading(false);

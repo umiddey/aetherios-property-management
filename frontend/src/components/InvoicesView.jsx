@@ -3,6 +3,7 @@ import React, { useState, useEffect} from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Pagination from './Pagination';
 import { exportInvoices } from '../utils/exportUtils';
+import ClickableTableRow from './ClickableTableRow';
 
 const InvoicesView = ({
   invoiceFilters,
@@ -132,7 +133,7 @@ const InvoicesView = ({
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {invoices.map(invoice => (
-                <tr key={invoice.id} onClick={() => handleNav(`invoices/${invoice.id}`)} className="cursor-pointer hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all duration-300 hover:shadow-md">
+                <ClickableTableRow key={invoice.id} handleNav={handleNav} navPath={`invoices/${invoice.id}`} href={`/invoices/${invoice.id}`} className="hover:bg-gradient-to-r hover:from-orange-50 hover:to-red-50 transition-all duration-300 hover:shadow-md">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center mr-3">
@@ -176,7 +177,7 @@ const InvoicesView = ({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">{formatDate(invoice.due_date)}</td>
-                </tr>
+                </ClickableTableRow>
               ))}
               {invoices.length === 0 && (
                 <tr>

@@ -29,6 +29,7 @@ import AccountDetailPage from './AccountDetailPage';
 import ContractsView from './ContractsView';
 import CreateContractForm from './CreateContractForm';
 import ContractDetailPage from './ContractDetailPage';
+import ContractEditPage from './ContractEditPage';
 import Breadcrumb from './Breadcrumb';
 import LanguageSwitcher from './LanguageSwitcher';
 
@@ -58,7 +59,6 @@ const Dashboard = () => {
   const [accountPage, setAccountPage] = useState(1);
   const [userPage, setUserPage] = useState(1);
   
-  // Filter states
   const [propertyFilters, setPropertyFilters] = useState({
     property_type: 'complex',
     min_rooms: '',
@@ -79,22 +79,18 @@ const Dashboard = () => {
     archived: false
   });
   
-  // Selected item states
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
-  const [tenantAgreements, setTenantAgreements] = useState([]);
   const [tenantInvoices, setTenantInvoices] = useState([]);
   const [accountTasks, setAccountTasks] = useState([]);
-  const [selectedAgreement, setSelectedAgreement] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   
   const { user, logout, loading: authLoading } = useAuth();
   const { toasts, removeToast, showError, showSuccess } = useToast();
 
-  // Socket.io connection
   useEffect(() => {
     if (user) {
       const socket = io(BACKEND_URL);
@@ -103,11 +99,27 @@ const Dashboard = () => {
         console.log('Connected to Socket.io server');
       });
 
-      socket.on('new_task', (task) => {
-        console.log('New task received:', task);
+      socket.on('new_task', async (task) => {
         showSuccess('New task created!');
-        // Refresh tasks data
-        fetchData();
+        try {
+          // Only invalidate task-related caches instead of fetching all data
+          invalidateCache('/api/v1/tasks');
+          invalidateCache('/api/v1/dashboard/stats');
+          
+          // Refresh only tasks and stats instead of all data
+          const [tasksRes, statsRes, assignedTasksRes] = await Promise.all([
+            cachedAxios.get(`${API}/v1/tasks`),
+            cachedAxios.get(`${API}/v1/dashboard/stats`),
+            cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`)
+          ]);
+          
+          setTaskOrders(Array.isArray(tasksRes.data) ? tasksRes.data : []);
+          setStats(statsRes.data || {});
+          setAssignedTasks(Array.isArray(assignedTasksRes.data) ? assignedTasksRes.data : []);
+        } catch (error) {
+          console.error('Error refreshing tasks after socket event:', error);
+          showError(error, 'Failed to refresh task data');
+        }
       });
 
       socket.on('disconnect', () => {
@@ -120,14 +132,40 @@ const Dashboard = () => {
     }
   }, [user, showSuccess]);
 
-  // Redirect to login if no user (but wait for auth loading to complete)
+  useEffect(() => {
+    const handleContractCreated = async (event) => {
+      // Invalidate relevant caches
+      invalidateCache('/api/v1/tenants');
+      invalidateCache('/api/v1/dashboard/stats');
+      invalidateCache('/api/v1/contracts');
+      
+      // Refresh tenant data and stats
+      try {
+        const [tenantsRes, statsRes] = await Promise.all([
+          cachedAxios.get(`${API}/v1/tenants?archived=false`),
+          cachedAxios.get(`${API}/v1/dashboard/stats`)
+        ]);
+        
+        setTenants(Array.isArray(tenantsRes.data) ? tenantsRes.data : []);
+        setStats(statsRes.data || {});
+      } catch (error) {
+        console.error('Error refreshing data after contract creation:', error);
+      }
+    };
+
+    window.addEventListener('contractCreated', handleContractCreated);
+    
+    return () => {
+      window.removeEventListener('contractCreated', handleContractCreated);
+    };
+  }, []);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/login');
     }
   }, [user, navigate, authLoading]);
 
-  // Fetch data only if user is authenticated
   useEffect(() => {
     if (user) {
       fetchData();
@@ -141,7 +179,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const checkReminders = () => {
-      assignedTasks.forEach(task => {
+      (Array.isArray(assignedTasks) ? assignedTasks : []).forEach(task => {
         if (task.status !== 'completed') {
           const dueDate = new Date(task.due_date);
           const now = new Date();
@@ -175,6 +213,46 @@ const Dashboard = () => {
     }
   };
 
+  const buildPropertyParams = () => {
+    const params = new URLSearchParams();
+    if (propertyFilters.property_type) params.append('property_type', propertyFilters.property_type);
+    if (propertyFilters.min_rooms) params.append('min_rooms', propertyFilters.min_rooms);
+    if (propertyFilters.max_rooms) params.append('max_rooms', propertyFilters.max_rooms);
+    if (propertyFilters.min_surface) params.append('min_surface', propertyFilters.min_surface);
+    if (propertyFilters.max_surface) params.append('max_surface', propertyFilters.max_surface);
+    if (propertyFilters.search) params.append('search', propertyFilters.search);
+    params.append('archived', propertyFilters.archived);
+    return params.toString();
+  };
+
+  const buildTenantParams = () => {
+    const params = new URLSearchParams();
+    params.append('archived', tenantFilters.archived);
+    return params.toString();
+  };
+
+  const buildInvoiceParams = () => {
+    const params = new URLSearchParams();
+    if (invoiceFilters.status) params.append('status', invoiceFilters.status);
+    if (invoiceFilters.tenant_id) params.append('tenant_id', invoiceFilters.tenant_id);
+    if (invoiceFilters.property_id) params.append('property_id', invoiceFilters.property_id);
+    params.append('archived', invoiceFilters.archived);
+    return params.toString();
+  };
+
+  const filterTenants = (tenants) => {
+    const tenantsArray = Array.isArray(tenants) ? tenants : [];
+    if (tenantFilters.search) {
+      const searchTerm = tenantFilters.search.toLowerCase();
+      return tenantsArray.filter(tenant => 
+        tenant.first_name.toLowerCase().includes(searchTerm) ||
+        tenant.last_name.toLowerCase().includes(searchTerm) ||
+        tenant.email.toLowerCase().includes(searchTerm)
+      );
+    }
+    return tenantsArray;
+  };
+
   const fetchData = async (dateFilters = null) => {
     try {
       let statsUrl = `${API}/v1/dashboard/stats`;
@@ -182,30 +260,48 @@ const Dashboard = () => {
         statsUrl += `?from=${dateFilters.from}&to=${dateFilters.to}`;
       }
       
-      const [statsRes, tasksRes, accountsRes, assignedTasksRes] = await Promise.all([
+      // Single batch of all API calls for better performance
+      const [
+        statsRes, 
+        tasksRes, 
+        accountsRes, 
+        assignedTasksRes, 
+        propertiesRes,
+        tenantsRes,
+        invoicesRes,
+        usersRes
+      ] = await Promise.all([
         cachedAxios.get(statsUrl),
         cachedAxios.get(`${API}/v1/tasks`),
         cachedAxios.get(`${API}/v1/customers`),
-        cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`)
+        cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`),
+        cachedAxios.get(`${API}/v1/properties?${buildPropertyParams()}`),
+        cachedAxios.get(`${API}/v1/tenants?${buildTenantParams()}`),
+        cachedAxios.get(`${API}/v1/invoices?${buildInvoiceParams()}`),
+        cachedAxios.get(`${API}/v1/users`)
       ]);
       
-      setStats(statsRes.data);
-      setTaskOrders(tasksRes.data);
-      setAccounts(accountsRes.data);
-      setAssignedTasks(assignedTasksRes.data);
-      
-      await Promise.all([
-        fetchProperties(),
-        fetchTenants(),
-        fetchInvoices()
-      ]);
-
-      // All users can see other users for task assignment
-      const usersRes = await cachedAxios.get(`${API}/v1/users`);
-      setUsersList(usersRes.data);
+      // Set all state at once with safety checks
+      setStats(statsRes.data || {});
+      setTaskOrders(Array.isArray(tasksRes.data) ? tasksRes.data : []);
+      setAccounts(Array.isArray(accountsRes.data) ? accountsRes.data : []);
+      setAssignedTasks(Array.isArray(assignedTasksRes.data) ? assignedTasksRes.data : []);
+      setProperties(Array.isArray(propertiesRes.data) ? propertiesRes.data : []);
+      setTenants(filterTenants(tenantsRes.data));
+      setInvoices(Array.isArray(invoicesRes.data) ? invoicesRes.data : []);
+      setUsersList(Array.isArray(usersRes.data) ? usersRes.data : []);
     } catch (error) {
       console.error('Error fetching data:', error);
       showError(error, 'Failed to load dashboard data');
+      // Reset arrays to safe defaults on error
+      setStats({});
+      setTaskOrders([]);
+      setAccounts([]);
+      setAssignedTasks([]);
+      setProperties([]);
+      setTenants([]);
+      setInvoices([]);
+      setUsersList([]);
       if (error.response?.status === 401 || error.response?.status === 403) {
         logout(); // Logout on auth errors (redirects to login)
       }
@@ -226,7 +322,7 @@ const Dashboard = () => {
       params.append('archived', propertyFilters.archived);
       
       const response = await cachedAxios.get(`${API}/v1/properties?${params.toString()}`);
-      setProperties(response.data);
+      setProperties(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching properties:', error);
       showError(error, 'Failed to load properties');
@@ -243,14 +339,14 @@ const Dashboard = () => {
       
       if (tenantFilters.search) {
         const searchTerm = tenantFilters.search.toLowerCase();
-        filteredTenants = filteredTenants.filter(tenant => 
+        filteredTenants = (Array.isArray(filteredTenants) ? filteredTenants : []).filter(tenant => 
           tenant.first_name.toLowerCase().includes(searchTerm) ||
           tenant.last_name.toLowerCase().includes(searchTerm) ||
           tenant.email.toLowerCase().includes(searchTerm)
         );
       }
       
-      setTenants(filteredTenants);
+      setTenants(Array.isArray(filteredTenants) ? filteredTenants : []);
     } catch (error) {
       console.error('Error fetching tenants:', error);
     }
@@ -265,7 +361,7 @@ const Dashboard = () => {
       params.append('archived', invoiceFilters.archived);
       
       const response = await cachedAxios.get(`${API}/v1/invoices?${params.toString()}`);
-      setInvoices(response.data);
+      setInvoices(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching invoices:', error);
     }
@@ -273,24 +369,19 @@ const Dashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get(`${API}/v1/users`);
-      setUsersList(response.data);
+      const response = await cachedAxios.get(`${API}/v1/users`);
+      setUsersList(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
 
-
   useEffect(() => {
     const fetchTenantDetails = async () => {
       if (selectedTenant) {
         try {
-          const [agreementsRes, invoicesRes] = await Promise.all([
-            axios.get(`${API}/v1/rental-agreements?tenant_id=${selectedTenant.id}`),
-            axios.get(`${API}/v1/invoices?tenant_id=${selectedTenant.id}`)
-          ]);
-          setTenantAgreements(agreementsRes.data);
-          setTenantInvoices(invoicesRes.data);
+          const invoicesRes = await cachedAxios.get(`${API}/v1/invoices?tenant_id=${selectedTenant.id}`);
+          setTenantInvoices(Array.isArray(invoicesRes.data) ? invoicesRes.data : []);
         } catch (error) {
           console.error('Error fetching tenant details:', error);
         }
@@ -303,8 +394,8 @@ const Dashboard = () => {
     const fetchAccountDetails = async () => {
       if (selectedAccount) {
         try {
-          const tasksRes = await axios.get(`${API}/v1/tasks?customer_id=${selectedAccount.id}`);
-          setAccountTasks(tasksRes.data);
+          const tasksRes = await cachedAxios.get(`${API}/v1/tasks?customer_id=${selectedAccount.id}`);
+          setAccountTasks(Array.isArray(tasksRes.data) ? tasksRes.data : []);
         } catch (error) {
           console.error('Error fetching account details:', error);
         }
@@ -328,24 +419,11 @@ const Dashboard = () => {
     setInvoicePage(1);
   };
 
-  // Apply filters when they change
   useEffect(() => {
-    if (!loading) {
-      fetchProperties();
+    if (!loading && user) {
+      fetchData();
     }
-  }, [propertyFilters]);
-
-  useEffect(() => {
-    if (!loading) {
-      fetchTenants();
-    }
-  }, [tenantFilters]);
-
-  useEffect(() => {
-    if (!loading) {
-      fetchInvoices();
-    }
-  }, [invoiceFilters]);
+  }, [propertyFilters, tenantFilters, invoiceFilters, loading, user]);
 
   const getPriorityColor = useCallback((priority) => {
     switch (priority) {
@@ -406,38 +484,34 @@ const Dashboard = () => {
   };
 
   const getTenantName = (tenantId) => {
-    const tenant = tenants.find(t => t.id === tenantId);
+    const tenantsArray = Array.isArray(tenants) ? tenants : [];
+    const tenant = tenantsArray.find(t => t.id === tenantId);
     return tenant ? `${tenant.first_name} ${tenant.last_name}` : 'Unknown';
   };
 
   const getPropertyName = (propertyId) => {
-    const prop = properties.find(p => p.id === propertyId);
+    const propertiesArray = Array.isArray(properties) ? properties : [];
+    const prop = propertiesArray.find(p => p.id === propertyId);
     return prop ? prop.name : 'Unknown';
   };
 
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        await axios.delete(`${API}/users/${userId}`);
-        fetchUsers();
+        await axios.delete(`${API}/v1/users/${userId}`);
+        invalidateCache('/api/v1/users'); // Clear cache to force fresh data
+        fetchUsers(); // Refetch with fresh data
+        showSuccess('User deleted successfully');
       } catch (error) {
         console.error('Error deleting user:', error);
+        showError(error, 'Failed to delete user');
       }
     }
   };
 
-  const handleClickInvoice = (invoiceId) => {
-    setSelectedInvoiceId(invoiceId);
-    navigate('/invoices');
-  };
-
-  const handleClickAgreement = (agreementId) => {
-    const agreement = [...propertyAgreements, ...tenantAgreements].find(ag => ag.id === agreementId);
-    setSelectedAgreement(agreement);
-  };
-
   const handleClickTask = (taskId) => {
-    const task = taskOrders.find(t => t.id === taskId);
+    const taskOrdersArray = Array.isArray(taskOrders) ? taskOrders : [];
+    const task = taskOrdersArray.find(t => t.id === taskId);
     setSelectedTask(task);
     setViewedTasks(prev => [...prev, taskId]);
   };
@@ -498,9 +572,6 @@ const Dashboard = () => {
     } else if (pathParts[0] === 'create-tenant') {
       breadcrumbs.push({ label: t('tenants.title'), href: 'tenants' });
       breadcrumbs.push({ label: t('pages.createTenant'), href: null });
-    } else if (pathParts[0] === 'create-invoice') {
-      breadcrumbs.push({ label: t('invoices.title'), href: 'invoices' });
-      breadcrumbs.push({ label: t('dashboard.createInvoice'), href: null });
     } else if (pathParts[0] === 'create-task') {
       breadcrumbs.push({ label: t('tasks.title'), href: 'tasks' });
       breadcrumbs.push({ label: t('pages.createTask'), href: null });
@@ -510,7 +581,12 @@ const Dashboard = () => {
     } else if (pathParts[0] === 'contracts') {
       breadcrumbs.push({ label: t('contracts.title'), href: pathParts.length === 1 ? null : 'contracts' });
       if (pathParts.length > 1) {
-        breadcrumbs.push({ label: t('contracts.contractDetails'), href: null });
+        if (pathParts[2] === 'edit') {
+          breadcrumbs.push({ label: t('contracts.contractDetails'), href: `contracts/${pathParts[1]}` });
+          breadcrumbs.push({ label: t('contracts.editContract'), href: null });
+        } else {
+          breadcrumbs.push({ label: t('contracts.contractDetails'), href: null });
+        }
       }
     } else if (pathParts[0] === 'create-contract') {
       breadcrumbs.push({ label: t('contracts.title'), href: 'contracts' });
@@ -527,7 +603,6 @@ const Dashboard = () => {
 
   const currentViewFromPath = location.pathname.slice(1) || 'dashboard';
 
-  // Show loading while auth is being validated
   if (authLoading) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
@@ -537,7 +612,6 @@ const Dashboard = () => {
     </div>;
   }
 
-  // If no user after auth loading is done, return null (effect handles redirect)
   if (!user) {
     return null;
   }
@@ -614,8 +688,8 @@ const Dashboard = () => {
           <Route path="/properties" element={<PropertiesView 
             propertyFilters={propertyFilters} 
             handlePropertyFilterChange={handlePropertyFilterChange} 
-            properties={properties.slice((propertyPage - 1) * ITEMS_PER_PAGE, propertyPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(properties.length / ITEMS_PER_PAGE)} 
+            properties={(Array.isArray(properties) ? properties : []).slice((propertyPage - 1) * ITEMS_PER_PAGE, propertyPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(properties) ? properties : []).length / ITEMS_PER_PAGE)} 
             currentPage={propertyPage} 
             onPageChange={setPropertyPage}
             handleNav={handleNav} 
@@ -665,8 +739,8 @@ const Dashboard = () => {
           <Route path="/tenants" element={<TenantsView 
             tenantFilters={tenantFilters} 
             handleTenantFilterChange={handleTenantFilterChange} 
-            tenants={tenants.slice((tenantPage - 1) * ITEMS_PER_PAGE, tenantPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(tenants.length / ITEMS_PER_PAGE)} 
+            tenants={(Array.isArray(tenants) ? tenants : []).slice((tenantPage - 1) * ITEMS_PER_PAGE, tenantPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(tenants) ? tenants : []).length / ITEMS_PER_PAGE)} 
             currentPage={tenantPage} 
             onPageChange={setTenantPage}
             handleNav={handleNav} 
@@ -676,8 +750,8 @@ const Dashboard = () => {
           <Route path="/invoices" element={<InvoicesView 
             invoiceFilters={invoiceFilters} 
             handleInvoiceFilterChange={handleInvoiceFilterChange} 
-            invoices={invoices.slice((invoicePage - 1) * ITEMS_PER_PAGE, invoicePage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(invoices.length / ITEMS_PER_PAGE)} 
+            invoices={(Array.isArray(invoices) ? invoices : []).slice((invoicePage - 1) * ITEMS_PER_PAGE, invoicePage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(invoices) ? invoices : []).length / ITEMS_PER_PAGE)} 
             currentPage={invoicePage} 
             onPageChange={setInvoicePage}
             setSelectedInvoice={setSelectedInvoice} 
@@ -694,8 +768,8 @@ const Dashboard = () => {
             logAction={logAction}
           />} />
           <Route path="/tasks" element={<TasksView 
-            taskOrders={taskOrders.slice((taskPage - 1) * ITEMS_PER_PAGE, taskPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(taskOrders.length / ITEMS_PER_PAGE)} 
+            taskOrders={(Array.isArray(taskOrders) ? taskOrders : []).slice((taskPage - 1) * ITEMS_PER_PAGE, taskPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(taskOrders) ? taskOrders : []).length / ITEMS_PER_PAGE)} 
             currentPage={taskPage} 
             onPageChange={setTaskPage}
             selectedTask={selectedTask} 
@@ -709,8 +783,8 @@ const Dashboard = () => {
             logAction={logAction}
           />} />
           <Route path="/accounts" element={<AccountsView 
-            accounts={accounts.slice((accountPage - 1) * ITEMS_PER_PAGE, accountPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(accounts.length / ITEMS_PER_PAGE)} 
+            accounts={(Array.isArray(accounts) ? accounts : []).slice((accountPage - 1) * ITEMS_PER_PAGE, accountPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(accounts) ? accounts : []).length / ITEMS_PER_PAGE)} 
             currentPage={accountPage} 
             onPageChange={setAccountPage}
             selectedAccount={selectedAccount} 
@@ -722,8 +796,8 @@ const Dashboard = () => {
             logAction={logAction}
           />} />
           <Route path="/users" element={<UsersView 
-            usersList={usersList.slice((userPage - 1) * ITEMS_PER_PAGE, userPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(usersList.length / ITEMS_PER_PAGE)} 
+            usersList={(Array.isArray(usersList) ? usersList : []).slice((userPage - 1) * ITEMS_PER_PAGE, userPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(usersList) ? usersList : []).length / ITEMS_PER_PAGE)} 
             currentPage={userPage} 
             onPageChange={setUserPage}
             selectedUser={selectedUser} 
@@ -738,7 +812,7 @@ const Dashboard = () => {
           <Route path="/create-property" element={<CreatePropertyForm 
             onBack={() => handleNav('properties')} 
             onSuccess={() => {
-              invalidateCache('/api/properties'); // Clear properties cache
+              invalidateCache('/api/v1/properties'); // Clear properties cache
               fetchData();
               handleNav('properties');
             }} 
@@ -749,7 +823,7 @@ const Dashboard = () => {
           <Route path="/create-tenant" element={<CreateTenantForm 
             onBack={() => handleNav('tenants')} 
             onSuccess={() => {
-              invalidateCache('/api/tenants'); // Clear tenants cache
+              invalidateCache('/api/v1/tenants'); // Clear tenants cache
               fetchData();
               handleNav('tenants');
             }} 
@@ -757,13 +831,13 @@ const Dashboard = () => {
             logAction={logAction}
           />} />
           <Route path="/create-invoice" element={<CreateInvoiceForm 
-            onBack={() => handleNav('invoices')} 
+            onBack={() => handleNav('contracts')} 
             onSuccess={() => {
-              invalidateCache('/api/invoices'); // Clear invoices cache
+              invalidateCache('/api/v1/invoices');
+              invalidateCache('/api/v1/contracts');
               fetchData();
               handleNav('invoices');
             }} 
-            tenants={tenants} 
             t={t}
             logAction={logAction}
           />} />
@@ -783,7 +857,7 @@ const Dashboard = () => {
           <Route path="/create-account" element={<CreateCustomerForm 
             onBack={() => handleNav('accounts')} 
             onSuccess={() => {
-              invalidateCache('/api/customers'); // Clear customers cache
+              invalidateCache('/api/v1/customers'); // Clear customers cache
               fetchData();
               handleNav('accounts');
             }} 
@@ -811,6 +885,7 @@ const Dashboard = () => {
           />} />
           <Route path="/contracts" element={<ContractsView />} />
           <Route path="/contracts/:id" element={<ContractDetailPage />} />
+          <Route path="/contracts/:id/edit" element={<ContractEditPage />} />
           <Route path="/create-contract" element={<CreateContractForm />} />
         </Routes>
       </main>

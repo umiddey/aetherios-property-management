@@ -1,6 +1,6 @@
 // src/components/TasksView.js
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import cachedAxios from '../utils/cachedAxios';
 import { useLanguage } from '../contexts/LanguageContext';
 import Pagination from './Pagination';
 import { exportTasks } from '../utils/exportUtils';
@@ -39,7 +39,7 @@ const TasksView = ({
 
   const fetchTaskActivities = async (taskId) => {
     try {
-      const response = await axios.get(`${API}/v1/activities/task/${taskId}`);
+      const response = await cachedAxios.get(`${API}/v1/activities/task/${taskId}`);
       setTaskActivities(response.data);
     } catch (error) {
       console.error('Error fetching task activities:', error);

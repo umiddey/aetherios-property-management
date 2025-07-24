@@ -1,13 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '../hooks/useToast';
+import cachedAxios, { invalidateCache } from '../utils/cachedAxios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
+const CreateInvoiceForm = ({ onBack, onSuccess }) => {
   const { t } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { showError } = useToast();
+  
   const [formData, setFormData] = useState({
+    contract_id: '',
+    contract_title: '',
     tenant_id: '',
     property_id: '',
     amount: '',
@@ -16,28 +25,48 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
     due_date: '',
     status: 'pending'
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [contracts, setContracts] = useState([]);
+  const [tenants, setTenants] = useState([]);
   const [allProperties, setAllProperties] = useState([]);
-  const [loadingProperties, setLoadingProperties] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadingProperties, setLoadingProperties] = useState(false);
+  const [error, setError] = useState('');
+  const [isContractBased, setIsContractBased] = useState(false);
 
-  // Fetch ALL properties for the dropdown, independent of any filters
+  // Load data and set prefilled data from contract if available
   useEffect(() => {
-    const fetchAllProperties = async () => {
+    const loadData = async () => {
       try {
-        setLoadingProperties(true);
-        const response = await axios.get(`${API}/v1/properties/?archived=false`);
-        setAllProperties(response.data);
+        // Load contracts, tenants, and properties for dropdowns
+        const [contractsRes, tenantsRes, propertiesRes] = await Promise.all([
+          cachedAxios.get(`${API}/v1/contracts`),
+          cachedAxios.get(`${API}/v1/tenants`),
+          cachedAxios.get(`${API}/v1/properties`)
+        ]);
+        setContracts(contractsRes.data);
+        setTenants(tenantsRes.data);
+        setAllProperties(propertiesRes.data);
       } catch (error) {
-        console.error('Error fetching properties:', error);
-        setError('Failed to load properties');
-      } finally {
-        setLoadingProperties(false);
+        console.error('Error loading data:', error);
       }
     };
 
-    fetchAllProperties();
-  }, []);
+    loadData();
+
+    if (location.state?.prefilledData?.contract_id) {
+      // Set prefilled data from contract
+      const contractData = location.state.prefilledData;
+      setIsContractBased(true);
+      setFormData(prev => ({
+        ...prev,
+        contract_id: contractData.contract_id,
+        contract_title: contractData.contract_title,
+        property_id: contractData.related_property_id || '',
+        tenant_id: contractData.related_tenant_id || '',
+        description: `Invoice for ${contractData.contract_title} (${contractData.contract_type})`
+      }));
+    }
+  }, [location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,9 +82,14 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
       };
 
       await axios.post(`${API}/v1/invoices/`, submitData);
+      
+      // Invalidate cache for invoices and related data
+      invalidateCache('/api/v1/invoices');
+      invalidateCache('/api/v1/tenants');
+      
       onSuccess();
     } catch (error) {
-      console.log(error)
+      // Error creating invoice - not logged for security
       setError(error.response?.data?.detail || 'Failed to create invoice');
     } finally {
       setLoading(false);
@@ -63,7 +97,23 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+
+    // Auto-fill contract title when contract is selected
+    if (name === 'contract_id' && value) {
+      const selectedContract = contracts.find(c => c.id === value);
+      if (selectedContract) {
+        setFormData(prev => ({
+          ...prev,
+          contract_id: value,
+          contract_title: selectedContract.title,
+          tenant_id: selectedContract.related_tenant_id || '',
+          property_id: selectedContract.related_property_id || '',
+          description: `Invoice for ${selectedContract.title} (${selectedContract.contract_type})`
+        }));
+      }
+    }
   };
 
   return (
@@ -111,6 +161,27 @@ const CreateInvoiceForm = ({ onBack, onSuccess, tenants }) => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {!isContractBased && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  {t('forms.createInvoice.contract')} (Optional)
+                </label>
+                <select
+                  name="contract_id"
+                  value={formData.contract_id}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                >
+                  <option value="">{t('forms.createInvoice.selectContract')}</option>
+                  {contracts.map(contract => (
+                    <option key={contract.id} value={contract.id}>
+                      {contract.title} ({contract.contract_type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
 {t('forms.createInvoice.tenant')} *

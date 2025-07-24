@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from datetime import datetime
+from pydantic import BaseModel, Field, field_validator
+from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 from enum import Enum
 import uuid
@@ -34,8 +34,8 @@ class Contract(BaseModel):
     title: str
     contract_type: ContractType
     parties: List[ContractParty]
-    start_date: datetime
-    end_date: Optional[datetime] = None
+    start_date: date
+    end_date: Optional[date] = None
     status: ContractStatus = ContractStatus.DRAFT
     value: Optional[float] = None
     currency: str = "EUR"
@@ -67,8 +67,8 @@ class ContractCreate(BaseModel):
     title: str
     contract_type: ContractType
     parties: List[ContractParty]
-    start_date: datetime
-    end_date: Optional[datetime] = None
+    start_date: date
+    end_date: Optional[date] = None
     value: Optional[float] = None
     currency: str = "EUR"
     
@@ -107,8 +107,8 @@ class ContractResponse(BaseModel):
     title: str
     contract_type: ContractType
     parties: List[ContractParty]
-    start_date: datetime
-    end_date: Optional[datetime] = None
+    start_date: date
+    end_date: Optional[date] = None
     status: ContractStatus
     value: Optional[float] = None
     currency: str
@@ -127,6 +127,13 @@ class ContractResponse(BaseModel):
     updated_at: datetime
     created_by: str
     is_archived: bool
+    
+    @field_validator('start_date', 'end_date', mode='before')
+    @classmethod
+    def convert_datetime_to_date(cls, v):
+        if isinstance(v, datetime):
+            return v.date()
+        return v
 
 
 # Specialized contract types for better type safety and validation

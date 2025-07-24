@@ -3,6 +3,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import cachedAxios from '../utils/cachedAxios';
 import { useNavigate } from 'react-router-dom';
+import ClickableTableRow from './ClickableTableRow';
 
 const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -245,10 +246,10 @@ const ContractsView = () => {
                 </tr>
               ) : (
                 contracts.map((contract) => (
-                  <tr 
-                    key={contract.id} 
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => handleViewContract(contract.id)}
+                  <ClickableTableRow
+                    key={contract.id}
+                    href={`/contracts/${contract.id}`}
+                    className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300 hover:shadow-md"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
@@ -296,7 +297,7 @@ const ContractsView = () => {
                         {t('common.view')}
                       </button>
                     </td>
-                  </tr>
+                  </ClickableTableRow>
                 ))
               )}
             </tbody>

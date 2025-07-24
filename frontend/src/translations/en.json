@@ -116,7 +116,9 @@
     "details": "Details",
     "created": "Created",
     "building": "Building",
-    "empty": "Available"
+    "empty": "Available",
+    "rentPerSqm": "Rent per sqm",
+    "coldRent": "Cold Rent"
   },
   "tenants": {
     "title": "Tenants",
@@ -148,6 +150,7 @@
   "invoices": {
     "title": "Invoices",
     "createInvoice": "Create Invoice",
+    "createFirstInvoice": "Create First Invoice",
     "invoiceList": "Invoice List",
     "invoiceDetails": "Invoice Details",
     "invoiceId": "Invoice ID",
@@ -165,6 +168,10 @@
     "paymentStatus": "Payment Status",
     "showArchived": "Show Archived",
     "allStatuses": "All Statuses",
+    "contractRequired": "Invoice creation requires a contract. Please create invoices from contract detail pages.",
+    "createFromContract": "Create Invoice from Contract",
+    "createFromContractNote": "Invoices can only be created from contracts. Visit a contract detail page to create an invoice.",
+    "createFromContractInstructions": "To create invoices, navigate to a contract and use the 'Create Invoice' button.",
     "allTenants": "All Tenants",
     "allProperties": "All Properties"
   },
@@ -280,6 +287,8 @@
       "invoiceRecipients": "Invoice Recipients",
       "invoiceDetails": "Invoice Details",
       "invoiceDates": "Invoice Dates",
+      "contract": "Contract",
+      "selectContract": "Select a contract (optional)",
       "tenant": "Tenant",
       "selectTenant": "Select tenant",
       "property": "Property",
@@ -347,6 +356,7 @@
     "editContract": "Edit Contract",
     "downloadContract": "Download Contract",
     "terminateContract": "Terminate Contract",
+    "confirmTerminate": "Are you sure you want to terminate this contract?",
     "backToContracts": "Back to Contracts",
     "notFound": "Contract not found",
     "createContractDescription": "Create a new contract by filling out the form below.",
@@ -359,6 +369,8 @@
     "noContractsFound": "No contracts found",
     "noContractsDescription": "Get started by creating your first contract.",
     "createFirstContract": "Create First Contract",
+    "createFirstRentalContract": "Create First Rental Contract",
+    "ongoing": "Ongoing",
     "more": "more",
     "types": {
       "rental": "Rental Agreement",

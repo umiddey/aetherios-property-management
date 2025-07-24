@@ -67,6 +67,70 @@ const ContractDetailPage = () => {
     }
   };
 
+  const handleTerminateContract = async () => {
+    try {
+      // Try passing as query parameter since the endpoint might expect it that way
+      const response = await cachedAxios.put(`${API}/api/v1/contracts/${id}/status?new_status=terminated`, {});
+      
+      // Refresh contract data
+      fetchContract();
+      
+      // Show success message
+      console.log('Contract terminated successfully');
+      
+    } catch (error) {
+      showError(error, 'Failed to terminate contract');
+      console.error('Error terminating contract:', error);
+    }
+  };
+
+  const handleDownloadContract = () => {
+    if (!contract) return;
+    
+    // Generate contract text content
+    const contractText = `
+CONTRACT DETAILS
+================
+
+Contract ID: ${contract.id}
+Title: ${contract.title}
+Type: ${getContractTypeLabel(contract.contract_type)}
+Status: ${getStatusLabel(contract.status)}
+
+Basic Information:
+- Start Date: ${formatDate(contract.start_date)}
+- End Date: ${formatDate(contract.end_date)}
+- Value: ${formatCurrency(contract.value)}
+- Currency: ${contract.currency}
+
+${contract.description ? `Description:\n${contract.description}\n` : ''}
+
+Parties:
+${contract.parties?.map(party => 
+  `- ${party.name} (${party.role})${party.contact_email ? ` - ${party.contact_email}` : ''}${party.contact_phone ? ` - ${party.contact_phone}` : ''}`
+).join('\n') || 'No parties listed'}
+
+${contract.terms ? `Terms:\n${contract.terms}\n` : ''}
+
+Related Entities:
+${relatedProperty ? `- Property: ${relatedProperty.name} (${relatedProperty.address})` : ''}
+${relatedTenant ? `- Tenant: ${relatedTenant.first_name} ${relatedTenant.last_name} (${relatedTenant.email})` : ''}
+
+Generated on: ${new Date().toLocaleDateString('de-DE')} ${new Date().toLocaleTimeString('de-DE')}
+    `.trim();
+
+    // Create and download file
+    const blob = new Blob([contractText], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `contract_${contract.id.slice(0, 8)}_${contract.title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('de-DE');
@@ -355,13 +419,42 @@ const ContractDetailPage = () => {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">{t('common.actions')}</h3>
             <div className="space-y-3">
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+              <button 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                onClick={() => navigate(`/contracts/${id}/edit`)}
+              >
                 {t('contracts.editContract')}
               </button>
-              <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors">
+              <button 
+                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                onClick={() => navigate('/create-invoice', { 
+                  state: { 
+                    prefilledData: { 
+                      contract_id: contract.id, 
+                      contract_title: contract.title,
+                      contract_type: contract.contract_type,
+                      related_property_id: contract.related_property_id,
+                      related_tenant_id: contract.related_tenant_id
+                    } 
+                  } 
+                })}
+              >
+                {t('invoices.createFromContract')}
+              </button>
+              <button 
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
+                onClick={handleDownloadContract}
+              >
                 {t('contracts.downloadContract')}
               </button>
-              <button className="w-full bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors">
+              <button 
+                className="w-full bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors"
+                onClick={() => {
+                  if (window.confirm(t('contracts.confirmTerminate') || 'Are you sure you want to terminate this contract?')) {
+                    handleTerminateContract();
+                  }
+                }}
+              >
                 {t('contracts.terminateContract')}
               </button>
             </div>

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import cachedAxios from '../utils/cachedAxios';
+import cachedAxios, { invalidateCache } from '../utils/cachedAxios';
 
-const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const API = `${BACKEND_URL}/api`;
 
 const CreateContractForm = () => {
   const { t } = useLanguage();
@@ -45,7 +46,6 @@ const CreateContractForm = () => {
     fetchMetadata();
   }, []);
 
-  // Handle prefilled data from navigation state
   useEffect(() => {
     if (location.state?.prefilledData) {
       const prefilledData = location.state.prefilledData;
@@ -54,14 +54,11 @@ const CreateContractForm = () => {
         ...prefilledData
       }));
       
-      // Lock property field if it's pre-selected
       if (prefilledData.related_property_id) {
         setIsPropertyLocked(true);
       }
       
-      // Lock party roles when coming from property detail page
       if (prefilledData.contract_type === 'rental' && prefilledData.related_property_id) {
-        // For rental contracts from property detail, lock landlord and tenant roles
         setPartyRolesLocked([true, true]);
         setFormData(prev => ({
           ...prev,
@@ -77,10 +74,10 @@ const CreateContractForm = () => {
   const fetchMetadata = async () => {
     try {
       const [typesResponse, propertiesResponse, tenantsResponse, usersResponse] = await Promise.all([
-        cachedAxios.get(`${API}/api/v1/contracts/types/list`),
-        cachedAxios.get(`${API}/api/v1/properties/`),
-        cachedAxios.get(`${API}/api/v1/tenants/`),
-        cachedAxios.get(`${API}/api/v1/users/`)
+        cachedAxios.get(`${API}/v1/contracts/types/list`),
+        cachedAxios.get(`${API}/v1/properties/`),
+        cachedAxios.get(`${API}/v1/tenants/`),
+        cachedAxios.get(`${API}/v1/users/`)
       ]);
       
       setContractTypes(typesResponse.data);
@@ -138,7 +135,6 @@ const CreateContractForm = () => {
       newErrors.end_date = t('contracts.errors.invalidEndDate');
     }
 
-    // Validate parties
     formData.parties.forEach((party, index) => {
       if (!party.name?.trim()) {
         newErrors[`party_${index}_name`] = t('errors.requiredField');
@@ -177,7 +173,27 @@ const CreateContractForm = () => {
         related_user_id: formData.related_user_id || null
       };
 
-      const response = await cachedAxios.post(`${API}/api/v1/contracts/`, submitData);
+      const response = await cachedAxios.post(`${API}/v1/contracts/`, submitData);
+      
+      invalidateCache('/api/v1/contracts');
+      invalidateCache('/api/v1/tenants');
+      invalidateCache('/api/v1/dashboard/stats');
+      
+      if (submitData.related_property_id) {
+        invalidateCache(`/api/v1/contracts/?contract_type=rental&related_property_id=${submitData.related_property_id}`);
+      }
+      
+      if (submitData.related_tenant_id) {
+        invalidateCache(`/api/v1/contracts/?contract_type=rental&related_tenant_id=${submitData.related_tenant_id}`);
+      }
+      
+      window.dispatchEvent(new CustomEvent('contractCreated', { 
+        detail: { 
+          contractId: response.data.id,
+          relatedTenantId: submitData.related_tenant_id,
+          relatedPropertyId: submitData.related_property_id
+        }
+      }));
       
       showSuccess(t('contracts.messages.contractCreated'));
       navigate('/contracts');

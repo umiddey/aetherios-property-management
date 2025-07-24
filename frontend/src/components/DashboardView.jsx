@@ -1,7 +1,8 @@
 // src/components/DashboardView.js
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import axios from 'axios';
+import cachedAxios from '../utils/cachedAxios';
+import ClickableElement from './ClickableElement';
 import { exportDashboardStats } from '../utils/exportUtils';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -29,7 +30,7 @@ const DashboardView = ({
     const fetchRecentProperties = async () => {
       try {
         setLoadingProperties(true);
-        const response = await axios.get(`${API}/v1/properties/?archived=false&limit=5&sort=created_at&order=desc`);
+        const response = await cachedAxios.get(`${API}/v1/properties/?archived=false&limit=5&sort=created_at&order=desc`);
         setRecentProperties(response.data);
       } catch (error) {
         console.error('Error fetching recent properties:', error);
@@ -60,17 +61,17 @@ const DashboardView = ({
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white shadow-lg rounded-2xl p-6 border border-gray-100">
-        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="bg-white shadow-xl rounded-3xl p-8 border border-gray-50">
+        <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mr-4 shadow-lg">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
           {t('dashboard.quickActions')}
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <button
             onClick={() => handleNav('create-contract', {
               prefilledData: {
                 contract_type: 'rental',
@@ -90,40 +91,56 @@ const DashboardView = ({
                   }
                 ]
               }
-            })} 
-            className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-6 py-4 rounded-xl hover:from-emerald-600 hover:to-green-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+            })}
+            className="group bg-gradient-to-br from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg border-0 w-full"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span className="font-semibold">{t('contracts.createRentalContract')}</span>
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <span className="font-semibold text-center text-sm leading-tight">{t('contracts.createRentalContract')}</span>
+            </div>
           </button>
-          <button 
-            onClick={() => handleNav('create-property')} 
-            className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-4 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+          <button
+            onClick={() => handleNav('create-property')}
+            className="group bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg border-0 w-full"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            <span className="font-semibold">{t('dashboard.addProperty')}</span>
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <span className="font-semibold text-center text-sm leading-tight">{t('dashboard.addProperty')}</span>
+            </div>
           </button>
-          <button 
-            onClick={() => handleNav('create-tenant')} 
-            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-4 rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+          <button
+            onClick={() => handleNav('create-tenant')}
+            className="group bg-gradient-to-br from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg border-0 w-full"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            <span className="font-semibold">{t('dashboard.addTenant')}</span>
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <span className="font-semibold text-center text-sm leading-tight">{t('dashboard.addTenant')}</span>
+            </div>
           </button>
-          <button 
-            onClick={() => handleNav('create-invoice')} 
-            className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-4 rounded-xl hover:from-orange-600 hover:to-red-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center space-x-3"
+          <button
+            onClick={() => handleNav('create-task')}
+            className="group bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg border-0 w-full"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            <span className="font-semibold">{t('dashboard.createInvoice')}</span>
+            <div className="flex flex-col items-center space-y-3">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <span className="font-semibold text-center text-sm leading-tight">{t('dashboard.createTask')}</span>
+            </div>
           </button>
         </div>
       </div>

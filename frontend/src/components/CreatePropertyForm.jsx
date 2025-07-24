@@ -31,6 +31,8 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [idValidationError, setIdValidationError] = useState('');
+  const [isGeneratingId, setIsGeneratingId] = useState(false);
 
   useEffect(() => {
     const surface = parseFloat(formData.surface_area) || 0;
@@ -38,6 +40,75 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     const calculatedColdRent = (surface * perSqm).toFixed(2);
     setFormData(prev => ({ ...prev, cold_rent: calculatedColdRent }));
   }, [formData.surface_area, formData.rent_per_sqm]);
+
+  // Auto-generate property ID when name and type are filled
+  useEffect(() => {
+    if (formData.name && formData.property_type && !isGeneratingId) {
+      generatePropertyId();
+    }
+  }, [formData.name, formData.property_type]);
+
+  const generatePropertyId = async () => {
+    setIsGeneratingId(true);
+    try {
+      // Extract first two words from property name for better uniqueness
+      const nameParts = formData.name.trim().split(/[\s-_]+/).filter(part => part.length > 0);
+      const namePrefix = nameParts.length >= 2 
+        ? `${nameParts[0]}_${nameParts[1]}`.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '')
+        : nameParts[0].toLowerCase().replace(/[^a-zA-Z0-9]/g, '');
+      
+      // Get property type
+      const propertyType = formData.property_type.toLowerCase();
+      
+      // Calculate current quarter
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1; // getMonth() returns 0-11
+      const quarter = Math.ceil(month / 3).toString().padStart(2, '0');
+      
+      // Create base prefix
+      const basePrefix = `${namePrefix}_${propertyType}_${year}${quarter}`;
+      
+      // Query backend to find existing properties with this prefix to get next sequential number
+      const response = await axios.get(`${API}/v1/properties`, {
+        params: {
+          search: basePrefix,
+          limit: 1000 // Get all matching to count them
+        }
+      });
+      
+      // Count existing properties with this prefix
+      const existingCount = response.data.filter(prop => 
+        prop.id && prop.id.startsWith(basePrefix)
+      ).length;
+      
+      // Generate next sequential number (starting from 001)
+      const sequentialNumber = (existingCount + 1).toString().padStart(3, '0');
+      
+      // Create final property ID
+      const generatedId = `${basePrefix}${sequentialNumber}`;
+      
+      // Update the form data
+      setFormData(prev => ({ ...prev, id: generatedId }));
+      setIdValidationError(''); // Clear any existing errors
+      
+    } catch (error) {
+      console.error('Error generating property ID:', error);
+      // Fallback to simple generation if API fails
+      const nameParts = formData.name.trim().split(/[\s-_]+/).filter(part => part.length > 0);
+      const namePrefix = nameParts.length >= 2 
+        ? `${nameParts[0]}_${nameParts[1]}`.toLowerCase().replace(/[^a-zA-Z0-9_]/g, '')
+        : nameParts[0].toLowerCase().replace(/[^a-zA-Z0-9]/g, '');
+      const propertyType = formData.property_type.toLowerCase();
+      const now = new Date();
+      const year = now.getFullYear();
+      const quarter = Math.ceil((now.getMonth() + 1) / 3).toString().padStart(2, '0');
+      const fallbackId = `${namePrefix}_${propertyType}_${year}${quarter}001`;
+      setFormData(prev => ({ ...prev, id: fallbackId }));
+    } finally {
+      setIsGeneratingId(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,7 +152,8 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
   return (
@@ -130,14 +202,30 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                 type="text"
                 name="id"
                 value={formData.id}
-                onChange={handleChange}
-                className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                placeholder="e.g., ukd_apartment_001"
-                required
+                readOnly
+                className={`w-full pl-10 px-4 py-3 border rounded-xl transition-all duration-200 bg-gray-50 ${
+                  idValidationError 
+                    ? 'border-red-300' 
+                    : 'border-gray-300'
+                }`}
+                placeholder={isGeneratingId ? "Generating ID..." : "Auto-generated based on name and type"}
               />
+              {isGeneratingId && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                </div>
+              )}
             </div>
+            {idValidationError && (
+              <p className="text-xs text-red-600 mt-1 flex items-center">
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                {idValidationError}
+              </p>
+            )}
             <p className="text-xs text-gray-500 mt-1">
-              Format: [your_name]_[property_type]_[number] (e.g., ukd_apartment_001)
+              Auto-generated: [first]_[last]_[type]_[YYYYQQ###] (e.g., jordan_smith_apartment_202503001)
             </p>
           </div>
           

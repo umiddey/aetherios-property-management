@@ -30,12 +30,12 @@ const PropertyDetailPage = ({
         setLoading(true);
         const [propertyRes, agreementsRes, invoicesRes] = await Promise.all([
           cachedAxios.get(`${API}/v1/properties/${id}`),
-          cachedAxios.get(`${API}/v1/contracts/?contract_type=rental&related_property_id=${id}`),
+          cachedAxios.get(`${API}/v1/contracts/by-entity/property/${id}`),
           cachedAxios.get(`${API}/v1/invoices/?property_id=${id}`)
         ]);
         
         setProperty(propertyRes.data);
-        setAgreements(agreementsRes.data);
+        setAgreements(agreementsRes.data.filter(contract => contract.contract_type === 'rental'));
         setInvoices(invoicesRes.data);
       } catch (error) {
         console.error('Error fetching property details:', error);
@@ -112,7 +112,7 @@ const PropertyDetailPage = ({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
-                Edit Property
+                {t('common.edit')} {t('properties.title')}
               </button>
             </div>
           </div>
@@ -163,7 +163,7 @@ const PropertyDetailPage = ({
                 )}
                 {property.rent_per_sqm && (
                   <div className="bg-yellow-50 rounded-lg p-3">
-                    <div className="text-sm text-yellow-600 font-medium">Rent per m²</div>
+                    <div className="text-sm text-yellow-600 font-medium">{t('properties.rentPerSqm')}</div>
                     <div className="text-xl font-bold text-yellow-900">{formatCurrency(property.rent_per_sqm)}</div>
                   </div>
                 )}
@@ -176,7 +176,7 @@ const PropertyDetailPage = ({
                     <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                     </svg>
-                    Cold Rent
+                    {t('properties.coldRent')}
                   </h3>
                   <p className="text-2xl font-bold text-emerald-900">{formatCurrency(property.cold_rent)}</p>
                 </div>
@@ -203,40 +203,6 @@ const PropertyDetailPage = ({
               )}
             </div>
             
-            {/* Actions */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <button
-                onClick={() => navigate('/create-contract', { 
-                  state: { 
-                    prefilledData: {
-                      contract_type: 'rental',
-                      related_property_id: property.id,
-                      title: `Rental Agreement - ${property.name}`,
-                      parties: [
-                        {
-                          name: property.owner_name || 'Property Owner',
-                          role: 'Landlord',
-                          contact_email: property.owner_email || '',
-                          contact_phone: property.owner_phone || ''
-                        },
-                        {
-                          name: '',
-                          role: 'Tenant',
-                          contact_email: '',
-                          contact_phone: ''
-                        }
-                      ]
-                    }
-                  }
-                })}
-                className="w-full bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-xl hover:from-emerald-600 hover:to-green-600 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                {t('contracts.createRentalContract')}
-              </button>
-            </div>
           </div>
 
           {/* Owner Information */}
@@ -306,38 +272,40 @@ const PropertyDetailPage = ({
               </svg>
               {t('tenants.rentalAgreements')}
             </h2>
-            <button
-              onClick={() => navigate('/create-contract', { 
-                state: { 
-                  prefilledData: { 
-                    contract_type: 'rental',
-                    related_property_id: property.id,
-                    property_name: property.name,
-                    title: `Rental Agreement - ${property.name}`,
-                    parties: [
-                      {
-                        name: property.owner_name || 'Property Owner',
-                        role: 'Landlord',
-                        contact_email: property.owner_email || '',
-                        contact_phone: property.owner_phone || ''
-                      },
-                      {
-                        name: '',
-                        role: 'Tenant',
-                        contact_email: '',
-                        contact_phone: ''
-                      }
-                    ]
-                  }
-                } 
-              })}
-              className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Create Rental Contract
-            </button>
+{agreements.length > 0 && (
+              <button
+                onClick={() => navigate('/create-contract', { 
+                  state: { 
+                    prefilledData: { 
+                      contract_type: 'rental',
+                      related_property_id: property.id,
+                      property_name: property.name,
+                      title: `Rental Agreement - ${property.name}`,
+                      parties: [
+                        {
+                          name: property.owner_name || 'Property Owner',
+                          role: 'Landlord',
+                          contact_email: property.owner_email || '',
+                          contact_phone: property.owner_phone || ''
+                        },
+                        {
+                          name: '',
+                          role: 'Tenant',
+                          contact_email: '',
+                          contact_phone: ''
+                        }
+                      ]
+                    }
+                  } 
+                })}
+                className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                {t('contracts.createRentalContract')}
+              </button>
+            )}
           </div>
           
           {agreements.length > 0 ? (
@@ -367,7 +335,7 @@ const PropertyDetailPage = ({
                 
                 // Extract tenant name from parties
                 const tenantParty = contract.parties?.find(party => party.role === 'Tenant');
-                const tenantName = tenantParty?.name || 'Unknown Tenant';
+                const tenantName = tenantParty?.name || t('tenants.unknownTenant');
                 
                 return (
                   <div key={contract.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
@@ -380,7 +348,7 @@ const PropertyDetailPage = ({
                         </div>
                         <div>
                           <h3 className="font-semibold text-gray-900">{tenantName}</h3>
-                          <p className="text-sm text-gray-600">{formatDate(contract.start_date)} - {contract.end_date ? formatDate(contract.end_date) : 'Ongoing'}</p>
+                          <p className="text-sm text-gray-600">{formatDate(contract.start_date)} - {contract.end_date ? formatDate(contract.end_date) : t('contracts.ongoing')}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -409,12 +377,12 @@ const PropertyDetailPage = ({
                       <div>
                         <span className="font-medium text-gray-700">Duration:</span>
                         <p className="text-gray-900">
-                          {endDate ? Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24 * 30)) : 'Ongoing'} 
+                          {endDate ? Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24 * 30)) : t('contracts.ongoing')} 
                           {endDate ? ' months' : ''}
                         </p>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-700">Status:</span>
+                        <span className="font-medium text-gray-700">{t('common.status')}:</span>
                         <p className="text-gray-900">{contract.status}</p>
                       </div>
                     </div>
@@ -460,7 +428,7 @@ const PropertyDetailPage = ({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                   </svg>
-                  Create First Rental Contract
+                  {t('contracts.createFirstRentalContract')}
                 </button>
               </div>
             </div>
@@ -476,19 +444,13 @@ const PropertyDetailPage = ({
               </svg>
               {t('invoices.title')}
             </h2>
-            <button
-              onClick={() => navigate('/create-invoice', { 
-                state: { 
-                  prefilledData: { property_id: property.id, property_name: property.name } 
-                } 
-              })}
-              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Create Invoice
-            </button>
+{invoices.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  {t('invoices.createFromContractNote')}
+                </p>
+              </div>
+            )}
           </div>
           
           {invoices.length > 0 ? (
@@ -549,7 +511,7 @@ const PropertyDetailPage = ({
                         <p className="text-gray-900">{formatDate(invoice.due_date)}</p>
                       </div>
                       <div>
-                        <span className="font-medium text-gray-700">Status:</span>
+                        <span className="font-medium text-gray-700">{t('common.status')}:</span>
                         <p className="text-gray-900">{isOverdue ? 'Overdue' : invoice.status}</p>
                       </div>
                       <div>
@@ -569,21 +531,11 @@ const PropertyDetailPage = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">No invoices</h3>
-              <p className="mt-1 text-sm text-gray-500">Get started by creating an invoice for this property.</p>
-              <div className="mt-6">
-                <button
-                  onClick={() => navigate('/create-invoice', { 
-                    state: { 
-                      prefilledData: { property_id: property.id, property_name: property.name } 
-                    } 
-                  })}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg hover:from-green-600 hover:to-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2 mx-auto"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Create First Invoice
-                </button>
+              <p className="mt-1 text-sm text-gray-500">{t('invoices.createFromContractInstructions')}</p>
+              <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800 text-center">
+                  {t('invoices.createFromContractNote')}
+                </p>
               </div>
             </div>
           )}
@@ -595,7 +547,7 @@ const PropertyDetailPage = ({
             <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            Quick Actions
+            {t('dashboard.quickActions')}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <button

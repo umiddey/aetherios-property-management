@@ -30,9 +30,9 @@ const UserForm = ({ onBack, onSuccess, initialData = null }) => {
       if (!submitData.password) delete submitData.password;
 
       if (isEdit) {
-        await axios.put(`${API}/users/${initialData.id}`, submitData);
+        await axios.put(`${API}/v1/users/${initialData.id}`, submitData);
       } else {
-        await axios.post(`${API}/users`, submitData);
+        await axios.post(`${API}/v1/users/`, submitData);
       }
       onSuccess();
     } catch (error) {

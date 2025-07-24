@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from pymongo import IndexModel
 from fastapi import HTTPException
 from services.base_service import BaseService
@@ -120,15 +120,29 @@ class ContractService(BaseService):
         """Create a new contract with validation"""
         await self.validate_create_data(contract_data)
         
-        # Create contract dict
+        # Determine initial status based on start date
+        from datetime import date
+        current_date = date.today()
+        
+        if contract_data.start_date <= current_date:
+            # Contract should be active if start date has passed
+            if contract_data.end_date and contract_data.end_date <= current_date:
+                initial_status = ContractStatus.EXPIRED.value
+            else:
+                initial_status = ContractStatus.ACTIVE.value
+        else:
+            # Contract is pending if start date is in the future
+            initial_status = ContractStatus.PENDING.value
+        
+        # Create contract dict (convert dates to datetime for MongoDB)
         contract_dict = {
             "id": str(uuid.uuid4()),
             "title": contract_data.title,
             "contract_type": contract_data.contract_type.value,
-            "parties": [party.dict() for party in contract_data.parties],
-            "start_date": contract_data.start_date,
-            "end_date": contract_data.end_date,
-            "status": ContractStatus.DRAFT.value,
+            "parties": [party.model_dump() for party in contract_data.parties],
+            "start_date": datetime.combine(contract_data.start_date, datetime.min.time()),
+            "end_date": datetime.combine(contract_data.end_date, datetime.min.time()) if contract_data.end_date else None,
+            "status": initial_status,
             "value": contract_data.value,
             "currency": contract_data.currency,
             "related_property_id": contract_data.related_property_id,
@@ -166,10 +180,15 @@ class ContractService(BaseService):
 
     async def get_expiring_contracts(self, days_ahead: int = 30) -> List[Dict[str, Any]]:
         """Get contracts expiring within specified days"""
-        cutoff_date = datetime.utcnow() + timedelta(days=days_ahead)
+        today = date.today()
+        cutoff_date = today + timedelta(days=days_ahead)
+        
+        # Convert to datetime for MongoDB query
+        today_dt = datetime.combine(today, datetime.min.time())
+        cutoff_dt = datetime.combine(cutoff_date, datetime.max.time())
         
         cursor = self.collection.find({
-            "end_date": {"$lte": cutoff_date, "$gte": datetime.utcnow()},
+            "end_date": {"$lte": cutoff_dt, "$gte": today_dt},
             "status": {"$in": [ContractStatus.ACTIVE.value, ContractStatus.PENDING.value]},
             "is_archived": False
         }).sort("end_date", 1)
@@ -274,90 +293,54 @@ class ContractService(BaseService):
         
         return stats
 
-    async def import_rental_agreements(self) -> Dict[str, int]:
-        """Import existing rental agreements as contracts"""
-        rental_agreements_collection = self.db.rental_agreements
-        
-        # Get all rental agreements
-        rental_agreements = await rental_agreements_collection.find({"is_archived": False}).to_list(length=None)
-        
-        imported_count = 0
-        
-        for ra in rental_agreements:
-            # Check if already imported
-            existing_contract = await self.collection.find_one({
-                "source_rental_agreement_id": ra.get("id"),
-                "is_archived": False
-            })
-            
-            if existing_contract:
-                continue  # Skip if already imported
-            
-            # Create contract from rental agreement
-            contract_dict = {
-                "id": str(uuid.uuid4()),
-                "title": f"Rental Agreement - {ra.get('property_name', 'Unknown Property')}",
-                "contract_type": "rental",
-                "parties": [
-                    {
-                        "name": ra.get("property_name", "Property Owner"),
-                        "role": "Landlord",
-                        "contact_email": "",
-                        "contact_phone": ""
-                    },
-                    {
-                        "name": f"{ra.get('tenant_name', 'Tenant')}",
-                        "role": "Tenant", 
-                        "contact_email": ra.get("tenant_email", ""),
-                        "contact_phone": ra.get("tenant_phone", "")
-                    }
-                ],
-                "start_date": ra.get("start_date", datetime.utcnow()),
-                "end_date": ra.get("end_date"),
-                "status": ContractStatus.ACTIVE.value,
-                "value": ra.get("monthly_rent"),
-                "currency": "EUR",
-                "related_property_id": ra.get("property_id"),
-                "related_tenant_id": ra.get("tenant_id"),
-                "related_user_id": None,
-                "description": f"Imported from rental agreement system",
-                "terms": ra.get("terms", ""),
-                "renewal_info": None,
-                "type_specific_data": {
-                    "monthly_rent": ra.get("monthly_rent"),
-                    "security_deposit": ra.get("security_deposit"),
-                    "utilities_included": ra.get("utilities_included", False),
-                    "pet_allowed": ra.get("pet_allowed", False),
-                    "furnished": ra.get("furnished", False)
-                },
-                "documents": [],
-                "created_at": ra.get("created_at", datetime.utcnow()),
-                "updated_at": datetime.utcnow(),
-                "created_by": ra.get("created_by", "system"),
-                "is_archived": False,
-                "source_rental_agreement_id": ra.get("id")  # Link back to original
-            }
-            
-            await self.collection.insert_one(contract_dict)
-            imported_count += 1
-        
-        return {"imported": imported_count}
 
     async def auto_update_contract_statuses(self) -> Dict[str, int]:
         """Auto-update contract statuses based on dates"""
-        current_date = datetime.utcnow()
+        current_date = date.today()
+        current_datetime = datetime.combine(current_date, datetime.max.time())
+        
+        # Update DRAFT contracts to appropriate status based on dates
+        draft_contracts = await self.collection.find({
+            "status": ContractStatus.DRAFT.value,
+            "is_archived": False
+        }).to_list(length=None)
+        
+        draft_updated = 0
+        for contract in draft_contracts:
+            new_status = None
+            start_date = contract.get("start_date")
+            end_date = contract.get("end_date")
+            
+            # Convert datetime to date for comparison
+            start_date_only = start_date.date() if start_date else None
+            end_date_only = end_date.date() if end_date else None
+            
+            if start_date_only and start_date_only <= current_date:
+                if end_date_only and end_date_only <= current_date:
+                    new_status = ContractStatus.EXPIRED.value
+                else:
+                    new_status = ContractStatus.ACTIVE.value
+            elif start_date_only and start_date_only > current_date:
+                new_status = ContractStatus.PENDING.value
+            
+            if new_status and new_status != contract.get("status"):
+                await self.collection.update_one(
+                    {"id": contract["id"]},
+                    {"$set": {"status": new_status, "updated_at": datetime.utcnow()}}
+                )
+                draft_updated += 1
         
         # Update contracts to ACTIVE if start date has passed
         pending_to_active = await self.collection.update_many(
             {
                 "status": ContractStatus.PENDING.value,
-                "start_date": {"$lte": current_date},
+                "start_date": {"$lte": current_datetime},
                 "is_archived": False
             },
             {
                 "$set": {
                     "status": ContractStatus.ACTIVE.value,
-                    "updated_at": current_date
+                    "updated_at": datetime.utcnow()
                 }
             }
         )
@@ -366,18 +349,19 @@ class ContractService(BaseService):
         active_to_expired = await self.collection.update_many(
             {
                 "status": ContractStatus.ACTIVE.value,
-                "end_date": {"$lte": current_date},
+                "end_date": {"$lte": current_datetime},
                 "is_archived": False
             },
             {
                 "$set": {
                     "status": ContractStatus.EXPIRED.value,
-                    "updated_at": current_date
+                    "updated_at": datetime.utcnow()
                 }
             }
         )
         
         return {
+            "draft_updated": draft_updated,
             "activated": pending_to_active.modified_count,
             "expired": active_to_expired.modified_count
         }

@@ -117,7 +117,9 @@
     "details": "Details",
     "created": "Erstellt",
     "noPropertiesFound": "Keine Immobilien gefunden",
-    "empty": "Verfügbar"
+    "empty": "Verfügbar",
+    "rentPerSqm": "Miete pro m²",
+    "coldRent": "Kaltmiete"
   },
   "tenants": {
     "title": "Mieter",
@@ -145,11 +147,13 @@
     "searchPlaceholder": "Nach Name oder E-Mail suchen",
     "showArchived": "Archivierte anzeigen",
     "contact": "Kontakt",
-    "noTenantsFound": "Keine Mieter gefunden"
+    "noTenantsFound": "Keine Mieter gefunden",
+    "unknownTenant": "Unbekannter Mieter"
   },
   "invoices": {
     "title": "Rechnungen",
     "createInvoice": "Rechnung erstellen",
+    "createFirstInvoice": "Erste Rechnung erstellen",
     "invoiceList": "Rechnungsliste",
     "invoiceDetails": "Rechnungsdetails",
     "invoiceId": "Rechnungs-ID",
@@ -167,6 +171,10 @@
     "paymentStatus": "Zahlungsstatus",
     "showArchived": "Archivierte anzeigen",
     "allStatuses": "Alle Status",
+    "contractRequired": "Rechnungserstellung erfordert einen Vertrag. Bitte erstellen Sie Rechnungen von Vertragsdetailseiten.",
+    "createFromContract": "Rechnung aus Vertrag erstellen",
+    "createFromContractNote": "Rechnungen können nur aus Verträgen erstellt werden. Besuchen Sie eine Vertragsdetailseite, um eine Rechnung zu erstellen.",
+    "createFromContractInstructions": "Um Rechnungen zu erstellen, navigieren Sie zu einem Vertrag und verwenden Sie die Schaltfläche 'Rechnung erstellen'.",
     "allTenants": "Alle Mieter",
     "allProperties": "Alle Immobilien",
     "noInvoicesFound": "Keine Rechnungen gefunden"
@@ -289,6 +297,8 @@
       "invoiceRecipients": "Rechnungsempfänger",
       "invoiceDetails": "Rechnungsdetails",
       "invoiceDates": "Rechnungsdaten",
+      "contract": "Vertrag",
+      "selectContract": "Vertrag auswählen (optional)",
       "tenant": "Mieter",
       "selectTenant": "Mieter auswählen",
       "property": "Immobilie",
@@ -356,6 +366,7 @@
     "editContract": "Vertrag bearbeiten",
     "downloadContract": "Vertrag herunterladen",
     "terminateContract": "Vertrag kündigen",
+    "confirmTerminate": "Sind Sie sicher, dass Sie diesen Vertrag kündigen möchten?",
     "backToContracts": "Zurück zu Verträge",
     "notFound": "Vertrag nicht gefunden",
     "createContractDescription": "Erstellen Sie einen neuen Vertrag, indem Sie das unten stehende Formular ausfüllen.",
@@ -368,6 +379,8 @@
     "noContractsFound": "Keine Verträge gefunden",
     "noContractsDescription": "Beginnen Sie, indem Sie Ihren ersten Vertrag erstellen.",
     "createFirstContract": "Ersten Vertrag erstellen",
+    "createFirstRentalContract": "Ersten Mietvertrag erstellen",
+    "ongoing": "Laufend",
     "more": "weitere",
     "types": {
       "rental": "Mietvertrag",
