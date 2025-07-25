@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { secureStorage } from '../utils/secureStorage';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -65,9 +66,12 @@ const PortalInvitation = () => {
         password: password
       });
       
-      // Store the access token
-      localStorage.setItem('portal_token', response.data.access_token);
-      localStorage.setItem('portal_user', JSON.stringify(response.data.account));
+      // Store the access token securely (protects against XSS)
+      secureStorage.setPortalAuth(
+        response.data.access_token, 
+        response.data.account,
+        24 * 60 * 60 // 24 hours expiration
+      );
       
       // Redirect to portal dashboard
       navigate('/portal/dashboard');

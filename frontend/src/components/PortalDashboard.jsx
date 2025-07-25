@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { secureStorage } from '../utils/secureStorage';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -11,29 +12,24 @@ const PortalDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check authentication
-    const token = localStorage.getItem('portal_token');
-    const userData = localStorage.getItem('portal_user');
-    
-    if (!token || !userData) {
+    // Check authentication with secure storage
+    if (!secureStorage.isAuthenticated()) {
       navigate('/portal/login');
       return;
     }
     
-    try {
-      setUser(JSON.parse(userData));
-    } catch (error) {
-      console.error('Error parsing user data:', error);
+    const userData = secureStorage.getPortalUser();
+    if (!userData) {
       navigate('/portal/login');
       return;
     }
     
+    setUser(userData);
     setLoading(false);
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('portal_token');
-    localStorage.removeItem('portal_user');
+    secureStorage.clearPortalAuth();
     navigate('/portal/login');
   };
 

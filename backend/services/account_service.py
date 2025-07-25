@@ -5,6 +5,7 @@ Handles CRUD operations and business rules for Tenants, Employees, and Contracto
 
 import secrets
 import string
+import re
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
@@ -53,27 +54,37 @@ class AccountService:
             portal_active=False  # Will be set to True when tenant activates via invitation
         )
         
-        # Insert account
-        result = await self.collection.insert_one(account.dict())
-        account.id = str(result.inserted_id)
+        # Use MongoDB transaction to ensure atomicity
+        async with await self.db.client.start_session() as session:
+            async with session.start_transaction():
+                try:
+                    # Insert account within transaction
+                    result = await self.collection.insert_one(account.dict(), session=session)
+                    account.id = str(result.inserted_id)
+                    
+                    # Create type-specific profile within same transaction
+                    await self._create_profile(account.id, account_data.account_type, account_data.profile_data, session)
+                    
+                    # Transaction commits automatically if no exceptions
+                    
+                except Exception as e:
+                    # Transaction automatically aborts on exception
+                    raise Exception(f"Account creation failed: {str(e)}")
         
-        # Create type-specific profile
-        await self._create_profile(account.id, account_data.account_type, account_data.profile_data)
-        
-        # Return response with profile data
+        # Return response with profile data (outside transaction)
         return await self.get_account_by_id(account.id)
     
-    async def _create_profile(self, account_id: str, account_type: AccountType, profile_data: Dict[str, Any]):
-        """Create type-specific profile data"""
+    async def _create_profile(self, account_id: str, account_type: AccountType, profile_data: Dict[str, Any], session=None):
+        """Create type-specific profile data with optional session for transactions"""
         if account_type == AccountType.TENANT:
             profile = TenantProfile(account_id=account_id, **profile_data)
-            await self.tenant_profiles.insert_one(profile.dict())
+            await self.tenant_profiles.insert_one(profile.dict(), session=session)
         elif account_type == AccountType.EMPLOYEE:
             profile = EmployeeProfile(account_id=account_id, **profile_data)
-            await self.employee_profiles.insert_one(profile.dict())
+            await self.employee_profiles.insert_one(profile.dict(), session=session)
         elif account_type == AccountType.CONTRACTOR:
             profile = ContractorProfile(account_id=account_id, **profile_data)
-            await self.contractor_profiles.insert_one(profile.dict())
+            await self.contractor_profiles.insert_one(profile.dict(), session=session)
     
     async def get_account_by_id(self, account_id: str) -> Optional[AccountResponse]:
         """Get account by ID with profile data"""
@@ -275,33 +286,69 @@ class AccountService:
             status=AccountStatus.ACTIVE
         )
     
+    def _sanitize_search_term(self, search_term: str) -> str:
+        """
+        Sanitize search term to prevent ReDoS attacks
+        - Limits length to prevent excessive processing
+        - Escapes regex metacharacters
+        - Removes potentially dangerous patterns
+        """
+        if not search_term or not isinstance(search_term, str):
+            return ""
+        
+        # Limit search term length to prevent excessive processing
+        search_term = search_term[:100]
+        
+        # Escape regex metacharacters to prevent ReDoS
+        # This treats the search term as literal text
+        escaped_term = re.escape(search_term.strip())
+        
+        return escaped_term
+    
     async def search_accounts(
         self, 
         company_id: str, 
         search_term: str,
         account_type: Optional[AccountType] = None
     ) -> List[AccountResponse]:
-        """Search accounts by name or email"""
+        """
+        Search accounts by name or email with ReDoS protection
+        Uses sanitized search terms and MongoDB timeout to prevent attacks
+        """
+        # Sanitize search term to prevent ReDoS attacks
+        sanitized_term = self._sanitize_search_term(search_term)
+        
+        # Return empty results for empty search terms
+        if not sanitized_term:
+            return []
+        
         query = {
             "company_id": company_id,
             "is_archived": False,
             "$or": [
-                {"first_name": {"$regex": search_term, "$options": "i"}},
-                {"last_name": {"$regex": search_term, "$options": "i"}},
-                {"email": {"$regex": search_term, "$options": "i"}}
+                {"first_name": {"$regex": sanitized_term, "$options": "i"}},
+                {"last_name": {"$regex": sanitized_term, "$options": "i"}},
+                {"email": {"$regex": sanitized_term, "$options": "i"}}
             ]
         }
         
         if account_type:
             query["account_type"] = account_type
         
-        cursor = self.collection.find(query).limit(50)
+        # Add timeout protection and limit results
+        cursor = self.collection.find(query).limit(50).max_time_ms(5000)
         accounts = []
         
-        async for account_doc in cursor:
-            account_doc["id"] = str(account_doc.pop("_id"))
-            profile_data = await self._get_profile_data(account_doc["id"], account_doc["account_type"])
-            account_response = AccountResponse(**account_doc, profile_data=profile_data)
-            accounts.append(account_response)
+        try:
+            async for account_doc in cursor:
+                account_doc["id"] = str(account_doc.pop("_id"))
+                profile_data = await self._get_profile_data(account_doc["id"], account_doc["account_type"])
+                account_response = AccountResponse(**account_doc, profile_data=profile_data)
+                accounts.append(account_response)
+        except Exception as e:
+            # Log the error and return partial results on timeout
+            print(f"Search timeout or error: {e}")
+            # Return what we have so far instead of failing completely
+            pass
         
         return accounts

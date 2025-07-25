@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import cachedAxios, { invalidateCache } from '../utils/cachedAxios';
+import { generatePDF } from '../utils/exportUtils';
 
 const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -132,48 +133,11 @@ const ContractDetailPage = () => {
   const handleDownloadContract = () => {
     if (!contract) return;
     
-    // Generate contract text content
-    const contractText = `
-CONTRACT DETAILS
-================
-
-Contract ID: ${contract.id}
-Title: ${contract.title}
-Type: ${getContractTypeLabel(contract.contract_type)}
-Status: ${getStatusLabel(contract.status)}
-
-Basic Information:
-- Start Date: ${formatDate(contract.start_date)}
-- End Date: ${formatDate(contract.end_date)}
-- Value: ${formatCurrency(contract.value)}
-- Currency: ${contract.currency}
-
-${contract.description ? `Description:\n${contract.description}\n` : ''}
-
-Parties:
-${contract.parties?.map(party => 
-  `- ${party.name} (${party.role})${party.contact_email ? ` - ${party.contact_email}` : ''}${party.contact_phone ? ` - ${party.contact_phone}` : ''}`
-).join('\n') || 'No parties listed'}
-
-${contract.terms ? `Terms:\n${contract.terms}\n` : ''}
-
-Related Entities:
-${relatedProperty ? `- Property: ${relatedProperty.name} (${relatedProperty.address})` : ''}
-${relatedTenant ? `- Tenant: ${relatedTenant.first_name} ${relatedTenant.last_name} (${relatedTenant.email})` : ''}
-
-Generated on: ${new Date().toLocaleDateString('de-DE')} ${new Date().toLocaleTimeString('de-DE')}
-    `.trim();
-
-    // Create and download file
-    const blob = new Blob([contractText], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `contract_${contract.id.slice(0, 8)}_${contract.title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    // Use centralized PDF generation
+    generatePDF(contract, 'contract', {
+      relatedProperty,
+      relatedTenant
+    });
   };
 
   const formatDate = (dateString) => {

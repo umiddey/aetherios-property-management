@@ -120,9 +120,9 @@ class ContractService(BaseService):
         """Create a new contract with validation"""
         await self.validate_create_data(contract_data)
         
-        # Determine initial status based on start date
-        from datetime import date
-        current_date = date.today()
+        # Determine initial status based on start date (use UTC for consistency)
+        from datetime import date, timezone
+        current_date = datetime.now(timezone.utc).date()
         
         if contract_data.start_date <= current_date:
             # Contract should be active if start date has passed

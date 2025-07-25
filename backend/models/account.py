@@ -44,7 +44,11 @@ class Account(BaseModel):
     
     # System Fields
     company_id: str  # For SaaS multi-tenancy isolation
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+from datetime import datetime, timezone
+class Account(BaseModel):
+    id: uuid.UUID = Field(default_factory=lambda: uuid.uuid4())
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     updated_at: Optional[datetime] = None
     updated_by: Optional[str] = None

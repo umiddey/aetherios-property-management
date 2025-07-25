@@ -67,7 +67,8 @@ async def get_accounts(
             accounts = await account_service.search_accounts(
                 company_id=company_id,
                 search_term=search,
-                account_type=account_type
+                account_type=account_type,
+                limit=limit
             )
         else:
             accounts = await account_service.get_accounts_by_company(

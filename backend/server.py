@@ -378,8 +378,7 @@ app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(contracts_router, prefix="/api/v1")
 
 # V2 API Routes (Unified Account System)
-app.include_router(accounts_v2_router)
-
+app.include_router(accounts_v2_router, prefix="/api/v2")
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,

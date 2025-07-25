@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import cachedAxios from '../utils/cachedAxios';
 import { useLanguage } from '../contexts/LanguageContext';
+import { generatePDF } from '../utils/exportUtils';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -108,34 +109,12 @@ const InvoiceDetailPage = ({
   const handleDownloadPDF = () => {
     if (!invoice) return;
     
-    // Generate invoice PDF content as text
-    const invoiceText = `
-INVOICE - ${invoice.invoice_number}
-===================================
-
-Amount: ${formatCurrency(invoice.amount)}
-Status: ${invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-Invoice Date: ${formatDate(invoice.invoice_date)}
-Due Date: ${formatDate(invoice.due_date)}
-
-${invoice.description ? `Description:\n${invoice.description}\n` : ''}
-
-Property: ${property ? `${property.name} - ${property.street} ${property.house_nr}, ${property.postcode} ${property.city}` : 'Not available'}
-Tenant: ${tenant ? `${tenant.first_name} ${tenant.last_name} (${tenant.email})` : 'Not available'}
-
-Generated on: ${new Date().toLocaleDateString('de-DE')} ${new Date().toLocaleTimeString('de-DE')}
-    `.trim();
-
-    // Create and download file
-    const blob = new Blob([invoiceText], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `invoice_${invoice.invoice_number}_${invoice.id.slice(0, 8)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+    // Use centralized PDF generation
+    generatePDF(invoice, 'invoice', {
+      property,
+      tenant,
+      contract: contract || null
+    });
   };
 
   const handleSendReminder = () => {
