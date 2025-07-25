@@ -40,15 +40,17 @@ class InvoiceService(BaseService):
     
     async def validate_create_data(self, data: InvoiceCreate) -> None:
         """Validate invoice creation data."""
-        # Check if tenant exists
-        tenant = await self.db.tenants.find_one({"id": data.tenant_id, "is_archived": False})
-        if not tenant:
-            raise HTTPException(status_code=404, detail="Tenant not found")
+        # Check if tenant exists (only if tenant_id is provided)
+        if data.tenant_id:
+            tenant = await self.db.tenants.find_one({"id": data.tenant_id, "is_archived": False})
+            if not tenant:
+                raise HTTPException(status_code=404, detail="Tenant not found")
         
-        # Check if property exists
-        property_doc = await self.db.properties.find_one({"id": data.property_id, "is_archived": False})
-        if not property_doc:
-            raise HTTPException(status_code=404, detail="Property not found")
+        # Check if property exists (only if property_id is provided)
+        if data.property_id:
+            property_doc = await self.db.properties.find_one({"id": data.property_id, "is_archived": False})
+            if not property_doc:
+                raise HTTPException(status_code=404, detail="Property not found")
         
         # Validate amount
         if data.amount <= 0:

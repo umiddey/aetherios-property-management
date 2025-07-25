@@ -288,6 +288,30 @@ const InvoicesView = ({
                       <div className="text-2xl font-bold text-green-800">{formatCurrency(invoice.amount)}</div>
                     </div>
 
+                    {/* NEW: Contract Information */}
+                    {invoice.contract_id && (
+                      <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4">
+                        <div className="text-xs font-semibold text-green-700 mb-2 flex items-center">
+                          <span className="mr-2">📄</span>
+                          Contract-Based Invoice
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium text-gray-800">
+                            ID: {invoice.contract_id.slice(0, 8)}...
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {invoice.invoice_type && (
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                invoice.invoice_type === 'credit' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {invoice.invoice_type === 'credit' ? '⬆️ Credit' : '⬇️ Debit'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Tenant and Property Row */}
                     <div className="grid grid-cols-1 gap-4">
                       <div className="bg-blue-50/50 rounded-xl p-4">

@@ -15,6 +15,7 @@ const CreateContractForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [contractTypes, setContractTypes] = useState([]);
+  const [billingTypes, setBillingTypes] = useState([]);
   const [properties, setProperties] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [users, setUsers] = useState([]);
@@ -30,6 +31,12 @@ const CreateContractForm = () => {
     end_date: '',
     value: '',
     currency: 'EUR',
+    
+    // NEW: Invoice generation settings
+    billing_type: '',
+    billing_frequency: 'monthly',
+    next_billing_date: '',
+    
     related_property_id: '',
     related_tenant_id: '',
     related_user_id: '',
@@ -73,14 +80,16 @@ const CreateContractForm = () => {
 
   const fetchMetadata = async () => {
     try {
-      const [typesResponse, propertiesResponse, tenantsResponse, usersResponse] = await Promise.all([
+      const [typesResponse, billingTypesResponse, propertiesResponse, tenantsResponse, usersResponse] = await Promise.all([
         cachedAxios.get(`${API}/v1/contracts/types/list`),
+        cachedAxios.get(`${API}/v1/contracts/billing-types/list`),
         cachedAxios.get(`${API}/v1/properties/`),
         cachedAxios.get(`${API}/v1/tenants/`),
         cachedAxios.get(`${API}/v1/users/`)
       ]);
       
       setContractTypes(typesResponse.data);
+      setBillingTypes(billingTypesResponse.data);
       setProperties(propertiesResponse.data);
       setTenants(tenantsResponse.data);
       setUsers(usersResponse.data);
@@ -168,6 +177,12 @@ const CreateContractForm = () => {
         start_date: new Date(formData.start_date).toISOString(),
         end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
         value: formData.value ? parseFloat(formData.value) : null,
+        
+        // Invoice generation settings
+        billing_type: formData.billing_type || null,
+        billing_frequency: formData.billing_type ? formData.billing_frequency : null,
+        next_billing_date: formData.next_billing_date ? new Date(formData.next_billing_date).toISOString() : null,
+        
         related_property_id: formData.related_property_id || null,
         related_tenant_id: formData.related_tenant_id || null,
         related_user_id: formData.related_user_id || null
@@ -975,6 +990,95 @@ const CreateContractForm = () => {
               {errors.value && <p className="text-red-500 text-sm mt-1">{errors.value}</p>}
             </div>
           </div>
+        </div>
+
+        {/* NEW: Invoice Generation Settings */}
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center mb-4">
+            <div className="flex-shrink-0">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-lg font-medium text-gray-900">💰 Invoice Generation Settings</h3>
+              <p className="text-sm text-gray-600">Configure automatic invoice generation from this contract</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📄 Billing Type
+                <span className="ml-1 text-xs text-gray-500">(Optional)</span>
+              </label>
+              <select
+                value={formData.billing_type}
+                onChange={(e) => handleInputChange('billing_type', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">Select billing type...</option>
+                {billingTypes.map(type => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Credit: Service provider receives payment | Debit: Customer pays
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📅 Billing Frequency
+              </label>
+              <select
+                value={formData.billing_frequency}
+                onChange={(e) => handleInputChange('billing_frequency', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={!formData.billing_type}
+              >
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+                <option value="one_time">One Time</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                🗓️ Next Billing Date
+              </label>
+              <input
+                type="date"
+                value={formData.next_billing_date}
+                onChange={(e) => handleInputChange('next_billing_date', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={!formData.billing_type}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                When to generate the first invoice
+              </p>
+            </div>
+          </div>
+          
+          {formData.billing_type && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center">
+                <svg className="w-4 h-4 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm text-blue-800 font-medium">
+                  Automatic Invoice Generation Enabled
+                </span>
+              </div>
+              <p className="text-xs text-blue-700 mt-1">
+                This contract will automatically generate {formData.billing_type} invoices {formData.billing_frequency} 
+                {formData.next_billing_date && ` starting from ${new Date(formData.next_billing_date).toLocaleDateString()}`}.
+              </p>
+            </div>
+          )}
         </div>
 
 

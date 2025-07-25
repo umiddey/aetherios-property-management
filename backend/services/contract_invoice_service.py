@@ -2,12 +2,15 @@ from typing import Dict, List, Optional
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 import uuid
+import logging
 
-from ..models.contract import Contract, ContractBillingType, ContractType
-from ..models.invoice import Invoice, InvoiceCreate, InvoiceType, InvoiceStatus
+from models.contract import Contract, ContractBillingType, ContractType
+from models.invoice import Invoice, InvoiceCreate, InvoiceType, InvoiceStatus
 from .base_service import BaseService
 from .contract_service import ContractService
 from .invoice_service import InvoiceService
+
+logger = logging.getLogger(__name__)
 
 
 class ContractInvoiceService:
@@ -30,7 +33,7 @@ class ContractInvoiceService:
         created_by: str,
         override_amount: Optional[float] = None,
         override_description: Optional[str] = None
-    ) -> Invoice:
+    ) -> dict:
         """
         Generate a single invoice from a contract.
         
@@ -47,22 +50,28 @@ class ContractInvoiceService:
             ValueError: If contract doesn't support invoice generation
         """
         # Get contract details
+        logger.info(f"Fetching contract {contract_id}")
         contract = await self.contract_service.get_by_id(contract_id)
         if not contract:
             raise ValueError(f"Contract {contract_id} not found")
         
-        if contract.status != "active":
-            raise ValueError(f"Cannot generate invoice from {contract.status} contract")
+        logger.info(f"Contract found: {contract.get('title')} with status {contract.get('status')}")
+        if contract.get("status") != "active":
+            raise ValueError(f"Cannot generate invoice from {contract.get('status')} contract")
         
         # Determine invoice type based on contract type and billing type
+        logger.info(f"Determining invoice type for contract type: {contract.get('contract_type')}")
         invoice_type = self._determine_invoice_type(contract)
+        logger.info(f"Invoice type determined: {invoice_type}")
         
         # Generate invoice data
-        amount = override_amount or contract.value or 0.0
+        amount = override_amount or contract.get("value", 0.0)
         description = override_description or self._generate_invoice_description(contract)
         invoice_number = await self._generate_invoice_number(contract)
+        logger.info(f"Invoice data: amount={amount}, description={description}, number={invoice_number}")
         
         # Create invoice
+        logger.info("Creating invoice data object")
         invoice_data = InvoiceCreate(
             contract_id=contract_id,
             invoice_type=invoice_type,
@@ -70,14 +79,16 @@ class ContractInvoiceService:
             description=description,
             invoice_date=datetime.utcnow(),
             due_date=datetime.utcnow() + timedelta(days=30),  # Default 30 days
-            tenant_id=contract.related_tenant_id,  # Legacy compatibility
-            property_id=contract.related_property_id
+            tenant_id=contract.get("related_tenant_id"),  # Legacy compatibility
+            property_id=contract.get("related_property_id")
         )
         
-        invoice = await self.invoice_service.create(invoice_data, created_by)
+        logger.info("Calling invoice service to create invoice")
+        invoice = await self.invoice_service.create_invoice(invoice_data, created_by)
+        logger.info(f"Invoice created with ID: {invoice.get('id') if isinstance(invoice, dict) else invoice}")
         
         # Update contract's next billing date if recurring
-        if contract.billing_type in [ContractBillingType.RECURRING]:
+        if contract.get("billing_type") in ["recurring"]:
             await self._update_next_billing_date(contract)
         
         return invoice
@@ -144,43 +155,43 @@ class ContractInvoiceService:
             "next_billing_date": next_billing_date
         }
         
-        return await self.contract_service.update(contract_id, update_data, contract.created_by)
+        return await self.contract_service.update(contract_id, update_data, contract.get("created_by"))
     
-    def _determine_invoice_type(self, contract: Contract) -> InvoiceType:
+    def _determine_invoice_type(self, contract: dict) -> InvoiceType:
         """Determine whether invoice should be CREDIT or DEBIT based on contract type."""
         
-        if contract.billing_type == ContractBillingType.CREDIT:
+        if contract.get("billing_type") == "credit":
             return InvoiceType.CREDIT
-        elif contract.billing_type == ContractBillingType.DEBIT:
+        elif contract.get("billing_type") == "debit":
             return InvoiceType.DEBIT
         
         # Default logic based on contract type if billing_type not set
-        if contract.contract_type == ContractType.RENTAL:
+        if contract.get("contract_type") == "rental":
             return InvoiceType.DEBIT  # Tenant pays rent
-        elif contract.contract_type == ContractType.EMPLOYMENT:
+        elif contract.get("contract_type") == "employment":
             return InvoiceType.CREDIT  # Employee receives salary
-        elif contract.contract_type == ContractType.SERVICE:
+        elif contract.get("contract_type") == "service":
             # For service contracts, need to check the parties
             # Default to DEBIT (customer pays for service)
             return InvoiceType.DEBIT
         else:
             return InvoiceType.DEBIT  # Default
     
-    def _generate_invoice_description(self, contract: Contract) -> str:
+    def _generate_invoice_description(self, contract: dict) -> str:
         """Generate descriptive invoice text based on contract type."""
         
-        if contract.contract_type == ContractType.RENTAL:
+        if contract.get("contract_type") == "rental":
             month_year = datetime.now().strftime("%B %Y")
-            return f"Rent payment for {month_year} - {contract.title}"
-        elif contract.contract_type == ContractType.EMPLOYMENT:
+            return f"Rent payment for {month_year} - {contract.get('title', 'Rental Contract')}"
+        elif contract.get("contract_type") == "employment":
             month_year = datetime.now().strftime("%B %Y")
-            return f"Salary for {month_year} - {contract.title}"
-        elif contract.contract_type == ContractType.SERVICE:
-            return f"Service payment - {contract.title}"
+            return f"Salary for {month_year} - {contract.get('title', 'Employment Contract')}"
+        elif contract.get("contract_type") == "service":
+            return f"Service payment - {contract.get('title', 'Service Contract')}"
         else:
-            return f"Payment for {contract.title}"
+            return f"Payment for {contract.get('title', 'Contract')}"
     
-    async def _generate_invoice_number(self, contract: Contract) -> str:
+    async def _generate_invoice_number(self, contract: dict) -> str:
         """Generate unique invoice number."""
         # Simple format: INV-YYYY-MM-XXXXX
         now = datetime.now()
@@ -208,16 +219,16 @@ class ContractInvoiceService:
         else:  # one_time
             return base_date
     
-    async def _update_next_billing_date(self, contract: Contract):
+    async def _update_next_billing_date(self, contract: dict):
         """Update contract's next billing date after generating invoice."""
-        if not contract.billing_frequency:
+        if not contract.get("billing_frequency"):
             return
         
-        current_date = contract.next_billing_date or date.today()
-        next_date = self._calculate_next_billing_date(current_date, contract.billing_frequency)
+        current_date = contract.get("next_billing_date") or date.today()
+        next_date = self._calculate_next_billing_date(current_date, contract.get("billing_frequency"))
         
         await self.contract_service.update(
-            contract.id,
+            contract.get("id"),
             {"next_billing_date": next_date},
-            contract.created_by
+            contract.get("created_by")
         )

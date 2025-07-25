@@ -328,7 +328,7 @@ async def generate_invoice_from_contract(
             override_description=override_description
         )
         
-        return {"message": "Invoice generated successfully", "invoice_id": invoice.id}
+        return {"message": "Invoice generated successfully", "invoice_id": invoice["id"]}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

@@ -21,6 +21,7 @@ const InvoiceDetailPage = ({
   const [invoice, setInvoice] = useState(null);
   const [property, setProperty] = useState(null);
   const [tenant, setTenant] = useState(null);
+  const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -33,14 +34,48 @@ const InvoiceDetailPage = ({
         const invoiceData = invoiceRes.data;
         setInvoice(invoiceData);
         
-        // Fetch related property and tenant data
-        const [propertyRes, tenantRes] = await Promise.all([
-          cachedAxios.get(`${API}/v1/properties/${invoiceData.property_id}`),
-          cachedAxios.get(`${API}/v1/tenants/${invoiceData.tenant_id}`)
-        ]);
+        // Fetch related data only if IDs are not null
+        const promises = [];
+        let propertyIndex = -1;
+        let tenantIndex = -1;
+        let contractIndex = -1;
         
-        setProperty(propertyRes.data);
-        setTenant(tenantRes.data);
+        // Add property fetch if property_id exists
+        if (invoiceData.property_id && invoiceData.property_id !== 'null') {
+          propertyIndex = promises.length;
+          promises.push(cachedAxios.get(`${API}/v1/properties/${invoiceData.property_id}`));
+        }
+        
+        // Add tenant fetch if tenant_id exists
+        if (invoiceData.tenant_id && invoiceData.tenant_id !== 'null') {
+          tenantIndex = promises.length;
+          promises.push(cachedAxios.get(`${API}/v1/tenants/${invoiceData.tenant_id}`));
+        }
+        
+        // Add contract fetch if contract_id exists
+        if (invoiceData.contract_id && invoiceData.contract_id !== 'null' && invoiceData.contract_id !== null) {
+          contractIndex = promises.length;
+          promises.push(cachedAxios.get(`${API}/v1/contracts/${invoiceData.contract_id}`));
+        }
+        
+        if (promises.length > 0) {
+          const responses = await Promise.all(promises);
+          
+          // Set property data if fetched
+          if (propertyIndex >= 0) {
+            setProperty(responses[propertyIndex].data);
+          }
+          
+          // Set tenant data if fetched
+          if (tenantIndex >= 0) {
+            setTenant(responses[tenantIndex].data);
+          }
+          
+          // Set contract data if fetched
+          if (contractIndex >= 0) {
+            setContract(responses[contractIndex].data);
+          }
+        }
       } catch (error) {
         console.error('Error fetching invoice details:', error);
         setError('Failed to load invoice details');
@@ -359,6 +394,98 @@ Generated on: ${new Date().toLocaleDateString('de-DE')} ${new Date().toLocaleTim
                     View Tenant Details →
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* NEW: Contract Information */}
+            {contract && (
+              <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 shadow rounded-lg p-6">
+                <div className="flex items-center mb-4">
+                  <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900">📄 Contract-Based Invoice</h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Contract Title</label>
+                    <p className="text-gray-900 font-medium">{contract.title}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Contract ID</label>
+                    <p className="text-gray-600 font-mono text-sm">{contract.id}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Type</label>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                        {contract.contract_type}
+                      </span>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Status</label>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
+                        contract.status === 'active' ? 'bg-green-100 text-green-800' : 
+                        contract.status === 'expired' ? 'bg-red-100 text-red-800' : 
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {contract.status}
+                      </span>
+                    </div>
+                  </div>
+                  {invoice.invoice_type && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Invoice Type</label>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        invoice.invoice_type === 'credit' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {invoice.invoice_type === 'credit' ? '⬆️ Credit (Provider Receives)' : '⬇️ Debit (Customer Pays)'}
+                      </span>
+                    </div>
+                  )}
+                  {contract.billing_frequency && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Billing Frequency</label>
+                      <p className="text-gray-900 capitalize">{contract.billing_frequency}</p>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-gray-200">
+                    <button
+                      onClick={() => navigate(`/contracts/${contract.id}`)}
+                      className="text-blue-500 hover:text-blue-700 text-sm font-medium"
+                    >
+                      View Contract Details →
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center">
+                    <svg className="w-4 h-4 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm text-blue-800 font-medium">
+                      Legal Audit Trail
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-700 mt-1">
+                    This invoice was automatically generated from the contract above, ensuring legal compliance and complete audit trail.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Legacy Invoice Notice */}
+            {!contract && (
+              <div className="bg-yellow-50 border border-yellow-200 shadow rounded-lg p-6">
+                <div className="flex items-center mb-2">
+                  <svg className="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <h3 className="text-lg font-semibold text-gray-900">⚠️ Legacy Invoice</h3>
+                </div>
+                <p className="text-sm text-yellow-800">
+                  This invoice was created manually without a contract relationship. For better legal compliance and audit trails, consider creating invoices from contracts.
+                </p>
               </div>
             )}
 
