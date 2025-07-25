@@ -12,6 +12,11 @@ class InvoiceStatus(str, Enum):
     OVERDUE = "overdue"
 
 
+class InvoiceType(str, Enum):
+    CREDIT = "credit"  # Money owed TO service provider (they receive payment)
+    DEBIT = "debit"    # Money owed BY customer (they make payment)
+
+
 class PaymentMethod(str, Enum):
     CASH = "cash"
     BANK_TRANSFER = "bank_transfer"
@@ -22,28 +27,42 @@ class PaymentMethod(str, Enum):
 class Invoice(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     invoice_number: str
-    tenant_id: str
-    property_id: str
+    contract_id: str  # NEW: Link to contract that generated this invoice
+    invoice_type: InvoiceType  # NEW: Credit or Debit
+    
+    # Legacy fields (keep for backward compatibility during migration)
+    tenant_id: Optional[str] = None
+    property_id: Optional[str] = None
+    
+    # Core invoice data
     amount: float
     description: str
     invoice_date: datetime
     due_date: datetime
     status: InvoiceStatus = InvoiceStatus.DRAFT
+    
+    # Metadata
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str
     is_archived: bool = False
 
 
 class InvoiceCreate(BaseModel):
-    tenant_id: str
-    property_id: str
+    contract_id: str
+    invoice_type: InvoiceType
     amount: float
     description: str
     invoice_date: datetime
     due_date: datetime
+    
+    # Legacy fields (optional for backward compatibility)
+    tenant_id: Optional[str] = None
+    property_id: Optional[str] = None
 
 
 class InvoiceUpdate(BaseModel):
+    contract_id: Optional[str] = None
+    invoice_type: Optional[InvoiceType] = None
     amount: Optional[float] = None
     description: Optional[str] = None
     invoice_date: Optional[datetime] = None
@@ -53,8 +72,13 @@ class InvoiceUpdate(BaseModel):
 
 
 class InvoiceFilters(BaseModel):
+    contract_id: Optional[str] = None
+    invoice_type: Optional[InvoiceType] = None
+    
+    # Legacy filters (keep for backward compatibility)
     tenant_id: Optional[str] = None
     property_id: Optional[str] = None
+    
     status: Optional[InvoiceStatus] = None
     archived: Optional[bool] = None
     overdue_only: Optional[bool] = None

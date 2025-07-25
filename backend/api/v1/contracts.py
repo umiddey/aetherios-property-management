@@ -2,10 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime
 from services.contract_service import ContractService
+from services.contract_invoice_service import ContractInvoiceService
+from services.invoice_service import InvoiceService
 from models.contract import (
     Contract, ContractCreate, ContractUpdate, ContractResponse, 
-    ContractType, ContractStatus
+    ContractType, ContractStatus, ContractBillingType
 )
+from models.invoice import Invoice
 from utils.auth import get_current_user
 from utils.dependencies import get_database
 
@@ -298,6 +301,107 @@ async def get_contract_statuses(
         {"value": "expired", "label": "Expired"},
         {"value": "terminated", "label": "Terminated"},
         {"value": "pending", "label": "Pending"}
+    ]
+
+
+# NEW: Contract-based Invoice Generation Endpoints
+@router.post("/contracts/{contract_id}/generate-invoice")
+async def generate_invoice_from_contract(
+    contract_id: str,
+    override_amount: Optional[float] = Query(None),
+    override_description: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Generate an invoice from a contract"""
+    try:
+        contract_service = ContractService(db)
+        invoice_service = InvoiceService(db)
+        contract_invoice_service = ContractInvoiceService(contract_service, invoice_service)
+        
+        user_id = current_user.get("id") if isinstance(current_user, dict) else current_user.id
+        
+        invoice = await contract_invoice_service.generate_invoice_from_contract(
+            contract_id=contract_id,
+            created_by=user_id,
+            override_amount=override_amount,
+            override_description=override_description
+        )
+        
+        return {"message": "Invoice generated successfully", "invoice_id": invoice.id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating invoice: {str(e)}")
+
+
+@router.post("/contracts/{contract_id}/setup-billing")
+async def setup_contract_billing(
+    contract_id: str,
+    billing_type: ContractBillingType,
+    billing_frequency: str = Query("monthly"),
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Configure a contract for automatic invoice generation"""
+    try:
+        contract_service = ContractService(db)
+        invoice_service = InvoiceService(db)
+        contract_invoice_service = ContractInvoiceService(contract_service, invoice_service)
+        
+        contract = await contract_invoice_service.setup_contract_billing(
+            contract_id=contract_id,
+            billing_type=billing_type,
+            billing_frequency=billing_frequency
+        )
+        
+        return {
+            "message": "Contract billing configured successfully",
+            "contract_id": contract.id,
+            "billing_type": contract.billing_type,
+            "billing_frequency": contract.billing_frequency,
+            "next_billing_date": contract.next_billing_date
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error setting up contract billing: {str(e)}")
+
+
+@router.post("/contracts/generate-recurring-invoices")
+async def generate_recurring_invoices(
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Generate all due recurring invoices (to be called by scheduled job)"""
+    try:
+        contract_service = ContractService(db)
+        invoice_service = InvoiceService(db)
+        contract_invoice_service = ContractInvoiceService(contract_service, invoice_service)
+        
+        user_id = current_user.get("id") if isinstance(current_user, dict) else current_user.id
+        
+        invoices = await contract_invoice_service.generate_recurring_invoices(created_by=user_id)
+        
+        return {
+            "message": f"Generated {len(invoices)} recurring invoices",
+            "generated_count": len(invoices),
+            "invoice_ids": [inv.id for inv in invoices]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating recurring invoices: {str(e)}")
+
+
+@router.get("/contracts/billing-types/list")
+async def get_billing_types(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get list of available billing types"""
+    return [
+        {"value": "credit", "label": "Credit (Contractor receives payment)"},
+        {"value": "debit", "label": "Debit (Customer pays for service)"},
+        {"value": "recurring", "label": "Recurring (Auto-generated invoices)"},
+        {"value": "one_time", "label": "One-time invoice"}
     ]
 
 

@@ -145,6 +145,12 @@ class ContractService(BaseService):
             "status": initial_status,
             "value": contract_data.value,
             "currency": contract_data.currency,
+            
+            # Invoice generation settings
+            "billing_type": contract_data.billing_type.value if contract_data.billing_type else None,
+            "billing_frequency": contract_data.billing_frequency,
+            "next_billing_date": datetime.combine(contract_data.next_billing_date, datetime.min.time()) if contract_data.next_billing_date else None,
+            
             "related_property_id": contract_data.related_property_id,
             "related_tenant_id": contract_data.related_tenant_id,
             "related_user_id": contract_data.related_user_id,
@@ -293,6 +299,20 @@ class ContractService(BaseService):
         
         return stats
 
+
+    async def get_contracts_due_for_billing(self) -> List[Dict[str, Any]]:
+        """Get contracts that are due for billing (recurring invoices)"""
+        current_date = date.today()
+        current_datetime = datetime.combine(current_date, datetime.max.time())
+        
+        cursor = self.collection.find({
+            "status": ContractStatus.ACTIVE.value,
+            "billing_type": {"$in": ["recurring", "RECURRING"]},
+            "next_billing_date": {"$lte": current_datetime},
+            "is_archived": False
+        }).sort("next_billing_date", 1)
+        
+        return await cursor.to_list(length=None)
 
     async def auto_update_contract_statuses(self) -> Dict[str, int]:
         """Auto-update contract statuses based on dates"""

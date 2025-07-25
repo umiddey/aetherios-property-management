@@ -21,6 +21,13 @@ class ContractStatus(str, Enum):
     PENDING = "pending"
 
 
+class ContractBillingType(str, Enum):
+    CREDIT = "credit"  # Service provider receives money (contractor payment)
+    DEBIT = "debit"    # Customer pays money (tenant charges)
+    RECURRING = "recurring"  # Auto-recurring invoices (rent, salary)
+    ONE_TIME = "one_time"    # Single invoice generation
+
+
 class ContractParty(BaseModel):
     name: str
     role: str  # "tenant", "landlord", "contractor", "service_provider", "employee", "employer", "bank", "insurance_company"
@@ -39,6 +46,11 @@ class Contract(BaseModel):
     status: ContractStatus = ContractStatus.DRAFT
     value: Optional[float] = None
     currency: str = "EUR"
+    
+    # Invoice generation settings
+    billing_type: Optional[ContractBillingType] = None
+    billing_frequency: Optional[str] = None  # "monthly", "quarterly", "yearly", "one_time"
+    next_billing_date: Optional[date] = None
     
     # Related entities
     related_property_id: Optional[str] = None
@@ -72,6 +84,11 @@ class ContractCreate(BaseModel):
     value: Optional[float] = None
     currency: str = "EUR"
     
+    # Invoice generation settings
+    billing_type: Optional[ContractBillingType] = None
+    billing_frequency: Optional[str] = None
+    next_billing_date: Optional[date] = None
+    
     related_property_id: Optional[str] = None
     related_tenant_id: Optional[str] = None
     related_user_id: Optional[str] = None
@@ -90,6 +107,11 @@ class ContractUpdate(BaseModel):
     end_date: Optional[datetime] = None
     value: Optional[float] = None
     currency: Optional[str] = None
+    
+    # Invoice generation settings
+    billing_type: Optional[ContractBillingType] = None
+    billing_frequency: Optional[str] = None
+    next_billing_date: Optional[date] = None
     
     related_property_id: Optional[str] = None
     related_tenant_id: Optional[str] = None
@@ -112,6 +134,11 @@ class ContractResponse(BaseModel):
     status: ContractStatus
     value: Optional[float] = None
     currency: str
+    
+    # Invoice generation settings
+    billing_type: Optional[ContractBillingType] = None
+    billing_frequency: Optional[str] = None
+    next_billing_date: Optional[date] = None
     
     related_property_id: Optional[str] = None
     related_tenant_id: Optional[str] = None
