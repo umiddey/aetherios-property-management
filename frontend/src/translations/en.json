@@ -213,7 +213,13 @@
     "phone": "Phone",
     "address": "Address",
     "industry": "Industry",
-    "website": "Website"
+    "website": "Website",
+    "accountType": "Account Type",
+    "allTypes": "All Types",
+    "tenant": "Tenant",
+    "employee": "Employee",
+    "contractor": "Contractor",
+    "searchPlaceholder": "Search by name or email..."
   },
   "forms": {
     "createProperty": {

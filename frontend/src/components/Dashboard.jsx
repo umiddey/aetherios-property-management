@@ -19,7 +19,7 @@ import CreatePropertyForm from './CreatePropertyForm';
 import CreateTenantForm from './CreateTenantForm';
 import CreateInvoiceForm from './CreateInvoiceForm';
 import CreateTaskForm from './CreateTaskForm';
-import CreateCustomerForm from './CreateCustomerForm';
+import CreateAccountForm from './CreateAccountForm';
 import UserForm from './UserForm';
 import PropertyDetailPage from './PropertyDetailPage';
 import TenantDetailPage from './TenantDetailPage';
@@ -57,6 +57,8 @@ const Dashboard = () => {
   const [invoicePage, setInvoicePage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
   const [accountPage, setAccountPage] = useState(1);
+  const [accountTypeFilter, setAccountTypeFilter] = useState(null);
+  const [accountSearchTerm, setAccountSearchTerm] = useState('');
   const [userPage, setUserPage] = useState(1);
   
   const [propertyFilters, setPropertyFilters] = useState({
@@ -176,6 +178,13 @@ const Dashboard = () => {
     localStorage.setItem('viewedTasks', JSON.stringify(viewedTasks));
   }, [viewedTasks]);
 
+  // Refresh accounts when filters change
+  useEffect(() => {
+    if (user) {
+      fetchAccounts();
+    }
+  }, [accountTypeFilter, accountSearchTerm, user]);
+
 
   useEffect(() => {
     const checkReminders = () => {
@@ -240,6 +249,14 @@ const Dashboard = () => {
     return params.toString();
   };
 
+  const buildAccountParams = () => {
+    const params = new URLSearchParams();
+    params.append('company_id', 'company_1'); // Base company ID
+    if (accountTypeFilter) params.append('account_type', accountTypeFilter);
+    if (accountSearchTerm) params.append('search', accountSearchTerm);
+    return params.toString();
+  };
+
   const filterTenants = (tenants) => {
     const tenantsArray = Array.isArray(tenants) ? tenants : [];
     if (tenantFilters.search) {
@@ -273,7 +290,7 @@ const Dashboard = () => {
       ] = await Promise.all([
         cachedAxios.get(statsUrl),
         cachedAxios.get(`${API}/v1/tasks`),
-        cachedAxios.get(`${API}/v1/customers`),
+        cachedAxios.get(`${API}/v2/accounts/?${buildAccountParams()}`),
         cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`),
         cachedAxios.get(`${API}/v1/properties?${buildPropertyParams()}`),
         cachedAxios.get(`${API}/v1/tenants?${buildTenantParams()}`),
@@ -349,6 +366,16 @@ const Dashboard = () => {
       setTenants(Array.isArray(filteredTenants) ? filteredTenants : []);
     } catch (error) {
       console.error('Error fetching tenants:', error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const response = await cachedAxios.get(`${API}/v2/accounts/?${buildAccountParams()}`);
+      setAccounts(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+      setAccounts([]);
     }
   };
 
@@ -646,10 +673,9 @@ const Dashboard = () => {
               <nav className="flex flex-wrap space-x-2 space-y-2 md:space-y-0">
                 <button onClick={() => handleNav('')} className={currentViewFromPath === '' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.dashboard')}</button>
                 <button onClick={() => handleNav('properties')} className={currentViewFromPath === 'properties' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.properties')}</button>
-                <button onClick={() => handleNav('tenants')} className={currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tenants')}</button>
+                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' || currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.accounts')}</button>
                 <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.invoices')}</button>
                 <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tasks')}</button>
-                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.accounts')}</button>
                 <button onClick={() => handleNav('contracts')} className={currentViewFromPath === 'contracts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.contracts')}</button>
                 {user?.role === 'super_admin' && (
                   <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.users')}</button>
@@ -794,6 +820,10 @@ const Dashboard = () => {
             handleNav={handleNav} 
             formatDate={formatDate} 
             logAction={logAction}
+            accountTypeFilter={accountTypeFilter}
+            setAccountTypeFilter={setAccountTypeFilter}
+            searchTerm={accountSearchTerm}
+            setSearchTerm={setAccountSearchTerm}
           />} />
           <Route path="/users" element={<UsersView 
             usersList={(Array.isArray(usersList) ? usersList : []).slice((userPage - 1) * ITEMS_PER_PAGE, userPage * ITEMS_PER_PAGE)} 
@@ -854,11 +884,11 @@ const Dashboard = () => {
             t={t}
             logAction={logAction}
           />} />
-          <Route path="/create-account" element={<CreateCustomerForm 
+          <Route path="/create-account" element={<CreateAccountForm 
             onBack={() => handleNav('accounts')} 
             onSuccess={() => {
-              invalidateCache('/api/v1/customers'); // Clear customers cache
-              fetchData();
+              invalidateCache('/api/v2/accounts'); // Clear accounts cache
+              fetchAccounts(); // Refresh accounts list
               handleNav('accounts');
             }} 
             t={t}

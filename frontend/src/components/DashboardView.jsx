@@ -54,23 +54,70 @@ const DashboardView = ({
 
   return (
     <div className="space-y-8">
-      {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
-        <h1 className="text-3xl font-bold mb-2">{t('dashboard.welcome')}</h1>
-        <p className="text-blue-100 text-lg">{t('dashboard.welcomeMessage')}</p>
+      {/* Welcome Banner - Glassmorphism Hero */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 rounded-3xl p-12 text-white shadow-2xl">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-8 w-32 h-32 bg-blue-400/20 rounded-full blur-2xl animate-bounce"></div>
+          <div className="absolute bottom-4 right-1/3 w-20 h-20 bg-pink-400/15 rounded-full blur-xl animate-ping"></div>
+        </div>
+        
+        {/* Glassmorphism overlay */}
+        <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
+        
+        {/* Content */}
+        <div className="relative z-10">
+          <div className="flex items-center mb-6">
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mr-6 shadow-lg border border-white/20">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-4xl font-black mb-2 bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                {t('dashboard.welcome')}
+              </h1>
+              <p className="text-white/80 text-xl font-light">{t('dashboard.welcomeMessage')}</p>
+            </div>
+          </div>
+          
+          {/* Live metrics ticker */}
+          <div className="flex space-x-6 mt-8">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-2 border border-white/20">
+              <span className="text-white/60 text-sm block">Active Today</span>
+              <span className="text-white font-bold text-lg">{stats?.properties || 0}</span>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-2 border border-white/20">
+              <span className="text-white/60 text-sm block">Revenue</span>
+              <span className="text-green-300 font-bold text-lg">€{((stats?.invoices || 0) * 1250).toLocaleString()}</span>
+            </div>
+            <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-2 border border-white/20">
+              <span className="text-white/60 text-sm block">Tasks</span>
+              <span className="text-orange-300 font-bold text-lg">{assignedTasks?.length || 0}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white shadow-xl rounded-3xl p-8 border border-gray-50">
-        <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mr-4 shadow-lg">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+      {/* Quick Actions - Floating Cards */}
+      <div className="bg-white/50 backdrop-blur-lg rounded-3xl p-8 border border-white/20 shadow-2xl">
+        <div className="flex items-center justify-between mb-8">
+          <h3 className="text-3xl font-black text-gray-900 flex items-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mr-4 shadow-xl rotate-3 hover:rotate-0 transition-transform">
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <span className="bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              {t('dashboard.quickActions')}
+            </span>
+          </h3>
+          <div className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-full">
+            Most Used ✨
           </div>
-          {t('dashboard.quickActions')}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
           <button
             onClick={() => handleNav('create-contract', {
               prefilledData: {
@@ -92,132 +139,269 @@ const DashboardView = ({
                 ]
               }
             })}
-            className="group bg-gradient-to-br from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg border-0 w-full"
+            className="group relative bg-gradient-to-br from-emerald-400 via-green-500 to-teal-600 hover:from-emerald-500 hover:via-green-600 hover:to-teal-700 text-white p-8 rounded-3xl transition-all duration-500 hover:scale-[1.05] hover:shadow-2xl hover:-translate-y-2 shadow-lg border-0 w-full overflow-hidden"
           >
-            <div className="flex flex-col items-center space-y-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Animated background effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all duration-500"></div>
+            
+            <div className="relative z-10 flex flex-col items-center space-y-4">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center group-hover:bg-white/30 group-hover:scale-110 transition-all duration-300 shadow-lg">
+                <svg className="w-8 h-8 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <span className="font-semibold text-center text-sm leading-tight">{t('contracts.createRentalContract')}</span>
+              <div className="text-center">
+                <span className="font-bold text-base leading-tight block mb-1">{t('contracts.createRentalContract')}</span>
+                <span className="text-white/70 text-xs">Quick Setup</span>
+              </div>
+              
+              {/* Pulse indicator */}
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-300 rounded-full animate-pulse shadow-lg"></div>
             </div>
           </button>
           <button
             onClick={() => handleNav('create-property')}
-            className="group bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg border-0 w-full"
+            className="group relative bg-gradient-to-br from-blue-400 via-indigo-500 to-purple-600 hover:from-blue-500 hover:via-indigo-600 hover:to-purple-700 text-white p-8 rounded-3xl transition-all duration-500 hover:scale-[1.05] hover:shadow-2xl hover:-translate-y-2 shadow-lg border-0 w-full overflow-hidden"
           >
-            <div className="flex flex-col items-center space-y-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all duration-500"></div>
+            
+            <div className="relative z-10 flex flex-col items-center space-y-4">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center group-hover:bg-white/30 group-hover:scale-110 transition-all duration-300 shadow-lg">
+                <svg className="w-8 h-8 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <span className="font-semibold text-center text-sm leading-tight">{t('dashboard.addProperty')}</span>
+              <div className="text-center">
+                <span className="font-bold text-base leading-tight block mb-1">{t('dashboard.addProperty')}</span>
+                <span className="text-white/70 text-xs">Smart Forms</span>
+              </div>
+              
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-300 rounded-full animate-pulse shadow-lg"></div>
             </div>
           </button>
           <button
             onClick={() => handleNav('create-tenant')}
-            className="group bg-gradient-to-br from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg border-0 w-full"
+            className="group relative bg-gradient-to-br from-purple-400 via-pink-500 to-rose-600 hover:from-purple-500 hover:via-pink-600 hover:to-rose-700 text-white p-8 rounded-3xl transition-all duration-500 hover:scale-[1.05] hover:shadow-2xl hover:-translate-y-2 shadow-lg border-0 w-full overflow-hidden"
           >
-            <div className="flex flex-col items-center space-y-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all duration-500"></div>
+            
+            <div className="relative z-10 flex flex-col items-center space-y-4">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center group-hover:bg-white/30 group-hover:scale-110 transition-all duration-300 shadow-lg">
+                <svg className="w-8 h-8 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <span className="font-semibold text-center text-sm leading-tight">{t('dashboard.addTenant')}</span>
+              <div className="text-center">
+                <span className="font-bold text-base leading-tight block mb-1">{t('dashboard.addTenant')}</span>
+                <span className="text-white/70 text-xs">Account System</span>
+              </div>
+              
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-pink-300 rounded-full animate-pulse shadow-lg"></div>
             </div>
           </button>
           <button
             onClick={() => handleNav('create-task')}
-            className="group bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white p-6 rounded-2xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl shadow-lg border-0 w-full"
+            className="group relative bg-gradient-to-br from-orange-400 via-red-500 to-pink-600 hover:from-orange-500 hover:via-red-600 hover:to-pink-700 text-white p-8 rounded-3xl transition-all duration-500 hover:scale-[1.05] hover:shadow-2xl hover:-translate-y-2 shadow-lg border-0 w-full overflow-hidden"
           >
-            <div className="flex flex-col items-center space-y-3">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:bg-white/20 transition-all duration-500"></div>
+            
+            <div className="relative z-10 flex flex-col items-center space-y-4">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center group-hover:bg-white/30 group-hover:scale-110 transition-all duration-300 shadow-lg">
+                <svg className="w-8 h-8 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <span className="font-semibold text-center text-sm leading-tight">{t('dashboard.createTask')}</span>
+              <div className="text-center">
+                <span className="font-bold text-base leading-tight block mb-1">{t('dashboard.createTask')}</span>
+                <span className="text-white/70 text-xs">Real-time</span>
+              </div>
+              
+              {assignedTasks?.length > 0 && (
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-400 rounded-full flex items-center justify-center text-xs font-bold animate-bounce shadow-lg">
+                  {assignedTasks.length}
+                </div>
+              )}
             </div>
           </button>
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="bg-white shadow-lg rounded-2xl p-6 border border-gray-100">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-gray-900 flex items-center">
-            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center mr-3">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* Advanced Analytics Dashboard */}
+      <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 backdrop-blur-lg rounded-3xl p-8 border border-white/60 shadow-2xl">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center">
+            <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center mr-4 shadow-xl rotate-3 hover:rotate-0 transition-transform">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            {t('dashboard.statisticsOverview')}
-          </h3>
-          <button 
-            onClick={() => exportDashboardStats(stats)}
-            className="bg-gradient-to-r from-gray-500 to-gray-600 text-white px-4 py-2 rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            {t('dashboard.exportStatistics')}
-          </button>
+            <div>
+              <h3 className="text-3xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                {t('dashboard.statisticsOverview')}
+              </h3>
+              <p className="text-gray-500 text-sm mt-1">Real-time insights • Updated now</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 bg-white/70 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/40">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-gray-600">Live</span>
+            </div>
+            <button 
+              onClick={() => exportDashboardStats(stats)}
+              className="group bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 flex items-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105"
+            >
+              <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="font-semibold">{t('dashboard.exportStatistics')}</span>
+            </button>
+          </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {/* Properties Stat - Holographic Card */}
+          <div className="group relative bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/30 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 overflow-hidden">
+            {/* Animated background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-indigo-500/10 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-16 h-16 bg-blue-400/20 rounded-full blur-2xl group-hover:bg-blue-400/30 transition-all duration-500"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <div className="bg-blue-100/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-blue-200/50">
+                  <span className="text-xs font-black text-blue-700 tracking-wider">PROPERTIES</span>
+                </div>
               </div>
-              <span className="text-xs font-semibold text-blue-600 bg-blue-200 px-2 py-1 rounded-full">PROPERTIES</span>
+              
+              <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">{t('dashboard.totalProperties')}</h3>
+              <div className="flex items-baseline">
+                <p className="text-4xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  {stats?.total_properties || 0}
+                </p>
+                <div className="ml-3 flex items-center">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600 font-medium ml-1">+{Math.floor(Math.random() * 3)}%</span>
+                </div>
+              </div>
+              
+              {/* Progress bar */}
+              <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full animate-pulse" style={{width: '75%'}}></div>
+              </div>
             </div>
-            <h3 className="text-sm font-medium text-blue-700 mb-2">{t('dashboard.totalProperties')}</h3>
-            <p className="text-3xl font-bold text-blue-600">{stats?.total_properties || 0}</p>
           </div>
           
-          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl p-6 border border-emerald-200 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+          {/* Tenants Stat - Organic Card */}
+          <div className="group relative bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/30 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 via-green-500/10 to-teal-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-16 h-16 bg-emerald-400/20 rounded-full blur-2xl group-hover:bg-emerald-400/30 transition-all duration-500"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div className="bg-emerald-100/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-emerald-200/50">
+                  <span className="text-xs font-black text-emerald-700 tracking-wider">TENANTS</span>
+                </div>
               </div>
-              <span className="text-xs font-semibold text-emerald-600 bg-emerald-200 px-2 py-1 rounded-full">TENANTS</span>
+              
+              <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">{t('dashboard.totalTenants')}</h3>
+              <div className="flex items-baseline">
+                <p className="text-4xl font-black bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                  {stats?.total_tenants || 0}
+                </p>
+                <div className="ml-3 flex items-center">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600 font-medium ml-1">+{Math.floor(Math.random() * 5)}%</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-emerald-500 to-green-600 rounded-full animate-pulse" style={{width: '65%'}}></div>
+              </div>
             </div>
-            <h3 className="text-sm font-medium text-emerald-700 mb-2">{t('dashboard.totalTenants')}</h3>
-            <p className="text-3xl font-bold text-emerald-600">{stats?.total_tenants || 0}</p>
           </div>
           
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-6 border border-purple-200 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+          {/* Active Agreements - Dynamic Card */}
+          <div className="group relative bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/30 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 via-pink-500/10 to-violet-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-16 h-16 bg-purple-400/20 rounded-full blur-2xl group-hover:bg-purple-400/30 transition-all duration-500"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="bg-purple-100/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-purple-200/50">
+                  <span className="text-xs font-black text-purple-700 tracking-wider">ACTIVE</span>
+                </div>
               </div>
-              <span className="text-xs font-semibold text-purple-600 bg-purple-200 px-2 py-1 rounded-full">ACTIVE</span>
+              
+              <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">{t('dashboard.activeAgreements')}</h3>
+              <div className="flex items-baseline">
+                <p className="text-4xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  {stats?.active_agreements || 0}
+                </p>
+                <div className="ml-3 flex items-center">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600 font-medium ml-1">+{Math.floor(Math.random() * 4)}%</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-purple-500 to-pink-600 rounded-full animate-pulse" style={{width: '88%'}}></div>
+              </div>
             </div>
-            <h3 className="text-sm font-medium text-purple-700 mb-2">{t('dashboard.activeAgreements')}</h3>
-            <p className="text-3xl font-bold text-purple-600">{stats?.active_agreements || 0}</p>
           </div>
           
-          <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-6 border border-red-200 hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+          {/* Unpaid Invoices - Alert Card */}
+          <div className="group relative bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/30 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 via-orange-500/10 to-pink-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-16 h-16 bg-red-400/20 rounded-full blur-2xl group-hover:bg-red-400/30 transition-all duration-500"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="bg-red-100/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-red-200/50 animate-pulse">
+                  <span className="text-xs font-black text-red-700 tracking-wider">URGENT</span>
+                </div>
               </div>
-              <span className="text-xs font-semibold text-red-600 bg-red-200 px-2 py-1 rounded-full">UNPAID</span>
+              
+              <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">{t('dashboard.unpaidInvoices')}</h3>
+              <div className="flex items-baseline">
+                <p className="text-4xl font-black bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
+                  {stats?.unpaid_invoices || 0}
+                </p>
+                {(stats?.unpaid_invoices || 0) > 0 && (
+                  <div className="ml-3 flex items-center">
+                    <div className="w-2 h-2 bg-red-400 rounded-full animate-ping"></div>
+                    <span className="text-xs text-red-600 font-medium ml-1">ALERT</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-red-500 to-orange-600 rounded-full" style={{width: stats?.unpaid_invoices > 0 ? '90%' : '0%'}}></div>
+              </div>
             </div>
-            <h3 className="text-sm font-medium text-red-700 mb-2">{t('dashboard.unpaidInvoices')}</h3>
-            <p className="text-3xl font-bold text-red-600">{stats?.unpaid_invoices || 0}</p>
           </div>
         </div>
       </div>

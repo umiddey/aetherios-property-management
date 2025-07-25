@@ -223,7 +223,13 @@
     "website": "Website",
     "noAccountsFound": "Keine Konten gefunden",
     "associatedTasks": "Verknüpfte Aufgaben",
-    "noTasksAssociated": "Keine Aufgaben verknüpft"
+    "noTasksAssociated": "Keine Aufgaben verknüpft",
+    "accountType": "Kontotyp",
+    "allTypes": "Alle Typen",
+    "tenant": "Mieter",
+    "employee": "Mitarbeiter",
+    "contractor": "Auftragnehmer",
+    "searchPlaceholder": "Nach Name oder E-Mail suchen..."
   },
   "forms": {
     "createProperty": {
