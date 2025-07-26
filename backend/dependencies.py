@@ -70,6 +70,56 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     )
 
 
+async def get_portal_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """
+    Validate portal JWT tokens for tenant service request submissions.
+    
+    Portal tokens are separate from admin tokens and only allow service request creation.
+    Maintains security isolation between tenant portal and admin ERP system.
+    """
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Verify this is a portal token (not admin token)
+        token_type = payload.get("type")
+        if token_type != "portal":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type - portal access required"
+            )
+        
+        # Extract portal user information
+        account_id = payload.get("sub")
+        if account_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid portal authentication credentials"
+            )
+        
+        # Verify account exists in accounts collection
+        account_doc = await db.accounts.find_one({"id": account_id})
+        if account_doc is None or not account_doc.get("portal_active"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Portal account not found or inactive"
+            )
+        
+        # Return portal user context for service request creation
+        return {
+            "account_id": account_id,
+            "email": payload.get("email"),
+            "type": "portal",
+            "account_type": account_doc.get("account_type", "tenant"),
+            "company_id": account_doc.get("company_id")
+        }
+        
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid portal authentication credentials"
+        )
+
+
 async def get_super_admin(current_user: User = Depends(get_current_user)) -> User:
     """Get current user and verify super admin role."""
     if current_user.role != "super_admin":

@@ -22,7 +22,7 @@ from models.service_request import (
     ServiceRequestPriority,
     ServiceRequestStatus
 )
-from dependencies import get_current_user, db
+from dependencies import get_current_user, get_portal_user, db
 from services.service_request_service import ServiceRequestService
 
 router = APIRouter(prefix="/service-requests", tags=["service-requests"])
@@ -272,8 +272,7 @@ async def get_service_request_stats(
 @router.post("/portal/submit", response_model=PortalServiceRequestResponse, status_code=status.HTTP_201_CREATED)
 async def submit_portal_service_request(
     request: PortalServiceRequestCreate,
-    # This will be replaced with portal-specific authentication
-    current_user=Depends(get_current_user),  # Temporary - will use portal JWT
+    portal_user=Depends(get_portal_user),  # ✅ Portal JWT authentication
     service: ServiceRequestService = Depends(get_service_request_service)
 ):
     """
@@ -281,18 +280,18 @@ async def submit_portal_service_request(
     
     This endpoint is used by tenants through the customer portal to submit maintenance requests.
     Tenant ID and property ID are extracted from the portal JWT token.
+    Portal authentication maintains security isolation from admin ERP system.
     """
     try:
-        # TODO: Replace with portal authentication that extracts tenant info from JWT
-        # For now, we'll assume tenant_id is in the user object
-        tenant_id = current_user.get("account_id") or current_user.get("id")
+        # Extract tenant info from portal JWT token
+        tenant_id = portal_user["account_id"]
         
         # Get tenant's property association
         property_id = await service.get_tenant_property_id(tenant_id)
         if not property_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No active rental agreement found. Please contact your property manager."
+                detail=f"No active rental agreement found for tenant {tenant_id}. Please contact your property manager."
             )
         
         # Create full service request from portal request
@@ -335,18 +334,18 @@ async def submit_portal_service_request(
 async def get_portal_service_requests(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
-    # This will be replaced with portal-specific authentication
-    current_user=Depends(get_current_user),  # Temporary - will use portal JWT
+    portal_user=Depends(get_portal_user),  # ✅ Portal JWT authentication
     service: ServiceRequestService = Depends(get_service_request_service)
 ):
     """
     Get tenant's service requests from customer portal
     
     Returns only the requests submitted by the authenticated tenant.
+    Portal authentication ensures tenant data isolation.
     """
     try:
-        # TODO: Replace with portal authentication
-        tenant_id = current_user.get("account_id") or current_user.get("id")
+        # Extract tenant info from portal JWT token
+        tenant_id = portal_user["account_id"]
         
         # Get tenant's service requests
         service_requests = await service.get_tenant_service_requests(tenant_id, skip, limit)
@@ -375,18 +374,18 @@ async def get_portal_service_requests(
 @router.get("/portal/my-requests/{request_id}", response_model=PortalServiceRequestResponse)
 async def get_portal_service_request(
     request_id: str,
-    # This will be replaced with portal-specific authentication
-    current_user=Depends(get_current_user),  # Temporary - will use portal JWT
+    portal_user=Depends(get_portal_user),  # ✅ Portal JWT authentication
     service: ServiceRequestService = Depends(get_service_request_service)
 ):
     """
     Get specific service request from customer portal
     
     Tenants can only view their own service requests.
+    Portal authentication ensures tenant data isolation.
     """
     try:
-        # TODO: Replace with portal authentication
-        tenant_id = current_user.get("account_id") or current_user.get("id")
+        # Extract tenant info from portal JWT token
+        tenant_id = portal_user["account_id"]
         
         # Get service request and verify ownership
         service_request = await service.get_tenant_service_request_by_id(request_id, tenant_id)

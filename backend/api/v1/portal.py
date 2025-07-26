@@ -25,7 +25,11 @@ from dependencies import get_current_user, db
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT settings (reuse from main auth)
-SECRET_KEY = "your-secret-key"  # Should be from environment
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+SECRET_KEY = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
