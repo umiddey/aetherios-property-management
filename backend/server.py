@@ -33,6 +33,8 @@ from api.v1.activities import router as activities_router
 from api.v1.dashboard import router as dashboard_router
 from api.v1.analytics import router as analytics_router
 from api.v1.contracts import router as contracts_router
+from api.v1.service_requests import router as service_requests_router, public_router as service_requests_public_router
+from api.v1.portal import router as portal_router
 from api.v2.accounts import router as accounts_v2_router
 from repositories.property_repository import PropertyRepository
 
@@ -376,9 +378,12 @@ app.include_router(activities_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(contracts_router, prefix="/api/v1")
+app.include_router(service_requests_router, prefix="/api/v1")
+app.include_router(service_requests_public_router, prefix="/api/v1")
+app.include_router(portal_router, prefix="/api/v1")
 
 # V2 API Routes (Unified Account System)
-app.include_router(accounts_v2_router, prefix="/api/v2")
+app.include_router(accounts_v2_router)
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,

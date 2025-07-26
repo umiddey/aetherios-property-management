@@ -19,7 +19,7 @@ from models.account import (
     PortalLoginResponse,
     AccountResponse
 )
-from dependencies import get_database, get_current_user
+from dependencies import get_current_user, db
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -59,7 +59,7 @@ def create_portal_access_token(account_id: str, email: str) -> str:
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-async def get_current_portal_user(db=Depends(get_database)):
+async def get_current_portal_user():
     """
     Dependency to get current authenticated portal user
     Similar to get_current_user but for portal tokens
@@ -70,7 +70,7 @@ async def get_current_portal_user(db=Depends(get_database)):
 
 
 @router.get("/invite/{portal_code}", response_model=PortalInvitationResponse)
-async def get_portal_invitation(portal_code: str, db=Depends(get_database)):
+async def get_portal_invitation(portal_code: str):
     """
     Validate portal invitation code and return account information for activation
     URL: GET /api/v1/portal/invite/ZJD1ML0
@@ -109,7 +109,7 @@ async def get_portal_invitation(portal_code: str, db=Depends(get_database)):
 
 
 @router.post("/activate", response_model=PortalLoginResponse)
-async def activate_portal_account(activation: PortalActivation, db=Depends(get_database)):
+async def activate_portal_account(activation: PortalActivation):
     """
     Activate portal account with password creation
     This invalidates the invitation code and enables regular login
@@ -143,13 +143,38 @@ async def activate_portal_account(activation: PortalActivation, db=Depends(get_d
     # Hash password and activate account
     password_hash = get_password_hash(activation.password)
     
-    # Determine which collection to update
-    collection = db.accounts if await db.accounts.find_one({"id": account["id"]}) else db.tenants
+    # Allow custom email or use account's existing email
+    portal_email = activation.email if activation.email else account.get("email")
+    
+    # Check if this portal_email is already in use by another account's portal_email
+    existing_portal_account = await db.accounts.find_one({
+        "portal_email": portal_email,
+        "portal_active": True,
+        "id": {"$ne": account["id"]}  # Exclude current account
+    })
+    
+    # Also check tenants collection for backward compatibility
+    if not existing_portal_account:
+        existing_portal_account = await db.tenants.find_one({
+            "portal_email": portal_email,
+            "portal_active": True,
+            "id": {"$ne": account.get("id", account.get("_id"))}  # Exclude current account
+        })
+    
+    if existing_portal_account:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This email address is already in use for portal access. Please choose a different email."
+        )
+    
+    # Determine which collection to update (fix: use _id instead of id)
+    collection = db.accounts if await db.accounts.find_one({"_id": account["_id"]}) else db.tenants
     
     await collection.update_one(
-        {"id": account["id"]},
+        {"_id": account["_id"]},
         {
             "$set": {
+                "portal_email": portal_email,  # Store the chosen email for portal login
                 "portal_password_hash": password_hash,
                 "portal_active": True,
                 "portal_last_login": datetime.utcnow(),
@@ -164,6 +189,11 @@ async def activate_portal_account(activation: PortalActivation, db=Depends(get_d
     # Create access token
     access_token = create_portal_access_token(account["id"], account["email"])
     
+    # Ensure portal fields exist with defaults for AccountResponse compatibility
+    account.setdefault("portal_code", None)  # Removed during activation
+    account.setdefault("portal_active", True)
+    account.setdefault("portal_last_login", datetime.utcnow())
+    
     # Return login response
     account_response = AccountResponse(**account)
     return PortalLoginResponse(
@@ -173,13 +203,16 @@ async def activate_portal_account(activation: PortalActivation, db=Depends(get_d
 
 
 @router.post("/login", response_model=PortalLoginResponse)
-async def portal_login(login: PortalLogin, db=Depends(get_database)):
+async def portal_login(login: PortalLogin):
     """
     Regular portal login for activated accounts
     """
-    # Find account by email (check both accounts and tenants collections)
+    # Find account by portal_email (primary) or fallback to email (backward compatibility)
     account = await db.accounts.find_one({
-        "email": login.email,
+        "$or": [
+            {"portal_email": login.email},
+            {"email": login.email}
+        ],
         "is_archived": False,
         "portal_active": True
     })
@@ -187,7 +220,10 @@ async def portal_login(login: PortalLogin, db=Depends(get_database)):
     # If not found in accounts, check tenants collection (backward compatibility)
     if not account:
         account = await db.tenants.find_one({
-            "email": login.email,
+            "$or": [
+                {"portal_email": login.email},
+                {"email": login.email}
+            ],
             "is_archived": False,
             "portal_active": True
         })
@@ -206,11 +242,11 @@ async def portal_login(login: PortalLogin, db=Depends(get_database)):
         )
     
     # Update last login
-    # Determine which collection to update
-    collection = db.accounts if await db.accounts.find_one({"id": account["id"]}) else db.tenants
+    # Determine which collection to update (fix: use _id instead of id)
+    collection = db.accounts if await db.accounts.find_one({"_id": account["_id"]}) else db.tenants
     
     await collection.update_one(
-        {"id": account["id"]},
+        {"_id": account["_id"]},
         {
             "$set": {
                 "portal_last_login": datetime.utcnow(),
@@ -222,6 +258,11 @@ async def portal_login(login: PortalLogin, db=Depends(get_database)):
     # Create access token
     access_token = create_portal_access_token(account["id"], account["email"])
     
+    # Ensure portal fields exist with defaults for AccountResponse compatibility
+    account.setdefault("portal_code", None)
+    account.setdefault("portal_active", True)
+    account.setdefault("portal_last_login", datetime.utcnow())
+    
     # Return login response
     account_response = AccountResponse(**account)
     return PortalLoginResponse(
@@ -231,7 +272,7 @@ async def portal_login(login: PortalLogin, db=Depends(get_database)):
 
 
 @router.get("/dashboard")
-async def get_portal_dashboard(current_account=Depends(get_current_portal_user), db=Depends(get_database)):
+async def get_portal_dashboard(current_account=Depends(get_current_portal_user)):
     """
     Get portal dashboard data for authenticated tenant
     Returns contracts, invoices, and basic account info

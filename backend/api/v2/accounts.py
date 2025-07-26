@@ -4,7 +4,8 @@ Replaces fragmented tenant/customer system with hierarchical account structure
 """
 
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import status as http_status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from models.account import (
@@ -29,7 +30,7 @@ def get_account_service(db: AsyncIOMotorDatabase = Depends(get_database)) -> Acc
     return AccountService(db)
 
 
-@router.post("/", response_model=AccountResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=AccountResponse, status_code=http_status.HTTP_201_CREATED)
 async def create_account(
     account_data: AccountCreate,
     current_user: User = Depends(get_current_user),
@@ -43,7 +44,7 @@ async def create_account(
         return account
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to create account: {str(e)}"
         )
 
@@ -81,7 +82,7 @@ async def get_accounts(
         return accounts
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve accounts: {str(e)}"
         )
 
@@ -98,7 +99,7 @@ async def get_account(
     account = await account_service.get_account_by_id(account_id)
     if not account:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Account not found"
         )
     return account
@@ -117,7 +118,7 @@ async def update_account(
     account = await account_service.update_account(account_id, update_data, current_user.id)
     if not account:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Account not found or no changes made"
         )
     return account
@@ -136,7 +137,7 @@ async def update_account_profile(
     success = await account_service.update_profile(account_id, profile_data)
     if not success:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Account not found or profile update failed"
         )
     return {"message": "Profile updated successfully"}
@@ -154,7 +155,7 @@ async def archive_account(
     success = await account_service.archive_account(account_id, current_user.id)
     if not success:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Account not found"
         )
     return {"message": "Account archived successfully"}
@@ -173,7 +174,7 @@ async def generate_portal_code(
     portal_code = await account_service.generate_portal_code(account_id)
     if not portal_code:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=http_status.HTTP_404_NOT_FOUND,
             detail="Account not found or code generation failed"
         )
     return {"portal_code": portal_code}
@@ -194,7 +195,7 @@ async def validate_portal_access(
     )
     if not account:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=http_status.HTTP_401_UNAUTHORIZED,
             detail="Invalid portal code or access denied"
         )
     return account
@@ -229,7 +230,7 @@ async def migrate_tenant_to_account(
         return account
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"Migration failed: {str(e)}"
         )
 
@@ -272,7 +273,7 @@ async def get_account_statistics(
         }
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get statistics: {str(e)}"
         )
 

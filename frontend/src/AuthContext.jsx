@@ -1,7 +1,7 @@
 // Authentication Context with JWT token management and session handling
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import cachedAxios from './utils/cachedAxios';
 
@@ -28,6 +28,7 @@ const AuthProvider = ({ children }) => {
   });
   
   const navigate = useNavigate();
+  const location = useLocation();
   const INACTIVE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
   const logout = () => {
@@ -36,7 +37,11 @@ const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('lastActivity');
     delete axios.defaults.headers.common['Authorization'];
-    navigate('/login');
+    
+    // Only redirect to admin login if not on portal routes
+    if (!location.pathname.startsWith('/portal')) {
+      navigate('/login');
+    }
   };
 
   // Track user activity for auto-logout
@@ -106,13 +111,20 @@ const AuthProvider = ({ children }) => {
             setToken(null);
             setUser(null);
             delete axios.defaults.headers.common['Authorization'];
-            navigate('/login');
+            
+            // Only redirect to admin login if not on portal routes
+            if (!location.pathname.startsWith('/portal')) {
+              navigate('/login');
+            }
           } else {
             console.error('Token validation error:', error);
           }
         }
       } else {
-        navigate('/login');
+        // Only redirect to admin login if not on portal routes
+        if (!location.pathname.startsWith('/portal')) {
+          navigate('/login');
+        }
       }
       setLoading(false);
     };

@@ -21,6 +21,7 @@ const PropertyDetailPage = ({
   const [property, setProperty] = useState(null);
   const [agreements, setAgreements] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [manager, setManager] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -37,6 +38,16 @@ const PropertyDetailPage = ({
         setProperty(propertyRes.data);
         setAgreements(agreementsRes.data.filter(contract => contract.contract_type === 'rental'));
         setInvoices(invoicesRes.data);
+        
+        // Fetch manager information if manager_id exists
+        if (propertyRes.data.manager_id) {
+          try {
+            const managerRes = await cachedAxios.get(`${API}/v1/users/${propertyRes.data.manager_id}`);
+            setManager(managerRes.data);
+          } catch (managerError) {
+            console.warn('Could not fetch manager details:', managerError);
+          }
+        }
       } catch (error) {
         console.error('Error fetching property details:', error);
         setError('Failed to load property details');
@@ -179,6 +190,31 @@ const PropertyDetailPage = ({
                     {t('properties.coldRent')}
                   </h3>
                   <p className="text-2xl font-bold text-emerald-900">{formatCurrency(property.cold_rent)}</p>
+                </div>
+              )}
+              
+              {/* Manager Information */}
+              {manager && (
+                <div className="bg-indigo-50 rounded-lg p-4">
+                  <h3 className="font-medium text-indigo-900 mb-2 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Property Manager
+                  </h3>
+                  <div className="space-y-2">
+                    <p className="text-lg font-semibold text-indigo-900">{manager.full_name || manager.username}</p>
+                    {manager.email && (
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <a href={`mailto:${manager.email}`} className="text-indigo-700 hover:text-indigo-800 hover:underline">
+                          {manager.email}
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               

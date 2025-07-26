@@ -10,6 +10,7 @@ const PortalInvitation = () => {
   const navigate = useNavigate();
   
   const [invitationData, setInvitationData] = useState(null);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(true);
@@ -27,6 +28,8 @@ const PortalInvitation = () => {
         }
         
         setInvitationData(response.data);
+        // Pre-fill email with the account's email
+        setEmail(response.data.email || '');
       } catch (error) {
         console.error('Invitation fetch error:', error);
         if (error.response?.status === 404) {
@@ -63,6 +66,7 @@ const PortalInvitation = () => {
     try {
       const response = await axios.post(`${BACKEND_URL}/api/v1/portal/activate`, {
         portal_code: inviteCode,
+        email: email,  // Send the chosen email
         password: password
       });
       
@@ -151,6 +155,24 @@ const PortalInvitation = () => {
         )}
 
         <form onSubmit={handleActivation} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              Email Address for Portal Login
+            </label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              placeholder="Choose your login email"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Pre-filled with your account email. You can change this if you prefer a different email for portal access.
+            </p>
+          </div>
+          
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Create Password *

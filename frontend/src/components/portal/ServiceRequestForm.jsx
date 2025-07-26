@@ -1,0 +1,390 @@
+/**
+ * ServiceRequestForm - Tenant Service Request Submission Component
+ * Mobile-first design for customer portal service request creation
+ */
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { secureStorage } from '../../utils/secureStorage';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+const ServiceRequestForm = () => {
+  const navigate = useNavigate();
+  
+  const [formData, setFormData] = useState({
+    request_type: '',
+    priority: 'routine',
+    title: '',
+    description: '',
+    attachments: []
+  });
+  
+  const [requestTypes, setRequestTypes] = useState([]);
+  const [priorities, setPriorities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  // Load service request types and priorities
+  useEffect(() => {
+    const loadFormData = async () => {
+      try {
+        // Fetch available request types
+        const typesResponse = await axios.get(`${BACKEND_URL}/api/v1/service-requests/types`);
+        setRequestTypes(typesResponse.data || []);
+        
+        // Fetch available priorities
+        const prioritiesResponse = await axios.get(`${BACKEND_URL}/api/v1/service-requests/priorities`);
+        setPriorities(prioritiesResponse.data || []);
+        
+      } catch (error) {
+        console.error('Failed to load form data:', error);
+        setError('Failed to load form options. Please refresh the page.');
+      }
+    };
+    
+    loadFormData();
+  }, []);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (error) setError('');
+  };
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    // For now, we'll just store file names - file upload implementation would be added later
+    setFormData(prev => ({
+      ...prev,
+      attachments: files.map(file => file.name)
+    }));
+  };
+
+  const validateForm = () => {
+    if (!formData.request_type) {
+      setError('Please select a request type.');
+      return false;
+    }
+    if (!formData.title.trim()) {
+      setError('Please enter a title for your request.');
+      return false;
+    }
+    if (formData.title.length < 5) {
+      setError('Title must be at least 5 characters long.');
+      return false;
+    }
+    if (!formData.description.trim()) {
+      setError('Please provide a description of the issue.');
+      return false;
+    }
+    if (formData.description.length < 10) {
+      setError('Description must be at least 10 characters long.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
+    setLoading(true);
+    setError('');
+    
+    try {
+      const token = secureStorage.getPortalToken();
+      if (!token) {
+        navigate('/portal/login');
+        return;
+      }
+      
+      const headers = { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      
+      const response = await axios.post(
+        `${BACKEND_URL}/api/v1/service-requests/portal/submit`,
+        {
+          request_type: formData.request_type,
+          priority: formData.priority,
+          title: formData.title.trim(),
+          description: formData.description.trim()
+        },
+        { headers }
+      );
+      
+      if (response.status === 201) {
+        setSuccess(true);
+        // Redirect to dashboard after 2 seconds
+        setTimeout(() => {
+          navigate('/portal/dashboard');
+        }, 2000);
+      }
+      
+    } catch (error) {
+      console.error('Service request submission failed:', error);
+      
+      if (error.response?.status === 401) {
+        setError('Your session has expired. Please log in again.');
+        setTimeout(() => navigate('/portal/login'), 2000);
+      } else if (error.response?.status === 400) {
+        setError(error.response.data?.detail || 'Please check your input and try again.');
+      } else {
+        setError('Failed to submit service request. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getRequestTypeIcon = (type) => {
+    const iconMap = {
+      plumbing: '🔧',
+      electrical: '⚡',
+      hvac: '❄️',
+      appliance: '🏠',
+      general_maintenance: '🔨',
+      cleaning: '🧹',
+      security: '🔒',
+      other: '📝'
+    };
+    return iconMap[type] || '📝';
+  };
+
+  const getPriorityColor = (priority) => {
+    const colorMap = {
+      emergency: 'text-red-600',
+      urgent: 'text-orange-600', 
+      routine: 'text-green-600'
+    };
+    return colorMap[priority] || 'text-green-600';
+  };
+
+  const formatRequestType = (type) => {
+    return type.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Request Submitted!</h1>
+          <p className="text-gray-600 mb-4">
+            Your service request has been submitted successfully. You will be notified when it's assigned to our maintenance team.
+          </p>
+          <p className="text-sm text-gray-500">
+            Redirecting to dashboard...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <button
+              onClick={() => navigate('/portal/dashboard')}
+              className="flex items-center text-gray-600 hover:text-gray-900"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Dashboard
+            </button>
+            <h1 className="text-xl font-semibold text-gray-900">Submit Service Request</h1>
+            <div className="w-24"></div> {/* Spacer for centering */}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Request Type Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                What type of issue are you experiencing? *
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {requestTypes.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleInputChange({ target: { name: 'request_type', value: type } })}
+                    className={`flex flex-col items-center p-4 border rounded-lg transition-all ${
+                      formData.request_type === type
+                        ? 'border-purple-500 bg-purple-50 text-purple-700'
+                        : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    <span className="text-2xl mb-2">{getRequestTypeIcon(type)}</span>
+                    <span className="text-sm font-medium text-center">
+                      {formatRequestType(type)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Priority Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                How urgent is this issue? *
+              </label>
+              <div className="space-y-2">
+                {priorities.map((priority) => (
+                  <label key={priority} className="flex items-center">
+                    <input
+                      type="radio"
+                      name="priority"
+                      value={priority}
+                      checked={formData.priority === priority}
+                      onChange={handleInputChange}
+                      className="mr-3 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className={`font-medium ${getPriorityColor(priority)}`}>
+                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                    </span>
+                    <span className="text-sm text-gray-500 ml-2">
+                      {priority === 'emergency' && '(Response within 2 hours)'}
+                      {priority === 'urgent' && '(Response within 24 hours)'}
+                      {priority === 'routine' && '(Response within 3-5 days)'}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Title Input */}
+            <div>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                Brief description of the issue *
+              </label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                placeholder="e.g., Kitchen faucet is leaking"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                maxLength={100}
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                {formData.title.length}/100 characters
+              </div>
+            </div>
+
+            {/* Description Textarea */}
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                Detailed description *
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                rows={5}
+                placeholder="Please provide as much detail as possible about the issue, including when it started, where exactly it's located, and any other relevant information that might help our maintenance team."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                maxLength={1000}
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                {formData.description.length}/1000 characters
+              </div>
+            </div>
+
+            {/* File Upload (placeholder for future implementation) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Photos (optional)
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <p className="text-sm text-gray-500">
+                  Photo upload feature coming soon
+                </p>
+              </div>
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <svg className="w-5 h-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-red-700 text-sm">{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <div className="flex space-x-4">
+              <button
+                type="button"
+                onClick={() => navigate('/portal/dashboard')}
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Submitting...
+                  </span>
+                ) : (
+                  'Submit Request'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Help Section */}
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-blue-900 mb-2">Need Help?</h3>
+          <p className="text-blue-700 text-sm mb-3">
+            If you're experiencing an emergency (gas leak, electrical hazard, water flooding), 
+            please call our emergency hotline immediately and then submit this form.
+          </p>
+          <div className="text-blue-900 font-semibold">
+            Emergency Hotline: (555) 123-HELP
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default ServiceRequestForm;

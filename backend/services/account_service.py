@@ -54,50 +54,54 @@ class AccountService:
             portal_active=False  # Will be set to True when tenant activates via invitation
         )
         
-        # Use MongoDB transaction to ensure atomicity
-        async with await self.db.client.start_session() as session:
-            async with session.start_transaction():
-                try:
-                    # Insert account within transaction
-                    result = await self.collection.insert_one(account.dict(), session=session)
-                    account.id = str(result.inserted_id)
-                    
-                    # Create type-specific profile within same transaction
-                    await self._create_profile(account.id, account_data.account_type, account_data.profile_data, session)
-                    
-                    # Transaction commits automatically if no exceptions
-                    
-                except Exception as e:
-                    # Transaction automatically aborts on exception
-                    raise Exception(f"Account creation failed: {str(e)}")
+        # Create account and profile (no transactions needed for standalone MongoDB)
+        try:
+            # Convert account to dict and ensure proper types for MongoDB
+            account_dict = account.dict()
+            # Insert account
+            result = await self.collection.insert_one(account_dict)
+            # The account.id is already set from the UUID generation
+            
+            # Create type-specific profile
+            await self._create_profile(account.id, account_data.account_type, account_data.profile_data)
+            
+        except Exception as e:
+            # Clean up account if profile creation fails
+            await self.collection.delete_one({"id": account.id})
+            raise Exception(f"Account creation failed: {str(e)}")
         
         # Return response with profile data (outside transaction)
         return await self.get_account_by_id(account.id)
     
-    async def _create_profile(self, account_id: str, account_type: AccountType, profile_data: Dict[str, Any], session=None):
-        """Create type-specific profile data with optional session for transactions"""
+    async def _create_profile(self, account_id: str, account_type: AccountType, profile_data: Dict[str, Any]):
+        """Create type-specific profile data"""
         if account_type == AccountType.TENANT:
             profile = TenantProfile(account_id=account_id, **profile_data)
-            await self.tenant_profiles.insert_one(profile.dict(), session=session)
+            await self.tenant_profiles.insert_one(profile.dict())
         elif account_type == AccountType.EMPLOYEE:
             profile = EmployeeProfile(account_id=account_id, **profile_data)
-            await self.employee_profiles.insert_one(profile.dict(), session=session)
+            await self.employee_profiles.insert_one(profile.dict())
         elif account_type == AccountType.CONTRACTOR:
             profile = ContractorProfile(account_id=account_id, **profile_data)
-            await self.contractor_profiles.insert_one(profile.dict(), session=session)
+            await self.contractor_profiles.insert_one(profile.dict())
     
     async def get_account_by_id(self, account_id: str) -> Optional[AccountResponse]:
         """Get account by ID with profile data"""
-        # Get base account
-        account_doc = await self.collection.find_one({"_id": ObjectId(account_id)})
+        # Get base account using our UUID id field (not MongoDB _id)
+        account_doc = await self.collection.find_one({"id": account_id})
         if not account_doc:
             return None
         
-        # Convert ObjectId to string
-        account_doc["id"] = str(account_doc.pop("_id"))
+        # Remove MongoDB _id field, keep our UUID id
+        account_doc.pop("_id", None)
         
         # Get profile data
         profile_data = await self._get_profile_data(account_id, account_doc["account_type"])
+        
+        # Ensure portal fields exist with defaults for backward compatibility
+        account_doc.setdefault("portal_code", None)
+        account_doc.setdefault("portal_active", False)
+        account_doc.setdefault("portal_last_login", None)
         
         # Create response
         account_response = AccountResponse(**account_doc, profile_data=profile_data)
@@ -139,7 +143,14 @@ class AccountService:
         accounts = []
         
         async for account_doc in cursor:
-            account_doc["id"] = str(account_doc.pop("_id"))
+            # Remove MongoDB _id field, keep our UUID id
+            account_doc.pop("_id", None)
+            
+            # Ensure portal fields exist with defaults for backward compatibility
+            account_doc.setdefault("portal_code", None)
+            account_doc.setdefault("portal_active", False)
+            account_doc.setdefault("portal_last_login", None)
+            
             profile_data = await self._get_profile_data(account_doc["id"], account_doc["account_type"])
             account_response = AccountResponse(**account_doc, profile_data=profile_data)
             accounts.append(account_response)
@@ -154,7 +165,7 @@ class AccountService:
             update_dict["updated_by"] = updated_by
             
             result = await self.collection.update_one(
-                {"_id": ObjectId(account_id)},
+                {"id": account_id},
                 {"$set": update_dict}
             )
             
@@ -166,7 +177,7 @@ class AccountService:
     async def update_profile(self, account_id: str, profile_data: Dict[str, Any]) -> bool:
         """Update profile data for an account"""
         # Get account to determine type
-        account = await self.collection.find_one({"_id": ObjectId(account_id)})
+        account = await self.collection.find_one({"id": account_id})
         if not account:
             return False
         
@@ -194,7 +205,7 @@ class AccountService:
         new_code = self._generate_portal_code()
         
         result = await self.collection.update_one(
-            {"_id": ObjectId(account_id)},
+            {"id": account_id},
             {"$set": {
                 "portal_code": new_code,
                 "portal_active": False,  # Will be set to True when user activates with password
@@ -233,6 +244,12 @@ class AccountService:
             
             # Return account response
             account_doc["id"] = str(account_doc.pop("_id"))
+            
+            # Ensure portal fields exist with defaults for backward compatibility
+            account_doc.setdefault("portal_code", None)
+            account_doc.setdefault("portal_active", False)
+            account_doc.setdefault("portal_last_login", None)
+            
             profile_data = await self._get_profile_data(account_doc["id"], account_doc["account_type"])
             return AccountResponse(**account_doc, profile_data=profile_data)
         
@@ -241,7 +258,7 @@ class AccountService:
     async def archive_account(self, account_id: str, archived_by: str) -> bool:
         """Archive an account (soft delete)"""
         result = await self.collection.update_one(
-            {"_id": ObjectId(account_id)},
+            {"id": account_id},
             {"$set": {
                 "is_archived": True,
                 "portal_active": False,  # Disable portal access
@@ -341,7 +358,14 @@ class AccountService:
         
         try:
             async for account_doc in cursor:
-                account_doc["id"] = str(account_doc.pop("_id"))
+                # Remove MongoDB _id field, keep our UUID id
+                account_doc.pop("_id", None)
+                
+                # Ensure portal fields exist with defaults for backward compatibility
+                account_doc.setdefault("portal_code", None)
+                account_doc.setdefault("portal_active", False)
+                account_doc.setdefault("portal_last_login", None)
+                
                 profile_data = await self._get_profile_data(account_doc["id"], account_doc["account_type"])
                 account_response = AccountResponse(**account_doc, profile_data=profile_data)
                 accounts.append(account_response)

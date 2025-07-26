@@ -41,6 +41,7 @@ class Property(BaseModel):
     owner_email: Optional[str] = None
     owner_phone: Optional[str] = None
     parent_id: Optional[str] = None
+    manager_id: str = Field(..., description="User ID of the property manager responsible for this property")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str
     is_archived: bool = False
@@ -67,6 +68,7 @@ class PropertyCreate(BaseModel):
     owner_email: Optional[str] = None
     owner_phone: Optional[str] = None
     parent_id: Optional[str] = None
+    manager_id: str = Field(..., description="User ID of the property manager responsible for this property")
 
 
 class PropertyUpdate(BaseModel):
@@ -89,6 +91,7 @@ class PropertyUpdate(BaseModel):
     owner_email: Optional[str] = None
     owner_phone: Optional[str] = None
     parent_id: Optional[str] = None
+    manager_id: Optional[str] = Field(None, description="User ID of the property manager responsible for this property")
     is_archived: Optional[bool] = None
 
 

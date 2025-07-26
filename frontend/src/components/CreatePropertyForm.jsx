@@ -27,12 +27,35 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     owner_name: '',
     owner_email: '',
     owner_phone: '',
-    parent_id: ''
+    parent_id: '',
+    manager_id: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [idValidationError, setIdValidationError] = useState('');
   const [isGeneratingId, setIsGeneratingId] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
+  // Fetch users for manager dropdown
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem('jwt_token');
+        const response = await axios.get(`${API}/v1/users/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUsers(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+        setError('Failed to load property managers');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   useEffect(() => {
     const surface = parseFloat(formData.surface_area) || 0;
@@ -540,6 +563,47 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Property Manager Selection */}
+          <div className="mt-6">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-lg flex items-center justify-center mr-3">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Property Manager *</h3>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Assign Property Manager
+              </label>
+              {loadingUsers ? (
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500">
+                  Loading property managers...
+                </div>
+              ) : (
+                <select
+                  name="manager_id"
+                  value={formData.manager_id}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                  required
+                >
+                  <option value="">Select a property manager</option>
+                  {users.map(user => (
+                    <option key={user.id} value={user.id}>
+                      {user.username} ({user.role})
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="text-xs text-gray-500 mt-1">
+                This manager will receive service requests for this property
+              </p>
+            </div>
           </div>
 
           <div className="mt-8 mb-6">

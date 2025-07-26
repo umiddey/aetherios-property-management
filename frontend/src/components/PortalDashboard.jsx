@@ -10,6 +10,39 @@ const PortalDashboard = () => {
   
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [serviceRequests, setServiceRequests] = useState([]);
+  const [contracts, setContracts] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      const token = secureStorage.getPortalToken();
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      // Fetch service requests
+      const serviceRequestsResponse = await axios.get(
+        `${BACKEND_URL}/api/v1/service-requests/portal/my-requests?limit=5`,
+        { headers }
+      );
+      setServiceRequests(serviceRequestsResponse.data || []);
+      
+      // Fetch contracts (placeholder for now)
+      // const contractsResponse = await axios.get(`${BACKEND_URL}/api/v1/portal/contracts`, { headers });
+      // setContracts(contractsResponse.data || []);
+      
+      // Fetch invoices (placeholder for now)  
+      // const invoicesResponse = await axios.get(`${BACKEND_URL}/api/v1/portal/invoices`, { headers });
+      // setInvoices(invoicesResponse.data || []);
+      
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      // Don't fail the entire dashboard if data fetch fails
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Check authentication with secure storage
@@ -26,6 +59,9 @@ const PortalDashboard = () => {
     
     setUser(userData);
     setLoading(false);
+    
+    // Fetch dashboard data
+    fetchDashboardData();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -75,7 +111,7 @@ const PortalDashboard = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-testid="portal-dashboard">
         {/* Welcome Section */}
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl text-white p-6 mb-8">
           <h2 className="text-2xl font-bold mb-2">
@@ -123,7 +159,7 @@ const PortalDashboard = () => {
           </div>
 
           {/* Maintenance Requests Card */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6" data-testid="maintenance-card">
             <div className="flex items-center mb-4">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,9 +172,61 @@ const PortalDashboard = () => {
                 <p className="text-sm text-gray-500">Service requests</p>
               </div>
             </div>
-            <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-              Submit Request
-            </button>
+            
+            {dashboardLoading ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
+                <p className="text-sm text-gray-500 mt-2">Loading requests...</p>
+              </div>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-gray-900 mb-2">
+                  {serviceRequests.length} {serviceRequests.length === 1 ? 'Request' : 'Requests'}
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  {serviceRequests.filter(r => r.status === 'submitted').length} pending, {' '}
+                  {serviceRequests.filter(r => r.status === 'in_progress').length} in progress
+                </p>
+                
+                {/* Recent Requests Preview */}
+                {serviceRequests.length > 0 && (
+                  <div className="mb-4 space-y-2 max-h-20 overflow-y-auto">
+                    {serviceRequests.slice(0, 2).map((request) => (
+                      <div key={request.id} className="flex items-center justify-between text-xs bg-gray-50 rounded p-2">
+                        <span className="font-medium truncate">{request.title}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          request.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' :
+                          request.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                          request.status === 'completed' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {request.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => navigate('/portal/service-request/new')}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Submit New Request
+                  </button>
+                  
+                  {serviceRequests.length > 0 && (
+                    <button 
+                      onClick={() => navigate('/portal/service-requests')}
+                      className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors"
+                    >
+                      View All Requests
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -160,9 +248,12 @@ const PortalDashboard = () => {
               <span className="text-sm font-medium text-gray-700">Pay Rent</span>
             </button>
             
-            <button className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors">
+            <button 
+              onClick={() => navigate('/portal/service-request/new')}
+              className="flex items-center p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors"
+            >
               <svg className="w-6 h-6 text-purple-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.5 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               <span className="text-sm font-medium text-gray-700">Report Issue</span>

@@ -48,6 +48,13 @@ import Dashboard from './components/Dashboard';             // Main app interfac
 import LoginForm from './components/LoginForm';             // Login page
 import ErrorBoundary from './components/ErrorBoundary';     // Error handling wrapper
 
+// Import portal components
+import PortalLogin from './components/PortalLogin';         // Portal login page
+import PortalDashboard from './components/PortalDashboard'; // Portal dashboard
+import PortalInvitation from './components/PortalInvitation'; // Portal invitation activation
+import ServiceRequestForm from './components/portal/ServiceRequestForm'; // Service request form
+import ServiceRequestsList from './components/portal/ServiceRequestsList'; // Service request list
+
 // ==================================================================================
 // APP COMPONENT - The root of our entire application
 // ==================================================================================
@@ -61,8 +68,16 @@ function App() {
         <Router>
           <AuthProvider>
             <Routes>
+              {/* Main ERP System Routes */}
               <Route path="/login" element={<LoginForm />} />
               <Route path="/*" element={<Dashboard />} />
+              
+              {/* Customer Portal Routes */}
+              <Route path="/portal/login" element={<PortalLogin />} />
+              <Route path="/portal/dashboard" element={<PortalDashboard />} />
+              <Route path="/portal/invite/:inviteCode" element={<PortalInvitation />} />
+              <Route path="/portal/service-request/new" element={<ServiceRequestForm />} />
+              <Route path="/portal/service-requests" element={<ServiceRequestsList />} />
             </Routes>
           </AuthProvider>
         </Router>

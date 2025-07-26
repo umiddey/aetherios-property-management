@@ -84,7 +84,7 @@ const CreateContractForm = () => {
         cachedAxios.get(`${API}/v1/contracts/types/list`),
         cachedAxios.get(`${API}/v1/contracts/billing-types/list`),
         cachedAxios.get(`${API}/v1/properties/`),
-        cachedAxios.get(`${API}/v1/tenants/`),
+        cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`),
         cachedAxios.get(`${API}/v1/users/`)
       ]);
       

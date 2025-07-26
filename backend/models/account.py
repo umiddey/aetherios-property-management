@@ -3,7 +3,7 @@ Account System Models - Unified entity management for Tenants, Employees, and Co
 Replaces the fragmented tenant/customer system with a hierarchical account structure
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, List, Any
 from pydantic import BaseModel, Field, EmailStr
@@ -44,10 +44,6 @@ class Account(BaseModel):
     
     # System Fields
     company_id: str  # For SaaS multi-tenancy isolation
-
-from datetime import datetime, timezone
-class Account(BaseModel):
-    id: uuid.UUID = Field(default_factory=lambda: uuid.uuid4())
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     updated_at: Optional[datetime] = None
@@ -57,6 +53,7 @@ class Account(BaseModel):
     # Portal Access (for customer portal)
     portal_code: Optional[str] = None  # Random 7-char code for portal access (one-time invitation)
     portal_active: bool = False        # True after first login/activation
+    portal_email: Optional[str] = None  # Email chosen during portal activation (can differ from main email)
     portal_password_hash: Optional[str] = None  # Hashed password for portal login
     portal_last_login: Optional[datetime] = None
     
@@ -242,6 +239,7 @@ class PortalInvitationResponse(BaseModel):
 class PortalActivation(BaseModel):
     """Portal account activation request"""
     portal_code: str
+    email: Optional[EmailStr] = None  # Optional custom email (will use account email if not provided)
     password: str = Field(..., min_length=8, max_length=100)
     
 
