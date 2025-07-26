@@ -27,6 +27,7 @@ async def create_contract(
     
     try:
         logger.info(f"Creating contract: {contract_data.title}, type: {contract_data.contract_type}")
+        logger.info(f"Contract data - Property ID: {contract_data.related_property_id}, Tenant ID: {contract_data.related_tenant_id}")
         contract_service = ContractService(db)
         user_id = current_user.get("id") if isinstance(current_user, dict) else current_user.id
         logger.info(f"User ID: {user_id}")

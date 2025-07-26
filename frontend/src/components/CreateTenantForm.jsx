@@ -32,7 +32,11 @@ const CreateTenantForm = ({ onBack, onSuccess }) => {
         date_of_birth: formData.date_of_birth ? new Date(formData.date_of_birth).toISOString() : null
       };
 
-      await axios.post(`${API}/v1/tenants/`, submitData);
+      await axios.post(`${API}/v2/accounts/`, {
+        ...submitData,
+        account_type: 'tenant',
+        company_id: 'company_1'
+      });
       onSuccess();
     } catch (error) {
       // Error creating tenant - not logged for security

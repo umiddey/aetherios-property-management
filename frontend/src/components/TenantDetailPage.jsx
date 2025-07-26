@@ -28,7 +28,7 @@ const TenantDetailPage = ({
     try {
       setLoading(true);
       const [tenantRes, contractsRes, invoicesRes] = await Promise.all([
-        cachedAxios.get(`${API}/v1/tenants/${id}`),
+        cachedAxios.get(`${API}/v2/accounts/${id}`),
         cachedAxios.get(`${API}/v1/contracts?contract_type=rental&related_tenant_id=${id}`),
         cachedAxios.get(`${API}/v1/invoices?tenant_id=${id}`)
       ]);

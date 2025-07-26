@@ -11,7 +11,7 @@ const cacheConfig = {
   
   // Cache properties, tenants, etc. for 5 minutes
   '/api/v1/properties': { ttl: 5 * 60 * 1000 },
-  '/api/v1/tenants': { ttl: 5 * 60 * 1000 },
+  '/api/v2/accounts': { ttl: 5 * 60 * 1000 },
   '/api/v1/customers': { ttl: 5 * 60 * 1000 },
   '/api/v1/invoices': { ttl: 3 * 60 * 1000 },
   '/api/v1/tasks': { ttl: 2 * 60 * 1000 },

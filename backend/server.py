@@ -379,7 +379,33 @@ app.include_router(dashboard_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(contracts_router, prefix="/api/v1")
 app.include_router(service_requests_router, prefix="/api/v1")
-app.include_router(service_requests_public_router, prefix="/api/v1")
+
+# Test endpoint to verify no auth issues
+@app.get("/api/v1/test-public")
+async def test_public_endpoint():
+    """Test public endpoint - should work without auth"""
+    return {"message": "Public endpoint works!"}
+
+# Add public service request endpoints with different path to avoid conflicts
+@app.get("/api/v1/service-request-options/types")
+async def get_service_request_types_public():
+    """Get all available service request types - Public endpoint"""
+    from models.service_request import ServiceRequestType
+    return [request_type.value for request_type in ServiceRequestType]
+
+@app.get("/api/v1/service-request-options/priorities")  
+async def get_service_request_priorities_public():
+    """Get all available service request priorities - Public endpoint"""
+    from models.service_request import ServiceRequestPriority
+    return [priority.value for priority in ServiceRequestPriority]
+
+@app.get("/api/v1/service-request-options/statuses")
+async def get_service_request_statuses_public():
+    """Get all available service request statuses - Public endpoint"""
+    from models.service_request import ServiceRequestStatus
+    return [status.value for status in ServiceRequestStatus]
+
+# app.include_router(service_requests_public_router, prefix="/api/v1")
 app.include_router(portal_router, prefix="/api/v1")
 
 # V2 API Routes (Unified Account System)

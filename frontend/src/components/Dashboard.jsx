@@ -137,14 +137,14 @@ const Dashboard = () => {
   useEffect(() => {
     const handleContractCreated = async (event) => {
       // Invalidate relevant caches
-      invalidateCache('/api/v1/tenants');
+      invalidateCache('/api/v2/accounts');
       invalidateCache('/api/v1/dashboard/stats');
       invalidateCache('/api/v1/contracts');
       
       // Refresh tenant data and stats
       try {
         const [tenantsRes, statsRes] = await Promise.all([
-          cachedAxios.get(`${API}/v1/tenants?archived=false`),
+          cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`),
           cachedAxios.get(`${API}/v1/dashboard/stats`)
         ]);
         
@@ -293,7 +293,7 @@ const Dashboard = () => {
         cachedAxios.get(`${API}/v2/accounts/?${buildAccountParams()}`),
         cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`),
         cachedAxios.get(`${API}/v1/properties?${buildPropertyParams()}`),
-        cachedAxios.get(`${API}/v1/tenants?${buildTenantParams()}`),
+        cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`),
         cachedAxios.get(`${API}/v1/invoices?${buildInvoiceParams()}`),
         cachedAxios.get(`${API}/v1/users`)
       ]);
@@ -351,7 +351,7 @@ const Dashboard = () => {
       const params = new URLSearchParams();
       params.append('archived', tenantFilters.archived);
       
-      const response = await cachedAxios.get(`${API}/v1/tenants?${params.toString()}`);
+      const response = await cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`);
       let filteredTenants = response.data;
       
       if (tenantFilters.search) {
@@ -853,7 +853,7 @@ const Dashboard = () => {
           <Route path="/create-tenant" element={<CreateTenantForm 
             onBack={() => handleNav('tenants')} 
             onSuccess={() => {
-              invalidateCache('/api/v1/tenants'); // Clear tenants cache
+              invalidateCache('/api/v2/accounts'); // Clear tenants cache
               fetchData();
               handleNav('tenants');
             }} 

@@ -191,7 +191,7 @@ const CreateContractForm = () => {
       const response = await cachedAxios.post(`${API}/v1/contracts/`, submitData);
       
       invalidateCache('/api/v1/contracts');
-      invalidateCache('/api/v1/tenants');
+      invalidateCache('/api/v2/accounts');
       invalidateCache('/api/v1/dashboard/stats');
       
       if (submitData.related_property_id) {

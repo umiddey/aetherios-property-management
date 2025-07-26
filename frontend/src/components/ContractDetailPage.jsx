@@ -36,7 +36,7 @@ const ContractDetailPage = () => {
       }
       
       if (response.data.related_tenant_id) {
-        const tenantResponse = await cachedAxios.get(`${API}/api/v1/tenants/${response.data.related_tenant_id}`);
+        const tenantResponse = await cachedAxios.get(`${API}/v2/accounts/${response.data.related_tenant_id}`);
         setRelatedTenant(tenantResponse.data);
       }
     } catch (error) {

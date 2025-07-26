@@ -32,11 +32,11 @@ const ServiceRequestForm = () => {
     const loadFormData = async () => {
       try {
         // Fetch available request types
-        const typesResponse = await axios.get(`${BACKEND_URL}/api/v1/service-requests/types`);
+        const typesResponse = await axios.get(`${BACKEND_URL}/api/v1/service-request-options/types`);
         setRequestTypes(typesResponse.data || []);
         
         // Fetch available priorities
-        const prioritiesResponse = await axios.get(`${BACKEND_URL}/api/v1/service-requests/priorities`);
+        const prioritiesResponse = await axios.get(`${BACKEND_URL}/api/v1/service-request-options/priorities`);
         setPriorities(prioritiesResponse.data || []);
         
       } catch (error) {

@@ -32,6 +32,20 @@ class ContractService(BaseService):
     async def validate_create_data(self, contract_data: ContractCreate) -> None:
         """Validate contract creation data"""
         
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # DEBUG: Log all contract data fields to understand what's being passed
+        logger.info(f"🔍 CONTRACT VALIDATION DEBUG:")
+        logger.info(f"  - Title: {contract_data.title}")
+        logger.info(f"  - Contract Type: {contract_data.contract_type}")
+        logger.info(f"  - Related Property ID: {contract_data.related_property_id}")
+        logger.info(f"  - Related Tenant ID: {contract_data.related_tenant_id}")
+        logger.info(f"  - Related User ID: {contract_data.related_user_id}")
+        logger.info(f"  - Tenant ID Type: {type(contract_data.related_tenant_id)}")
+        logger.info(f"  - Tenant ID Value: '{contract_data.related_tenant_id}'")
+        logger.info(f"  - Tenant ID Bool: {bool(contract_data.related_tenant_id)}")
+        
         # Validate date logic
         if contract_data.end_date and contract_data.start_date >= contract_data.end_date:
             raise HTTPException(
@@ -55,6 +69,7 @@ class ContractService(BaseService):
         
         # Validate related entities exist
         if contract_data.related_property_id:
+            logger.info(f"🏠 Validating property ID: {contract_data.related_property_id}")
             property_exists = await self.db.properties.find_one(
                 {"id": contract_data.related_property_id, "is_archived": False}
             )
@@ -63,18 +78,27 @@ class ContractService(BaseService):
                     status_code=400,
                     detail="Related property not found"
                 )
+            logger.info(f"✅ Property validation passed")
         
         if contract_data.related_tenant_id:
-            tenant_exists = await self.db.tenants.find_one(
-                {"id": contract_data.related_tenant_id, "is_archived": False}
+            logger.info(f"🏠 Validating tenant ID: {contract_data.related_tenant_id}")
+            tenant_exists = await self.db.accounts.find_one(
+                {"id": contract_data.related_tenant_id, "account_type": "tenant", "is_archived": False}
             )
+            logger.info(f"Tenant found: {tenant_exists is not None}")
+            if tenant_exists:
+                logger.info(f"Tenant details: {tenant_exists.get('first_name', '')} {tenant_exists.get('last_name', '')}")
             if not tenant_exists:
                 raise HTTPException(
                     status_code=400,
                     detail="Related tenant not found"
                 )
+            logger.info(f"✅ Tenant validation passed")
+        else:
+            logger.info(f"⚠️ NO TENANT ID PROVIDED - skipping tenant validation")
         
         if contract_data.related_user_id:
+            logger.info(f"👤 Validating user ID: {contract_data.related_user_id}")
             user_exists = await self.db.users.find_one(
                 {"id": contract_data.related_user_id, "is_active": True}
             )
@@ -83,6 +107,7 @@ class ContractService(BaseService):
                     status_code=400,
                     detail="Related user not found"
                 )
+            logger.info(f"✅ User validation passed")
 
     async def validate_update_data(self, contract_id: str, update_data: ContractUpdate) -> None:
         """Validate contract update data"""

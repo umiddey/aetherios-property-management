@@ -50,7 +50,7 @@ const InvoiceDetailPage = ({
         // Add tenant fetch if tenant_id exists
         if (invoiceData.tenant_id && invoiceData.tenant_id !== 'null') {
           tenantIndex = promises.length;
-          promises.push(cachedAxios.get(`${API}/v1/tenants/${invoiceData.tenant_id}`));
+          promises.push(cachedAxios.get(`${API}/v2/accounts/${invoiceData.tenant_id}`));
         }
         
         // Add contract fetch if contract_id exists
