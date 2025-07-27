@@ -21,6 +21,7 @@ from models.service_request import (
     ServiceRequestStatus,
     ServiceRequestPriority
 )
+from services.contractor_email_service import ContractorEmailService, get_smtp_config
 
 
 class ServiceRequestService:
@@ -42,6 +43,9 @@ class ServiceRequestService:
         
         # Ensure upload directory exists
         os.makedirs(self.upload_dir, exist_ok=True)
+        
+        # Initialize contractor email service for automation
+        self.contractor_email_service = ContractorEmailService(db, get_smtp_config())
     
     
     async def create_service_request(self, request: ServiceRequestCreate, created_by: str) -> ServiceRequestResponse:
@@ -71,22 +75,36 @@ class ServiceRequestService:
         # Create corresponding ERP task for internal processing
         task_id = await self._create_erp_task_from_request(service_request, created_by)
         
-        # Update service request with task ID
+        # 🚀 CONTRACTOR AUTOMATION: Auto-find contractor and send Link 1 email
+        contractor_updates = await self._trigger_contractor_workflow(service_request)
+        
+        # Update service request with task ID and contractor info
+        update_data = {
+            "updated_at": datetime.utcnow()
+        }
+        
         if task_id:
-            await self.collection.update_one(
-                {"id": service_request.id},
-                {
-                    "$set": {
-                        "assigned_task_id": task_id,
-                        "status": ServiceRequestStatus.ASSIGNED,
-                        "assigned_at": datetime.utcnow(),
-                        "updated_at": datetime.utcnow()
-                    }
-                }
-            )
+            update_data.update({
+                "assigned_task_id": task_id,
+                "status": ServiceRequestStatus.ASSIGNED,
+                "assigned_at": datetime.utcnow()
+            })
             service_request.assigned_task_id = task_id
             service_request.status = ServiceRequestStatus.ASSIGNED
             service_request.assigned_at = datetime.utcnow()
+        
+        # Add contractor automation updates
+        if contractor_updates:
+            update_data.update(contractor_updates)
+            # Update service request object for response
+            for key, value in contractor_updates.items():
+                setattr(service_request, key, value)
+        
+        # Apply all updates
+        await self.collection.update_one(
+            {"id": service_request.id},
+            {"$set": update_data}
+        )
         
         # Return enriched response
         return await self._enrich_service_request_response(service_request)
@@ -383,11 +401,24 @@ class ServiceRequestService:
     
     async def get_tenant_service_request_by_id(self, request_id: str, tenant_id: str) -> Optional[ServiceRequest]:
         """Get specific service request for tenant (portal access with ownership verification)"""
+        print(f"🔍 DEBUG: Looking for service request ID: {request_id}, tenant: {tenant_id}")
+        
         request = await self.collection.find_one({
             "id": request_id,
             "tenant_id": tenant_id,
             "is_archived": False
         })
+        
+        print(f"🔍 DEBUG: Found request: {request is not None}")
+        if not request:
+            # Try searching by _id field as fallback
+            print(f"🔍 DEBUG: Trying _id field as fallback...")
+            request = await self.collection.find_one({
+                "_id": request_id,
+                "tenant_id": tenant_id,
+                "is_archived": False
+            })
+            print(f"🔍 DEBUG: Found by _id: {request is not None}")
         
         return ServiceRequest(**request) if request else None
     
@@ -586,3 +617,163 @@ class ServiceRequestService:
         except Exception as e:
             # Log error but don't fail service request update
             print(f"Failed to update ERP task {task_id}: {e}")
+    
+    
+    async def _trigger_contractor_workflow(self, service_request: ServiceRequest) -> Optional[Dict[str, Any]]:
+        """
+        🚀 CONTRACTOR AUTOMATION: Auto-find contractor and send Link 1 email
+        
+        This method implements the complete contractor workflow automation:
+        1. Find contractor by service_type
+        2. Generate scheduling token (Link 1)
+        3. Send scheduling email to contractor
+        4. Return updates for service request
+        
+        Returns:
+            Dict with contractor-related updates for the service request, or None if automation fails
+        """
+        try:
+            # Step 1: Find contractor by service type
+            contractor_email = await self.contractor_email_service.find_contractor_by_service_type(
+                service_request.request_type
+            )
+            
+            if not contractor_email:
+                print(f"⚠️ No contractor found for service type: {service_request.request_type}")
+                return None
+            
+            # Step 2: Generate scheduling token (Link 1)
+            scheduling_token = self.contractor_email_service.generate_scheduling_token()
+            
+            # Step 3: Send Link 1 email to contractor
+            base_url = "http://localhost:3000"  # TODO: Get from environment config
+            
+            email_success = await self.contractor_email_service.send_scheduling_email(
+                service_request,
+                contractor_email,
+                scheduling_token,
+                base_url
+            )
+            
+            if not email_success:
+                print(f"❌ Failed to send scheduling email to contractor: {contractor_email}")
+                return None
+            
+            # Step 4: Generate invoice token (Link 2) for later use
+            invoice_token = self.contractor_email_service.generate_invoice_token()
+            
+            # Return updates for service request
+            contractor_updates = {
+                "contractor_email": contractor_email,
+                "contractor_response_token": scheduling_token,
+                "invoice_upload_token": invoice_token,
+                "contractor_email_sent_at": datetime.utcnow()
+            }
+            
+            print(f"✅ Contractor workflow triggered successfully:")
+            print(f"   📧 Contractor: {contractor_email}")
+            print(f"   🔗 Scheduling Link: {base_url}/contractor/schedule/{scheduling_token}")
+            print(f"   📋 Service: {service_request.title}")
+            
+            return contractor_updates
+            
+        except Exception as e:
+            print(f"❌ Error in contractor workflow automation: {e}")
+            # Don't fail service request creation if contractor automation fails
+            return None
+
+
+    async def mark_service_request_complete(
+        self, 
+        request_id: str, 
+        tenant_id: str, 
+        completion_notes: str = "", 
+        completed_by_tenant: bool = True
+    ) -> Optional[ServiceRequest]:
+        """
+        Mark service request as completed by tenant
+        
+        This triggers the Link 2 invoice workflow automatically and updates
+        the service request status to completed.
+        """
+        try:
+            # Get the service request
+            service_request = await self.get_tenant_service_request_by_id(request_id, tenant_id)
+            
+            if not service_request:
+                return None
+            
+            # Update the service request with completion data
+            update_data = {
+                "status": ServiceRequestStatus.COMPLETED.value,
+                "completion_status": "tenant_confirmed",
+                "completion_notes": completion_notes,
+                "completed_by_tenant": completed_by_tenant,
+                "completed_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            # Update in database
+            result = await self.collection.update_one(
+                {"id": request_id, "tenant_id": tenant_id},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count == 0:
+                return None
+            
+            # Trigger Link 2 invoice workflow if contractor info exists
+            if service_request.contractor_email and service_request.invoice_upload_token:
+                await self._trigger_invoice_workflow(service_request, completion_notes)
+            
+            # Update corresponding ERP task
+            if hasattr(service_request, 'erp_task_id') and service_request.erp_task_id:
+                await self._update_erp_task_from_request(service_request.erp_task_id, ServiceRequestStatus.COMPLETED)
+            
+            # Return updated service request
+            updated_request = await self.get_tenant_service_request_by_id(request_id, tenant_id)
+            return updated_request
+            
+        except Exception as e:
+            print(f"❌ Error marking service request complete: {e}")
+            return None
+
+
+    async def _trigger_invoice_workflow(self, service_request: ServiceRequest, completion_notes: str = ""):
+        """
+        Trigger Link 2 invoice workflow after service completion
+        
+        Sends email to contractor with invoice upload link.
+        """
+        try:
+            if not service_request.contractor_email or not service_request.invoice_upload_token:
+                print(f"⚠️ Cannot trigger invoice workflow - missing contractor email or token")
+                return
+            
+            base_url = "http://localhost:3000"  # TODO: Get from environment config
+            
+            # Send Link 2 email to contractor
+            email_success = await self.contractor_email_service.send_invoice_email(
+                service_request,
+                service_request.contractor_email,
+                service_request.invoice_upload_token,
+                base_url,
+                completion_notes
+            )
+            
+            if email_success:
+                # Update service request with invoice email sent timestamp
+                await self.collection.update_one(
+                    {"id": service_request.id},
+                    {"$set": {"invoice_link_sent": True, "invoice_email_sent_at": datetime.utcnow()}}
+                )
+                
+                print(f"✅ Invoice workflow triggered successfully:")
+                print(f"   📧 Contractor: {service_request.contractor_email}")
+                print(f"   🔗 Invoice Link: {base_url}/contractor/invoice/{service_request.invoice_upload_token}")
+                print(f"   📋 Service: {service_request.title}")
+            else:
+                print(f"❌ Failed to send invoice email to contractor: {service_request.contractor_email}")
+                
+        except Exception as e:
+            print(f"❌ Error in invoice workflow: {e}")

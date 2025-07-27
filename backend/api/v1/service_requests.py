@@ -382,17 +382,17 @@ async def get_portal_service_requests(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve service requests")
 
 
-@router.get("/portal/my-requests/{request_id}", response_model=PortalServiceRequestResponse)
-async def get_portal_service_request(
+@router.get("/portal/my-requests/{request_id}", response_model=ServiceRequestResponse)
+async def get_portal_service_request_detail(
     request_id: str,
     portal_user=Depends(get_portal_user),  # ✅ Portal JWT authentication
     service: ServiceRequestService = Depends(get_service_request_service)
 ):
     """
-    Get specific service request from customer portal
+    Get full service request details with contractor workflow information
     
-    Tenants can only view their own service requests.
-    Portal authentication ensures tenant data isolation.
+    Returns comprehensive service request data including appointment dates,
+    contractor information, and completion status for tenant interaction.
     """
     try:
         # Extract tenant info from portal JWT token
@@ -404,24 +404,58 @@ async def get_portal_service_request(
         if not service_request:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service request not found")
         
-        # Convert to portal response format
-        portal_response = PortalServiceRequestResponse(
-            id=service_request.id,
-            request_type=service_request.request_type,
-            priority=service_request.priority,
-            title=service_request.title,
-            description=service_request.description,
-            attachment_urls=service_request.attachment_urls,
-            status=service_request.status,
-            submitted_at=service_request.submitted_at,
-            estimated_completion=service_request.estimated_completion
-        )
-        
-        return portal_response
+        return service_request
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve service request")
+
+
+@router.post("/portal/my-requests/{request_id}/complete")
+async def mark_service_request_complete(
+    request_id: str,
+    completion_data: dict,
+    portal_user=Depends(get_portal_user),  # ✅ Portal JWT authentication
+    service: ServiceRequestService = Depends(get_service_request_service)
+):
+    """
+    Mark service request as completed by tenant
+    
+    Triggers the Link 2 invoice workflow automatically.
+    Only the tenant who submitted the request can mark it as complete.
+    """
+    try:
+        # Extract tenant info from portal JWT token
+        tenant_id = portal_user["account_id"]
+        
+        # Get service request and verify ownership
+        service_request = await service.get_tenant_service_request_by_id(request_id, tenant_id)
+        
+        if not service_request:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service request not found")
+        
+        if service_request.status != "in_progress":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Service request must be in progress to mark as complete"
+            )
+        
+        # Update completion status
+        completion_notes = completion_data.get("completion_notes", "")
+        completed_by_tenant = completion_data.get("completed_by_tenant", True)
+        
+        updated_request = await service.mark_service_request_complete(
+            request_id, 
+            tenant_id, 
+            completion_notes, 
+            completed_by_tenant
+        )
+        
+        return {"message": "Service request marked as completed", "request": updated_request}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to mark service request as complete")
 
 
 # Utility Endpoints (Public - No Authentication Required)

@@ -38,8 +38,8 @@ const AuthProvider = ({ children }) => {
     localStorage.removeItem('lastActivity');
     delete axios.defaults.headers.common['Authorization'];
     
-    // Only redirect to admin login if not on portal routes
-    if (!location.pathname.startsWith('/portal')) {
+    // Only redirect to admin login if not on portal or contractor routes
+    if (!location.pathname.startsWith('/portal') && !location.pathname.startsWith('/contractor')) {
       navigate('/login');
     }
   };
@@ -112,8 +112,8 @@ const AuthProvider = ({ children }) => {
             setUser(null);
             delete axios.defaults.headers.common['Authorization'];
             
-            // Only redirect to admin login if not on portal routes
-            if (!location.pathname.startsWith('/portal')) {
+            // Only redirect to admin login if not on portal or contractor routes
+            if (!location.pathname.startsWith('/portal') && !location.pathname.startsWith('/contractor')) {
               navigate('/login');
             }
           } else {
@@ -121,8 +121,8 @@ const AuthProvider = ({ children }) => {
           }
         }
       } else {
-        // Only redirect to admin login if not on portal routes
-        if (!location.pathname.startsWith('/portal')) {
+        // Only redirect to admin login if not on portal or contractor routes
+        if (!location.pathname.startsWith('/portal') && !location.pathname.startsWith('/contractor')) {
           navigate('/login');
         }
       }

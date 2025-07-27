@@ -310,6 +310,31 @@ async def portal_login(login: PortalLogin):
     )
 
 
+@router.get("/me", response_model=AccountResponse)
+async def get_portal_user_info(current_account=Depends(get_current_portal_user)):
+    """
+    Get current portal user information
+    Used for authentication validation and user context
+    """
+    return AccountResponse(
+        id=current_account["id"],
+        account_type=current_account.get("account_type", "tenant"),
+        status=current_account.get("status", "active"),
+        first_name=current_account.get("first_name", ""),
+        last_name=current_account.get("last_name", ""),
+        email=current_account.get("email", ""),
+        phone=current_account.get("phone"),
+        address=current_account.get("address"),
+        created_at=current_account.get("created_at"),
+        updated_at=current_account.get("updated_at"),
+        is_archived=current_account.get("is_archived", False),
+        portal_code=current_account.get("portal_code"),
+        portal_active=current_account.get("portal_active", True),
+        portal_last_login=current_account.get("portal_last_login"),
+        full_name=f"{current_account.get('first_name', '')} {current_account.get('last_name', '')}".strip()
+    )
+
+
 @router.get("/dashboard")
 async def get_portal_dashboard(current_account=Depends(get_current_portal_user)):
     """

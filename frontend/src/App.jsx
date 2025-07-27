@@ -54,6 +54,11 @@ import PortalDashboard from './components/PortalDashboard'; // Portal dashboard
 import PortalInvitation from './components/PortalInvitation'; // Portal invitation activation
 import ServiceRequestForm from './components/portal/ServiceRequestForm'; // Service request form
 import ServiceRequestsList from './components/portal/ServiceRequestsList'; // Service request list
+import ServiceRequestDetail from './portal/ServiceRequestDetail'; // Service request detail view
+
+// Import contractor components  
+import ContractorScheduling from './contractor/ContractorScheduling'; // Contractor scheduling interface
+import ContractorInvoice from './contractor/ContractorInvoice'; // Contractor invoice interface
 
 // ==================================================================================
 // APP COMPONENT - The root of our entire application
@@ -70,14 +75,21 @@ function App() {
             <Routes>
               {/* Main ERP System Routes */}
               <Route path="/login" element={<LoginForm />} />
-              <Route path="/*" element={<Dashboard />} />
               
               {/* Customer Portal Routes */}
               <Route path="/portal/login" element={<PortalLogin />} />
               <Route path="/portal/dashboard" element={<PortalDashboard />} />
               <Route path="/portal/invite/:inviteCode" element={<PortalInvitation />} />
               <Route path="/portal/service-request/new" element={<ServiceRequestForm />} />
+              <Route path="/portal/service-request/:id" element={<ServiceRequestDetail />} />
               <Route path="/portal/service-requests" element={<ServiceRequestsList />} />
+              
+              {/* Contractor Routes (Token-based, no authentication required) */}
+              <Route path="/contractor/schedule/:token" element={<ContractorScheduling />} />
+              <Route path="/contractor/invoice/:token" element={<ContractorInvoice />} />
+              
+              {/* Catch-all route - MUST BE LAST */}
+              <Route path="/*" element={<Dashboard />} />
             </Routes>
           </AuthProvider>
         </Router>

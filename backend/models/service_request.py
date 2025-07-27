@@ -71,6 +71,16 @@ class ServiceRequest(BaseModel):
     assigned_task_id: Optional[str] = None  # Links to main ERP task system when assigned
     assigned_user_id: Optional[str] = None  # Property manager or maintenance staff
     
+    # Contractor Automation Fields
+    tenant_preferred_slots: List[datetime] = Field(default_factory=list, description="Tenant's 1-3 preferred appointment times")
+    contractor_email: Optional[str] = None  # Auto-mapped by service_type from ContractorProfile
+    appointment_confirmed_datetime: Optional[datetime] = None  # Contractor's confirmed appointment time
+    completion_status: str = "pending"  # pending/tenant_confirmed/auto_confirmed
+    invoice_link_sent: bool = False  # Whether Link 2 (invoice) email has been sent
+    contractor_response_token: Optional[str] = None  # Unique token for Link 1 (scheduling)
+    invoice_upload_token: Optional[str] = None  # Unique token for Link 2 (invoice upload)
+    contractor_email_sent_at: Optional[datetime] = None  # When contractor automation email was sent
+    
     # Internal Notes (admin only)
     internal_notes: Optional[str] = None
     estimated_completion: Optional[datetime] = None
@@ -123,6 +133,15 @@ class ServiceRequestResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
+    # Contractor Automation Fields
+    tenant_preferred_slots: List[datetime]
+    contractor_email: Optional[str]
+    appointment_confirmed_datetime: Optional[datetime]
+    completion_status: str
+    invoice_link_sent: bool
+    contractor_response_token: Optional[str]
+    invoice_upload_token: Optional[str]
+    
     # Additional fields for frontend display
     tenant_name: Optional[str] = None  # Populated from accounts collection
     property_address: Optional[str] = None  # Populated from properties collection
@@ -173,6 +192,7 @@ class PortalServiceRequestCreate(BaseModel):
     priority: ServiceRequestPriority
     title: str = Field(..., min_length=5, max_length=100)
     description: str = Field(..., min_length=10, max_length=1000)
+    tenant_preferred_slots: List[datetime] = Field(default_factory=list, description="Tenant's 1-3 preferred appointment times")
     # tenant_id and property_id will be extracted from JWT token
 
 
