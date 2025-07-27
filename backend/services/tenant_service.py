@@ -218,7 +218,7 @@ class TenantService(BaseService):
         try:
             # Check if tenant has active rental contracts
             rental_contracts = await self.db.contracts.find({
-                "related_tenant_id": tenant_id,
+                "other_party_id": tenant_id,
                 "contract_type": "rental",
                 "status": "active",
                 "is_archived": False

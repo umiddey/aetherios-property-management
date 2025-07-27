@@ -13,10 +13,10 @@ import PropertiesView from './PropertiesView';
 import TenantsView from './TenantsView';
 import InvoicesView from './InvoicesView';
 import TasksView from './TasksView';
+import ServiceRequestsView from './ServiceRequestsView';
 import AccountsView from './AccountsView';
 import UsersView from './UsersView';
 import CreatePropertyForm from './CreatePropertyForm';
-import CreateTenantForm from './CreateTenantForm';
 import CreateInvoiceForm from './CreateInvoiceForm';
 import CreateTaskForm from './CreateTaskForm';
 import CreateAccountForm from './CreateAccountForm';
@@ -144,7 +144,7 @@ const Dashboard = () => {
       // Refresh tenant data and stats
       try {
         const [tenantsRes, statsRes] = await Promise.all([
-          cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`),
+          cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
           cachedAxios.get(`${API}/v1/dashboard/stats`)
         ]);
         
@@ -251,7 +251,6 @@ const Dashboard = () => {
 
   const buildAccountParams = () => {
     const params = new URLSearchParams();
-    params.append('company_id', 'company_1'); // Base company ID
     if (accountTypeFilter) params.append('account_type', accountTypeFilter);
     if (accountSearchTerm) params.append('search', accountSearchTerm);
     return params.toString();
@@ -293,7 +292,7 @@ const Dashboard = () => {
         cachedAxios.get(`${API}/v2/accounts/?${buildAccountParams()}`),
         cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`),
         cachedAxios.get(`${API}/v1/properties?${buildPropertyParams()}`),
-        cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`),
+        cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
         cachedAxios.get(`${API}/v1/invoices?${buildInvoiceParams()}`),
         cachedAxios.get(`${API}/v1/users`)
       ]);
@@ -351,7 +350,7 @@ const Dashboard = () => {
       const params = new URLSearchParams();
       params.append('archived', tenantFilters.archived);
       
-      const response = await cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`);
+      const response = await cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`);
       let filteredTenants = response.data;
       
       if (tenantFilters.search) {
@@ -676,6 +675,7 @@ const Dashboard = () => {
                 <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' || currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.accounts')}</button>
                 <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.invoices')}</button>
                 <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tasks')}</button>
+                <button onClick={() => handleNav('service-requests')} className={currentViewFromPath === 'service-requests' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>Service Requests</button>
                 <button onClick={() => handleNav('contracts')} className={currentViewFromPath === 'contracts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.contracts')}</button>
                 {user?.role === 'super_admin' && (
                   <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.users')}</button>
@@ -808,6 +808,11 @@ const Dashboard = () => {
             usersList={usersList} 
             logAction={logAction}
           />} />
+          <Route path="/service-requests" element={<ServiceRequestsView 
+            handleNav={handleNav} 
+            formatDate={formatDate} 
+            logAction={logAction}
+          />} />
           <Route path="/accounts" element={<AccountsView 
             accounts={(Array.isArray(accounts) ? accounts : []).slice((accountPage - 1) * ITEMS_PER_PAGE, accountPage * ITEMS_PER_PAGE)} 
             totalPages={Math.ceil((Array.isArray(accounts) ? accounts : []).length / ITEMS_PER_PAGE)} 
@@ -847,16 +852,6 @@ const Dashboard = () => {
               handleNav('properties');
             }} 
             properties={properties} 
-            t={t}
-            logAction={logAction}
-          />} />
-          <Route path="/create-tenant" element={<CreateTenantForm 
-            onBack={() => handleNav('tenants')} 
-            onSuccess={() => {
-              invalidateCache('/api/v2/accounts'); // Clear tenants cache
-              fetchData();
-              handleNav('tenants');
-            }} 
             t={t}
             logAction={logAction}
           />} />

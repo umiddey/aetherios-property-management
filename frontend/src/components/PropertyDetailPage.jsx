@@ -314,7 +314,7 @@ const PropertyDetailPage = ({
                   state: { 
                     prefilledData: { 
                       contract_type: 'rental',
-                      related_property_id: property.id,
+                      property_id: property.id,
                       property_name: property.name,
                       title: `Rental Agreement - ${property.name}`,
                       parties: [
@@ -439,7 +439,7 @@ const PropertyDetailPage = ({
                     state: { 
                       prefilledData: { 
                         contract_type: 'rental',
-                        related_property_id: property.id,
+                        property_id: property.id,
                         property_name: property.name,
                         title: `Rental Agreement - ${property.name}`,
                         parties: [

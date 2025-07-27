@@ -96,16 +96,24 @@ async def get_service_requests(
         if tenant_id:
             filters["tenant_id"] = tenant_id
             
+        print(f"🔍 DEBUG API - Current user: {current_user}")
+        print(f"🔍 DEBUG API - Filters: {filters}")
+        
         service_requests = await service.get_service_requests_with_filters(
             filters=filters,
             skip=skip,
             limit=limit,
-            user_role=current_user.get("role", "user")
+            user_role=getattr(current_user, "role", "user"),
+            user_id=current_user.id
         )
         
+        print(f"🔍 DEBUG API - Service returned {len(service_requests)} requests")
         return service_requests
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve service requests")
+        print(f"❌ DEBUG API - Exception in get_service_requests: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve service requests: {str(e)}")
 
 
 @router.get("/{request_id}", response_model=ServiceRequestResponse)
@@ -288,7 +296,10 @@ async def submit_portal_service_request(
         
         # Get tenant's property association
         property_id = await service.get_tenant_property_id(tenant_id)
+        print(f"🔍 DEBUG - Tenant ID: {tenant_id}")
+        print(f"🔍 DEBUG - Property ID found: {property_id}")
         if not property_id:
+            print(f"❌ DEBUG - No property found for tenant: {tenant_id}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"No active rental agreement found for tenant {tenant_id}. Please contact your property manager."

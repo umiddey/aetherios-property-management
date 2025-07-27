@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from pymongo import IndexModel
 from fastapi import HTTPException
 from services.base_service import BaseService
@@ -20,9 +20,8 @@ class ContractService(BaseService):
             IndexModel([("start_date", 1)]),
             IndexModel([("end_date", 1)]),
             IndexModel([("created_by", 1)]),
-            IndexModel([("related_property_id", 1)]),
-            IndexModel([("related_tenant_id", 1)]),
-            IndexModel([("related_user_id", 1)]),
+            IndexModel([("property_id", 1)]),
+            IndexModel([("other_party_id", 1)]),
             IndexModel([("title", "text")]),
             IndexModel([("created_at", -1)]),
             IndexModel([("is_archived", 1)]),
@@ -39,12 +38,9 @@ class ContractService(BaseService):
         logger.info(f"🔍 CONTRACT VALIDATION DEBUG:")
         logger.info(f"  - Title: {contract_data.title}")
         logger.info(f"  - Contract Type: {contract_data.contract_type}")
-        logger.info(f"  - Related Property ID: {contract_data.related_property_id}")
-        logger.info(f"  - Related Tenant ID: {contract_data.related_tenant_id}")
-        logger.info(f"  - Related User ID: {contract_data.related_user_id}")
-        logger.info(f"  - Tenant ID Type: {type(contract_data.related_tenant_id)}")
-        logger.info(f"  - Tenant ID Value: '{contract_data.related_tenant_id}'")
-        logger.info(f"  - Tenant ID Bool: {bool(contract_data.related_tenant_id)}")
+        logger.info(f"  - Property ID: {contract_data.property_id}")
+        logger.info(f"  - Other Party ID: {contract_data.other_party_id}")
+        logger.info(f"  - Tenant ID Type: {type(contract_data.other_party_id)}")
         
         # Validate date logic
         if contract_data.end_date and contract_data.start_date >= contract_data.end_date:
@@ -68,10 +64,10 @@ class ContractService(BaseService):
             )
         
         # Validate related entities exist
-        if contract_data.related_property_id:
-            logger.info(f"🏠 Validating property ID: {contract_data.related_property_id}")
+        if contract_data.property_id:
+            logger.info(f"🏠 Validating property ID: {contract_data.property_id}")
             property_exists = await self.db.properties.find_one(
-                {"id": contract_data.related_property_id, "is_archived": False}
+                {"id": contract_data.property_id, "is_archived": False}
             )
             if not property_exists:
                 raise HTTPException(
@@ -79,11 +75,11 @@ class ContractService(BaseService):
                     detail="Related property not found"
                 )
             logger.info(f"✅ Property validation passed")
-        
-        if contract_data.related_tenant_id:
-            logger.info(f"🏠 Validating tenant ID: {contract_data.related_tenant_id}")
+
+        if contract_data.other_party_id:
+            logger.info(f"🏠 Validating tenant ID: {contract_data.other_party_id}")
             tenant_exists = await self.db.accounts.find_one(
-                {"id": contract_data.related_tenant_id, "account_type": "tenant", "is_archived": False}
+                {"id": contract_data.other_party_id, "account_type": "tenant", "is_archived": False}
             )
             logger.info(f"Tenant found: {tenant_exists is not None}")
             if tenant_exists:
@@ -97,17 +93,6 @@ class ContractService(BaseService):
         else:
             logger.info(f"⚠️ NO TENANT ID PROVIDED - skipping tenant validation")
         
-        if contract_data.related_user_id:
-            logger.info(f"👤 Validating user ID: {contract_data.related_user_id}")
-            user_exists = await self.db.users.find_one(
-                {"id": contract_data.related_user_id, "is_active": True}
-            )
-            if not user_exists:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Related user not found"
-                )
-            logger.info(f"✅ User validation passed")
 
     async def validate_update_data(self, contract_id: str, update_data: ContractUpdate) -> None:
         """Validate contract update data"""
@@ -175,17 +160,17 @@ class ContractService(BaseService):
             "billing_type": contract_data.billing_type.value if contract_data.billing_type else None,
             "billing_frequency": contract_data.billing_frequency,
             "next_billing_date": datetime.combine(contract_data.next_billing_date, datetime.min.time()) if contract_data.next_billing_date else None,
-            
-            "related_property_id": contract_data.related_property_id,
-            "related_tenant_id": contract_data.related_tenant_id,
-            "related_user_id": contract_data.related_user_id,
+
+            "property_id": contract_data.property_id,
+            "other_party_id": contract_data.other_party_id,
+            "other_party_type": contract_data.other_party_type,
             "description": contract_data.description,
             "terms": contract_data.terms,
             "renewal_info": contract_data.renewal_info,
             "type_specific_data": contract_data.type_specific_data,
             "documents": [],
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
             "created_by": created_by,
             "is_archived": False
         }
@@ -227,11 +212,10 @@ class ContractService(BaseService):
         return await cursor.to_list(length=None)
 
     async def get_contracts_by_related_entity(self, entity_type: str, entity_id: str) -> List[Dict[str, Any]]:
-        """Get contracts related to a specific entity (property, tenant, user)"""
+        """Get contracts related to a specific entity (property, tenant)"""
         field_map = {
-            "property": "related_property_id",
-            "tenant": "related_tenant_id",
-            "user": "related_user_id"
+            "property": "property_id",
+            "tenant": "other_party_id",
         }
         
         if entity_type not in field_map:
@@ -239,6 +223,44 @@ class ContractService(BaseService):
         
         cursor = self.collection.find({
             field_map[entity_type]: entity_id,
+            "is_archived": False
+        }).sort("created_at", -1)
+        
+        return await cursor.to_list(length=None)
+    
+    async def get_contracts_by_other_party(self, other_party_id: str) -> List[Dict[str, Any]]:
+        """Get contracts by other party ID (simplified method for API)"""
+        return await self.get_contracts_by_related_entity("tenant", other_party_id)
+
+    async def get_contract_manager(self, contract_id: str) -> Optional[str]:
+        """Get the property manager ID for a contract via property lookup"""
+        contract = await self.collection.find_one({"id": contract_id, "is_archived": False})
+        if not contract or not contract.get("property_id"):
+            return None
+        
+        property_doc = await self.db.properties.find_one({
+            "id": contract["property_id"], 
+            "is_archived": False
+        })
+        
+        return property_doc.get("manager_id") if property_doc else None
+
+    async def get_contracts_by_manager(self, manager_id: str) -> List[Dict[str, Any]]:
+        """Get contracts managed by a specific user (via property lookup)"""
+        # First find all properties managed by this user
+        properties = await self.db.properties.find({
+            "manager_id": manager_id,
+            "is_archived": False
+        }).to_list(length=None)
+        
+        if not properties:
+            return []
+        
+        property_ids = [prop["id"] for prop in properties]
+        
+        # Then find all contracts for these properties
+        cursor = self.collection.find({
+            "property_id": {"$in": property_ids},
             "is_archived": False
         }).sort("created_at", -1)
         

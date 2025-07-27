@@ -51,7 +51,6 @@ async def create_account(
 
 @router.get("/", response_model=List[AccountResponse])
 async def get_accounts(
-    company_id: str = Query(..., description="Company ID for account filtering"),
     account_type: Optional[AccountType] = Query(None, description="Filter by account type"),
     status: Optional[AccountStatus] = Query(None, description="Filter by account status"),
     search: Optional[str] = Query(None, description="Search by name or email"),
@@ -66,14 +65,11 @@ async def get_accounts(
     try:
         if search:
             accounts = await account_service.search_accounts(
-                company_id=company_id,
                 search_term=search,
-                account_type=account_type,
-                limit=limit
+                account_type=account_type
             )
         else:
-            accounts = await account_service.get_accounts_by_company(
-                company_id=company_id,
+            accounts = await account_service.get_accounts(
                 account_type=account_type,
                 status=status,
                 skip=skip,
@@ -190,8 +186,7 @@ async def validate_portal_access(
     Used by customer portal for authentication
     """
     account = await account_service.validate_portal_access(
-        portal_access.portal_code,
-        portal_access.company_domain
+        portal_access.portal_code
     )
     if not account:
         raise HTTPException(
@@ -204,14 +199,13 @@ async def validate_portal_access(
 # Tenant-Specific Endpoints (Backward Compatibility)
 @router.get("/tenants/", response_model=List[AccountResponse])
 async def get_tenant_accounts(
-    company_id: str = Query(..., description="Company ID"),
     account_service: AccountService = Depends(get_account_service),
     current_user: User = Depends(get_current_user)
 ):
     """
     Get all tenant accounts - backward compatibility endpoint
     """
-    return await account_service.get_tenant_accounts(company_id)
+    return await account_service.get_tenant_accounts()
 
 
 # Migration Endpoints
@@ -236,9 +230,8 @@ async def migrate_tenant_to_account(
 
 
 # Statistics and Analytics
-@router.get("/stats/{company_id}")
+@router.get("/stats")
 async def get_account_statistics(
-    company_id: str,
     account_service: AccountService = Depends(get_account_service),
     current_user: User = Depends(get_current_user)
 ):
@@ -247,16 +240,13 @@ async def get_account_statistics(
     """
     try:
         # Get counts by type
-        tenants = await account_service.get_accounts_by_company(
-            company_id=company_id,
+        tenants = await account_service.get_accounts(
             account_type=AccountType.TENANT
         )
-        employees = await account_service.get_accounts_by_company(
-            company_id=company_id,
+        employees = await account_service.get_accounts(
             account_type=AccountType.EMPLOYEE
         )
-        contractors = await account_service.get_accounts_by_company(
-            company_id=company_id,
+        contractors = await account_service.get_accounts(
             account_type=AccountType.CONTRACTOR
         )
         
@@ -282,7 +272,6 @@ async def get_account_statistics(
 @router.get("/types/{account_type}")
 async def get_accounts_by_type(
     account_type: AccountType,
-    company_id: str = Query(..., description="Company ID"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     account_service: AccountService = Depends(get_account_service),
@@ -291,25 +280,22 @@ async def get_accounts_by_type(
     """
     Get accounts filtered by specific type
     """
-    return await account_service.get_accounts_by_company(
-        company_id=company_id,
+    return await account_service.get_accounts(
         account_type=account_type,
         skip=skip,
         limit=limit
     )
 
 
-@router.get("/portal/active/{company_id}")
+@router.get("/portal/active")
 async def get_active_portal_users(
-    company_id: str,
     account_service: AccountService = Depends(get_account_service),
     current_user: User = Depends(get_current_user)
 ):
     """
     Get all accounts with active portal access
     """
-    tenants = await account_service.get_accounts_by_company(
-        company_id=company_id,
+    tenants = await account_service.get_accounts(
         account_type=AccountType.TENANT
     )
     
@@ -319,3 +305,23 @@ async def get_active_portal_users(
     ]
     
     return active_portal_users
+
+
+@router.get("/{account_id}/contracts")
+async def get_account_contracts(
+    account_id: str,
+    account_service: AccountService = Depends(get_account_service),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all active contracts for an account with property details
+    Used for service request contract selection and account management
+    """
+    try:
+        contracts = await account_service.get_active_contracts_for_account(account_id)
+        return contracts
+    except Exception as e:
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve account contracts: {str(e)}"
+        )

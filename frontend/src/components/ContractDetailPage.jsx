@@ -30,13 +30,13 @@ const ContractDetailPage = () => {
       setContract(response.data);
       
       // Fetch related entities
-      if (response.data.related_property_id) {
-        const propertyResponse = await cachedAxios.get(`${API}/api/v1/properties/${response.data.related_property_id}`);
+      if (response.data.property_id) {
+        const propertyResponse = await cachedAxios.get(`${API}/api/v1/properties/${response.data.property_id}`);
         setRelatedProperty(propertyResponse.data);
       }
       
-      if (response.data.related_tenant_id) {
-        const tenantResponse = await cachedAxios.get(`${API}/v2/accounts/${response.data.related_tenant_id}`);
+      if (response.data.other_party_id) {
+        const tenantResponse = await cachedAxios.get(`${API}/v2/accounts/${response.data.other_party_id}`);
         setRelatedTenant(tenantResponse.data);
       }
     } catch (error) {
@@ -538,8 +538,8 @@ const ContractDetailPage = () => {
                         contract_id: contract.id, 
                         contract_title: contract.title,
                         contract_type: contract.contract_type,
-                        related_property_id: contract.related_property_id,
-                        related_tenant_id: contract.related_tenant_id
+                        property_id: contract.property_id,
+                        other_party_id: contract.other_party_id
                       } 
                     } 
                   })}

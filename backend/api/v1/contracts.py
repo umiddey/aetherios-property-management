@@ -27,7 +27,7 @@ async def create_contract(
     
     try:
         logger.info(f"Creating contract: {contract_data.title}, type: {contract_data.contract_type}")
-        logger.info(f"Contract data - Property ID: {contract_data.related_property_id}, Tenant ID: {contract_data.related_tenant_id}")
+        logger.info(f"Contract data - Property ID: {contract_data.property_id}, Other Party ID: {contract_data.other_party_id}")
         contract_service = ContractService(db)
         user_id = current_user.get("id") if isinstance(current_user, dict) else current_user.id
         logger.info(f"User ID: {user_id}")
@@ -49,7 +49,7 @@ async def get_contracts(
     contract_type: Optional[ContractType] = Query(None),
     status: Optional[ContractStatus] = Query(None),
     search: Optional[str] = Query(None),
-    related_tenant_id: Optional[str] = Query(None),
+    other_party_id: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
     db = Depends(get_database)
 ):
@@ -62,8 +62,8 @@ async def get_contracts(
         
         if search:
             contracts = await contract_service.search_contracts(search, skip, limit)
-        elif related_tenant_id:
-            contracts = await contract_service.get_contracts_by_related_entity("tenant", related_tenant_id)
+        elif other_party_id:
+            contracts = await contract_service.get_contracts_by_other_party(other_party_id)
         elif contract_type:
             contracts = await contract_service.get_contracts_by_type(contract_type, skip, limit)
         elif status:
@@ -71,8 +71,8 @@ async def get_contracts(
         else:
             contracts = await contract_service.get_all(query={"is_archived": False}, skip=skip, limit=limit)
         
-        # Apply additional filters if tenant filtering was used
-        if related_tenant_id and contract_type:
+        # Apply additional filters if other party filtering was used
+        if other_party_id and contract_type:
             contracts = [c for c in contracts if c.get('contract_type') == contract_type]
         
         return [ContractResponse(**contract) for contract in contracts]

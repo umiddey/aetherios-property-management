@@ -8,7 +8,7 @@ import string
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Header
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
@@ -63,14 +63,49 @@ def create_portal_access_token(account_id: str, email: str) -> str:
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-async def get_current_portal_user():
+async def get_current_portal_user(authorization: str = Header(None)):
     """
     Dependency to get current authenticated portal user
     Similar to get_current_user but for portal tokens
     """
-    # This will be implemented to validate portal JWT tokens
-    # For now, return a placeholder
-    return {"id": "test", "first_name": "Test", "last_name": "User"}
+    from fastapi.security.utils import get_authorization_scheme_param
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate portal credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    if not authorization:
+        raise credentials_exception
+    
+    scheme, token = get_authorization_scheme_param(authorization)
+    if scheme.lower() != "bearer":
+        raise credentials_exception
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        account_id: str = payload.get("sub")
+        email: str = payload.get("email")
+        token_type: str = payload.get("type")
+        
+        if account_id is None or token_type != "portal":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    # Get account from database
+    account = await db.accounts.find_one({
+        "id": account_id,
+        "portal_email": email,
+        "portal_active": True,
+        "is_archived": False
+    })
+    
+    if account is None:
+        raise credentials_exception
+    
+    return account
 
 
 @router.get("/invite/{portal_code}", response_model=PortalInvitationResponse)
@@ -287,3 +322,23 @@ async def get_portal_dashboard(current_account=Depends(get_current_portal_user))
         "account_id": current_account["id"],
         "account_name": f"{current_account['first_name']} {current_account['last_name']}"
     }
+
+
+@router.get("/contracts")
+async def get_portal_contracts(current_account=Depends(get_current_portal_user)):
+    """
+    Get all active contracts for the authenticated portal user (tenant)
+    Used for service request contract selection
+    """
+    from services.account_service import AccountService
+    
+    account_service = AccountService(db)
+    
+    try:
+        contracts = await account_service.get_active_contracts_for_account(current_account["id"])
+        return contracts
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve portal contracts: {str(e)}"
+        )

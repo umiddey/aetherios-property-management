@@ -34,12 +34,11 @@ class TenantToAccountMigration:
         self.migration_log = []
         self.errors = []
     
-    async def run_migration(self, company_id: str = "default", dry_run: bool = True) -> Dict[str, Any]:
+    async def run_migration(self, dry_run: bool = True) -> Dict[str, Any]:
         """
         Run the complete migration process
         
         Args:
-            company_id: Company ID to assign to migrated accounts
             dry_run: If True, only analyze data without making changes
         
         Returns:
@@ -64,7 +63,7 @@ class TenantToAccountMigration:
             await self._create_backup()
             
             # Step 3: Migrate tenants to accounts
-            migration_results = await self._migrate_tenants_to_accounts(company_id)
+            migration_results = await self._migrate_tenants_to_accounts()
             
             # Step 4: Verify migration
             verification = await self._verify_migration()
@@ -133,7 +132,7 @@ class TenantToAccountMigration:
             self.migration_log.append(f"Created backup: {backup_collection_name} ({len(tenants)} documents)")
             logger.info(f"Backup created: {backup_collection_name}")
     
-    async def _migrate_tenants_to_accounts(self, company_id: str) -> Dict[str, Any]:
+    async def _migrate_tenants_to_accounts(self) -> Dict[str, Any]:
         """Migrate all tenants to the new account system"""
         tenants = list(self.tenants_collection.find({"is_archived": False}))
         
@@ -149,7 +148,7 @@ class TenantToAccountMigration:
                 migration_results["total_processed"] += 1
                 
                 # Create account from tenant data
-                account_data = await self._convert_tenant_to_account(tenant, company_id)
+                account_data = await self._convert_tenant_to_account(tenant)
                 
                 # Insert account
                 account_result = await self.accounts_collection.insert_one(account_data)
@@ -174,7 +173,7 @@ class TenantToAccountMigration:
         
         return migration_results
     
-    async def _convert_tenant_to_account(self, tenant: Dict[str, Any], company_id: str) -> Dict[str, Any]:
+    async def _convert_tenant_to_account(self, tenant: Dict[str, Any]) -> Dict[str, Any]:
         """Convert tenant document to account document"""
         # Generate portal code for tenant access
         portal_code = self.account_service._generate_portal_code()
@@ -187,7 +186,6 @@ class TenantToAccountMigration:
             "email": tenant.get("email", ""),
             "phone": tenant.get("phone"),
             "address": tenant.get("address"),
-            "company_id": company_id,
             "created_at": tenant.get("created_at", datetime.utcnow()),
             "created_by": tenant.get("created_by", "migration"),
             "updated_at": None,
@@ -297,7 +295,7 @@ async def run_migration_cli():
     
     # Run dry run first
     print("Running migration analysis (dry run)...")
-    dry_run_results = await migration.run_migration(company_id="default", dry_run=True)
+    dry_run_results = await migration.run_migration(dry_run=True)
     
     print(f"Analysis Results:")
     print(f"- Total tenants to migrate: {dry_run_results['analysis']['total_tenants']}")
@@ -313,7 +311,7 @@ async def run_migration_cli():
     response = input("\nProceed with actual migration? (y/N): ")
     if response.lower() == 'y':
         print("Running actual migration...")
-        results = await migration.run_migration(company_id="default", dry_run=False)
+        results = await migration.run_migration(dry_run=False)
         
         print(f"\nMigration Results:")
         print(f"- Status: {results['status']}")

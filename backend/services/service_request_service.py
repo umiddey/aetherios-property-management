@@ -5,7 +5,7 @@ Handles service request operations, validation, and integration with ERP system
 
 import os
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from pymongo.database import Database
 from fastapi import UploadFile
@@ -97,44 +97,74 @@ class ServiceRequestService:
         filters: Dict[str, Any], 
         skip: int = 0, 
         limit: int = 50, 
-        user_role: str = "user"
+        user_role: str = "user",
+        user_id: Optional[str] = None
     ) -> List[ServiceRequestSummary]:
         """
         Get service requests with filtering, pagination, and role-based access
         """
-        # Build query
-        query = {"is_archived": False}
-        query.update(filters)
-        
-        # Role-based access control
-        if user_role == "user":
-            # Regular users can only see requests for properties they manage
-            # This would need user-property association logic
-            pass
-        
-        # Execute query with pagination
-        cursor = self.collection.find(query).skip(skip).limit(limit).sort("submitted_at", -1)
-        requests = await cursor.to_list(length=None)
-        
-        # Convert to summary format with property info
-        summaries = []
-        for request in requests:
-            # Get property address
-            property_doc = await self.properties_collection.find_one({"id": request["property_id"]})
-            property_address = property_doc.get("address") if property_doc else None
+        try:
+            # Build query
+            query = {"is_archived": False}
+            query.update(filters)
             
-            summary = ServiceRequestSummary(
-                id=request["id"],
-                title=request["title"],
-                request_type=request["request_type"],
-                priority=request["priority"],
-                status=request["status"],
-                submitted_at=request["submitted_at"],
-                property_address=property_address
-            )
-            summaries.append(summary)
-        
-        return summaries
+            # Role-based access control
+            if user_role == "user" and user_id:
+                # Regular users (property managers) can only see requests for properties they manage
+                # Get all property IDs managed by this user
+                managed_properties = await self.properties_collection.find(
+                    {"manager_id": user_id, "is_archived": False}
+                ).to_list(length=None)
+                
+                managed_property_ids = [prop["id"] for prop in managed_properties]
+                print(f"🔍 DEBUG - User {user_id} manages properties: {managed_property_ids}")
+                
+                if managed_property_ids:
+                    # Only show service requests for properties managed by this user
+                    query["property_id"] = {"$in": managed_property_ids}
+                else:
+                    # If user manages no properties, return empty results
+                    print(f"⚠️ DEBUG - User {user_id} manages no properties, returning empty")
+                    return []
+            
+            print(f"🔍 DEBUG - Service Request Query: {query}")
+            
+            # Execute query with pagination
+            cursor = self.collection.find(query).skip(skip).limit(limit).sort("submitted_at", -1)
+            requests = await cursor.to_list(length=limit)  # Fix: use limit instead of None
+            
+            print(f"🔍 DEBUG - Found {len(requests)} service requests")
+            
+            # Convert to summary format with property info
+            summaries = []
+            for request in requests:
+                try:
+                    # Get property address
+                    property_doc = await self.properties_collection.find_one({"id": request.get("property_id")})
+                    property_address = property_doc.get("address") if property_doc else "Address not found"
+                    
+                    summary = ServiceRequestSummary(
+                        id=request["id"],
+                        title=request["title"],
+                        request_type=request["request_type"],
+                        priority=request["priority"],
+                        status=request["status"],
+                        submitted_at=request["submitted_at"],
+                        property_address=property_address
+                    )
+                    summaries.append(summary)
+                    print(f"✅ DEBUG - Processed service request: {request['id']}")
+                except Exception as e:
+                    print(f"❌ DEBUG - Error processing service request {request.get('id', 'unknown')}: {e}")
+                    continue
+            
+            print(f"🎯 DEBUG - Returning {len(summaries)} summaries")
+            return summaries
+            
+        except Exception as e:
+            print(f"❌ DEBUG - Service request query failed: {e}")
+            # Return empty list instead of raising exception
+            return []
     
     
     async def get_service_request_by_id(self, request_id: str, user_role: str = "user") -> Optional[ServiceRequestResponse]:
@@ -364,12 +394,15 @@ class ServiceRequestService:
     
     async def get_tenant_property_id(self, tenant_id: str) -> Optional[str]:
         """Get tenant's active property ID from rental agreements"""
+        print(f"🔍 get_tenant_property_id called with: {tenant_id}")
+        
         # Check accounts collection first
         account = await self.accounts_collection.find_one({
             "id": tenant_id,
             "account_type": "tenant",
             "is_archived": False
         })
+        print(f"🔍 Account found in accounts: {account is not None}")
         
         # If not found in accounts, check tenants collection (backward compatibility)
         if not account:
@@ -377,20 +410,34 @@ class ServiceRequestService:
                 "id": tenant_id,
                 "is_archived": False
             })
+            print(f"🔍 Account found in tenants: {account is not None}")
         
         if not account:
+            print(f"❌ No account found for tenant_id: {tenant_id}")
             return None
         
-        # Find active rental agreement
-        # This would need to be adjusted based on your rental agreement structure
-        rental_agreement = await self.db.rental_agreements.find_one({
-            "tenant_id": tenant_id,
-            "start_date": {"$lte": datetime.utcnow()},
-            "end_date": {"$gte": datetime.utcnow()},
+        print(f"✅ Found account: {account.get('first_name', '')} {account.get('last_name', '')}")
+        
+        # Find active contract with this tenant (match account_service query - no other_party_type filter)
+        current_datetime = datetime.now(timezone.utc)
+        active_contract = await self.db.contracts.find_one({
+            "other_party_id": tenant_id,
+            "status": "active",
+            "start_date": {"$lte": current_datetime},
+            "$or": [
+                {"end_date": {"$gte": current_datetime}},
+                {"end_date": None}  # No end date means ongoing
+            ],
             "is_archived": False
         })
         
-        return rental_agreement["property_id"] if rental_agreement else None
+        print(f"🔍 Active contract found: {active_contract is not None}")
+        if active_contract:
+            print(f"✅ Contract property_id: {active_contract.get('property_id')}")
+            return active_contract["property_id"]
+        else:
+            print(f"❌ No active contract found for tenant: {tenant_id}")
+            return None
     
     
     # Validation and utility methods
@@ -410,17 +457,22 @@ class ServiceRequestService:
         if not property_doc:
             raise ValueError("Property not found")
         
-        # Check if there's an active rental agreement
-        rental_agreement = await self.db.rental_agreements.find_one({
-            "tenant_id": tenant_id,
+        # Check if there's an active contract (updated from rental_agreements to contracts)
+        current_datetime = datetime.now(timezone.utc)
+        active_contract = await self.db.contracts.find_one({
+            "other_party_id": tenant_id,
             "property_id": property_id,
-            "start_date": {"$lte": datetime.utcnow()},
-            "end_date": {"$gte": datetime.utcnow()},
+            "status": "active",
+            "start_date": {"$lte": current_datetime},
+            "$or": [
+                {"end_date": {"$gte": current_datetime}},
+                {"end_date": None}  # No end date means ongoing
+            ],
             "is_archived": False
         })
         
-        if not rental_agreement:
-            raise ValueError("No active rental agreement found between tenant and property")
+        if not active_contract:
+            raise ValueError("No active contract found between tenant and property")
         
         return True
     

@@ -43,7 +43,6 @@ class Account(BaseModel):
     address: Optional[str] = None
     
     # System Fields
-    company_id: str  # For SaaS multi-tenancy isolation
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     updated_at: Optional[datetime] = None
@@ -168,7 +167,6 @@ class AccountCreate(BaseModel):
     email: EmailStr
     phone: Optional[str] = Field(None, max_length=50)
     address: Optional[str] = Field(None, max_length=500)
-    company_id: str
     
     # Profile-specific data (will be stored in respective profile tables)
     profile_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
@@ -196,7 +194,6 @@ class AccountResponse(BaseModel):
     email: str
     phone: Optional[str]
     address: Optional[str]
-    company_id: str
     created_at: datetime
     updated_at: Optional[datetime]
     is_archived: bool
@@ -259,12 +256,10 @@ class PortalLoginResponse(BaseModel):
 class PortalAccess(BaseModel):
     """Portal access validation model"""
     portal_code: str
-    company_domain: str  # For multi-tenant validation
 
 
 # Migration Helper Models
 class TenantMigration(BaseModel):
     """Helper model for migrating existing tenant data to account system"""
     tenant_data: Dict[str, Any]
-    company_id: str
     created_by: str

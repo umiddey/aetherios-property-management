@@ -37,8 +37,8 @@ const CreateContractForm = () => {
     billing_frequency: 'monthly',
     next_billing_date: '',
     
-    related_property_id: '',
-    related_tenant_id: '',
+    property_id: '',
+    other_party_id: '',
     related_user_id: '',
     description: '',
     terms: '',
@@ -61,11 +61,11 @@ const CreateContractForm = () => {
         ...prefilledData
       }));
       
-      if (prefilledData.related_property_id) {
+      if (prefilledData.property_id) {
         setIsPropertyLocked(true);
       }
       
-      if (prefilledData.contract_type === 'rental' && prefilledData.related_property_id) {
+      if (prefilledData.contract_type === 'rental' && prefilledData.property_id) {
         setPartyRolesLocked([true, true]);
         setFormData(prev => ({
           ...prev,
@@ -84,7 +84,7 @@ const CreateContractForm = () => {
         cachedAxios.get(`${API}/v1/contracts/types/list`),
         cachedAxios.get(`${API}/v1/contracts/billing-types/list`),
         cachedAxios.get(`${API}/v1/properties/`),
-        cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`),
+        cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
         cachedAxios.get(`${API}/v1/users/`)
       ]);
       
@@ -182,9 +182,9 @@ const CreateContractForm = () => {
         billing_type: formData.billing_type || null,
         billing_frequency: formData.billing_type ? formData.billing_frequency : null,
         next_billing_date: formData.next_billing_date ? new Date(formData.next_billing_date).toISOString() : null,
-        
-        related_property_id: formData.related_property_id || null,
-        related_tenant_id: formData.related_tenant_id || null,
+
+        property_id: formData.property_id || null,
+        other_party_id: formData.other_party_id || null,
         related_user_id: formData.related_user_id || null
       };
 
@@ -194,25 +194,26 @@ const CreateContractForm = () => {
       invalidateCache('/api/v2/accounts');
       invalidateCache('/api/v1/dashboard/stats');
       
-      if (submitData.related_property_id) {
-        invalidateCache(`/api/v1/contracts/?contract_type=rental&related_property_id=${submitData.related_property_id}`);
+      if (submitData.property_id) {
+        invalidateCache(`/api/v1/contracts/?contract_type=rental&property_id=${submitData.property_id}`);
       }
       
-      if (submitData.related_tenant_id) {
-        invalidateCache(`/api/v1/contracts/?contract_type=rental&related_tenant_id=${submitData.related_tenant_id}`);
+      if (submitData.other_party_id) {
+        invalidateCache(`/api/v1/contracts/?contract_type=rental&other_party_id=${submitData.other_party_id}`);
       }
       
       window.dispatchEvent(new CustomEvent('contractCreated', { 
         detail: { 
           contractId: response.data.id,
-          relatedTenantId: submitData.related_tenant_id,
-          relatedPropertyId: submitData.related_property_id
+          relatedTenantId: submitData.other_party_id,
+          relatedPropertyId: submitData.property_id
         }
       }));
       
       showSuccess(t('contracts.messages.contractCreated'));
       navigate('/contracts');
     } catch (error) {
+      console.log("error: ", error)
       showError(error, t('contracts.messages.createError'));
     } finally {
       setLoading(false);
@@ -292,8 +293,8 @@ const CreateContractForm = () => {
                   </label>
                   <div className="relative">
                     <select
-                      value={formData.related_property_id}
-                      onChange={(e) => handleInputChange('related_property_id', e.target.value)}
+                      value={formData.property_id}
+                      onChange={(e) => handleInputChange('property_id', e.target.value)}
                       className={`w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isPropertyLocked ? 'bg-blue-50 cursor-not-allowed' : ''
                       }`}
@@ -335,8 +336,8 @@ const CreateContractForm = () => {
                     👤 Tenant * (Required)
                   </label>
                   <select
-                    value={formData.related_tenant_id}
-                    onChange={(e) => handleInputChange('related_tenant_id', e.target.value)}
+                    value={formData.other_party_id}
+                    onChange={(e) => handleInputChange('other_party_id', e.target.value)}
                     className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -448,8 +449,8 @@ const CreateContractForm = () => {
                     🏢 Related Property (Optional)
                   </label>
                   <select
-                    value={formData.related_property_id}
-                    onChange={(e) => handleInputChange('related_property_id', e.target.value)}
+                    value={formData.property_id}
+                    onChange={(e) => handleInputChange('property_id', e.target.value)}
                     className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Select Property (if applicable)...</option>

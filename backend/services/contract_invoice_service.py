@@ -79,8 +79,8 @@ class ContractInvoiceService:
             description=description,
             invoice_date=datetime.utcnow(),
             due_date=datetime.utcnow() + timedelta(days=30),  # Default 30 days
-            tenant_id=contract.get("related_tenant_id"),  # Legacy compatibility
-            property_id=contract.get("related_property_id")
+            tenant_id=contract.get("other_party_id"),  # Updated field name
+            property_id=contract.get("property_id")
         )
         
         logger.info("Calling invoice service to create invoice")

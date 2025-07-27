@@ -73,7 +73,6 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
-        company_id: 'company_1', // Default company for now
         profile_data
       };
 

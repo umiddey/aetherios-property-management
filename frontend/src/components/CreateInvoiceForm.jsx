@@ -40,7 +40,7 @@ const CreateInvoiceForm = ({ onBack, onSuccess }) => {
         // Load contracts, tenants, and properties for dropdowns
         const [contractsRes, tenantsRes, propertiesRes] = await Promise.all([
           cachedAxios.get(`${API}/v1/contracts`),
-          cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`),
+          cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
           cachedAxios.get(`${API}/v1/properties`)
         ]);
         setContracts(contractsRes.data);
@@ -61,8 +61,8 @@ const CreateInvoiceForm = ({ onBack, onSuccess }) => {
         ...prev,
         contract_id: contractData.contract_id,
         contract_title: contractData.contract_title,
-        property_id: contractData.related_property_id || '',
-        tenant_id: contractData.related_tenant_id || '',
+        property_id: contractData.property_id || '',
+        tenant_id: contractData.other_party_id || '',
         description: `Invoice for ${contractData.contract_title} (${contractData.contract_type})`
       }));
     }
@@ -108,8 +108,8 @@ const CreateInvoiceForm = ({ onBack, onSuccess }) => {
           ...prev,
           contract_id: value,
           contract_title: selectedContract.title,
-          tenant_id: selectedContract.related_tenant_id || '',
-          property_id: selectedContract.related_property_id || '',
+          tenant_id: selectedContract.other_party_id || '',
+          property_id: selectedContract.property_id || '',
           description: `Invoice for ${selectedContract.title} (${selectedContract.contract_type})`
         }));
       }

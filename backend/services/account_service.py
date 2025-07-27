@@ -6,7 +6,7 @@ Handles CRUD operations and business rules for Tenants, Employees, and Contracto
 import secrets
 import string
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from bson import ObjectId
@@ -48,7 +48,6 @@ class AccountService:
             email=account_data.email,
             phone=account_data.phone,
             address=account_data.address,
-            company_id=account_data.company_id,
             created_by=created_by,
             portal_code=portal_code,
             portal_active=False  # Will be set to True when tenant activates via invitation
@@ -123,16 +122,15 @@ class AccountService:
             return profile
         return None
     
-    async def get_accounts_by_company(
+    async def get_accounts(
         self, 
-        company_id: str, 
         account_type: Optional[AccountType] = None,
         status: Optional[AccountStatus] = None,
         skip: int = 0,
         limit: int = 100
     ) -> List[AccountResponse]:
-        """Get accounts filtered by company and optional criteria"""
-        query = {"company_id": company_id, "is_archived": False}
+        """Get accounts filtered by optional criteria"""
+        query = {"is_archived": False}
         
         if account_type:
             query["account_type"] = account_type
@@ -161,7 +159,7 @@ class AccountService:
         """Update account with profile data"""
         update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
         if update_dict:
-            update_dict["updated_at"] = datetime.utcnow()
+            update_dict["updated_at"] = datetime.now(timezone.utc)
             update_dict["updated_by"] = updated_by
             
             result = await self.collection.update_one(
@@ -209,7 +207,7 @@ class AccountService:
             {"$set": {
                 "portal_code": new_code,
                 "portal_active": False,  # Will be set to True when user activates with password
-                "updated_at": datetime.utcnow()
+                "updated_at": datetime.now(timezone.utc)
             }}
         )
         
@@ -225,11 +223,10 @@ class AccountService:
         
         return ''.join(secrets.choice(characters) for _ in range(7))
     
-    async def validate_portal_access(self, portal_code: str, company_id: str) -> Optional[AccountResponse]:
+    async def validate_portal_access(self, portal_code: str) -> Optional[AccountResponse]:
         """Validate portal access and return account if valid"""
         account_doc = await self.collection.find_one({
             "portal_code": portal_code,
-            "company_id": company_id,
             "portal_active": True,
             "status": AccountStatus.ACTIVE,
             "is_archived": False
@@ -239,7 +236,7 @@ class AccountService:
             # Update last login
             await self.collection.update_one(
                 {"_id": account_doc["_id"]},
-                {"$set": {"portal_last_login": datetime.utcnow()}}
+                {"$set": {"portal_last_login": datetime.now(timezone.utc)}}
             )
             
             # Return account response
@@ -262,7 +259,7 @@ class AccountService:
             {"$set": {
                 "is_archived": True,
                 "portal_active": False,  # Disable portal access
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.now(timezone.utc),
                 "updated_by": archived_by
             }}
         )
@@ -284,7 +281,6 @@ class AccountService:
             email=tenant_data.get("email", ""),
             phone=tenant_data.get("phone"),
             address=tenant_data.get("address"),
-            company_id=tenant_migration.company_id,
             profile_data={
                 "date_of_birth": tenant_data.get("date_of_birth"),
                 "gender": tenant_data.get("gender"),
@@ -295,10 +291,9 @@ class AccountService:
         
         return await self.create_account(account_create, tenant_migration.created_by)
     
-    async def get_tenant_accounts(self, company_id: str) -> List[AccountResponse]:
+    async def get_tenant_accounts(self) -> List[AccountResponse]:
         """Get all tenant accounts for backward compatibility"""
-        return await self.get_accounts_by_company(
-            company_id=company_id,
+        return await self.get_accounts(
             account_type=AccountType.TENANT,
             status=AccountStatus.ACTIVE
         )
@@ -324,7 +319,6 @@ class AccountService:
     
     async def search_accounts(
         self, 
-        company_id: str, 
         search_term: str,
         account_type: Optional[AccountType] = None
     ) -> List[AccountResponse]:
@@ -340,7 +334,6 @@ class AccountService:
             return []
         
         query = {
-            "company_id": company_id,
             "is_archived": False,
             "$or": [
                 {"first_name": {"$regex": sanitized_term, "$options": "i"}},
@@ -376,3 +369,46 @@ class AccountService:
             pass
         
         return accounts
+
+    async def get_active_contracts_for_account(self, account_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all active contracts for an account with property details
+        Used for service request contract selection and account detail pages
+        """
+        current_datetime = datetime.now(timezone.utc)
+        
+        # Query active contracts for this account
+        contracts_cursor = self.db.contracts.find({
+            "other_party_id": account_id,
+            "status": "active",
+            "start_date": {"$lte": current_datetime},
+            "$or": [
+                {"end_date": {"$gte": current_datetime}},
+                {"end_date": None}  # No end date means ongoing
+            ],
+            "is_archived": False
+        })
+        
+        contracts = await contracts_cursor.to_list(length=None)
+        
+        # Enrich contracts with property details
+        enriched_contracts = []
+        for contract in contracts:
+            # Remove MongoDB _id
+            contract.pop("_id", None)
+            
+            # Get property details if property_id exists
+            if contract.get("property_id"):
+                property_doc = await self.db.properties.find_one({
+                    "id": contract["property_id"],
+                    "is_archived": False
+                })
+                
+                if property_doc:
+                    # Remove MongoDB _id from property
+                    property_doc.pop("_id", None)
+                    contract["property_details"] = property_doc
+            
+            enriched_contracts.append(contract)
+        
+        return enriched_contracts

@@ -31,8 +31,8 @@ const ContractEditPage = () => {
     end_date: '',
     value: '',
     currency: 'EUR',
-    related_property_id: '',
-    related_tenant_id: '',
+    property_id: '',
+    other_party_id: '',
     related_user_id: '',
     description: '',
     terms: '',
@@ -63,8 +63,8 @@ const ContractEditPage = () => {
         end_date: contract.end_date || '',
         value: contract.value || '',
         currency: contract.currency || 'EUR',
-        related_property_id: contract.related_property_id || '',
-        related_tenant_id: contract.related_tenant_id || '',
+        property_id: contract.property_id || '',
+        other_party_id: contract.other_party_id || '',
         related_user_id: contract.related_user_id || '',
         description: contract.description || '',
         terms: contract.terms || '',
@@ -83,7 +83,7 @@ const ContractEditPage = () => {
       const [typesResponse, propertiesResponse, tenantsResponse, usersResponse] = await Promise.all([
         cachedAxios.get(`${API}/v1/contracts/types/list`),
         cachedAxios.get(`${API}/v1/properties/`),
-        cachedAxios.get(`${API}/v2/accounts/?company_id=company_1&account_type=tenant`),
+        cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
         cachedAxios.get(`${API}/v1/users/`)
       ]);
       
@@ -542,8 +542,8 @@ const ContractEditPage = () => {
                 {t('contracts.relatedProperty')}
               </label>
               <select
-                value={formData.related_property_id}
-                onChange={(e) => handleInputChange('related_property_id', e.target.value)}
+                value={formData.property_id}
+                onChange={(e) => handleInputChange('property_id', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">{t('common.select')}...</option>
@@ -560,8 +560,8 @@ const ContractEditPage = () => {
                 {t('contracts.relatedTenant')}
               </label>
               <select
-                value={formData.related_tenant_id}
-                onChange={(e) => handleInputChange('related_tenant_id', e.target.value)}
+                value={formData.other_party_id}
+                onChange={(e) => handleInputChange('other_party_id', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">{t('common.select')}...</option>

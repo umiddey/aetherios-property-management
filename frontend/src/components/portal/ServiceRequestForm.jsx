@@ -18,26 +18,48 @@ const ServiceRequestForm = () => {
     priority: 'routine',
     title: '',
     description: '',
+    contract_id: '',  // NEW: Selected contract for this service request
     attachments: []
   });
   
   const [requestTypes, setRequestTypes] = useState([]);
   const [priorities, setPriorities] = useState([]);
+  const [contracts, setContracts] = useState([]);  // NEW: Available contracts for this tenant
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  // Load service request types and priorities
+  // Load service request types, priorities, and tenant's contracts
   useEffect(() => {
     const loadFormData = async () => {
       try {
-        // Fetch available request types
-        const typesResponse = await axios.get(`${BACKEND_URL}/api/v1/service-request-options/types`);
-        setRequestTypes(typesResponse.data || []);
+        // Get current tenant account from secure storage
+        const account = secureStorage.getPortalUser();
+        if (!account) {
+          setError('Please log in to submit service requests.');
+          return;
+        }
+
+        // Fetch form options and tenant's contracts in parallel
+        const [typesResponse, prioritiesResponse, contractsResponse] = await Promise.all([
+          axios.get(`${BACKEND_URL}/api/v1/service-request-options/types`),
+          axios.get(`${BACKEND_URL}/api/v1/service-request-options/priorities`),
+          axios.get(`${BACKEND_URL}/api/v1/portal/contracts`, {
+            headers: { Authorization: `Bearer ${secureStorage.getPortalToken()}` }
+          })
+        ]);
         
-        // Fetch available priorities
-        const prioritiesResponse = await axios.get(`${BACKEND_URL}/api/v1/service-request-options/priorities`);
+        setRequestTypes(typesResponse.data || []);
         setPriorities(prioritiesResponse.data || []);
+        setContracts(contractsResponse.data || []);
+        
+        // Auto-select contract if only one active contract
+        if (contractsResponse.data && contractsResponse.data.length === 1) {
+          setFormData(prev => ({
+            ...prev,
+            contract_id: contractsResponse.data[0].id
+          }));
+        }
         
       } catch (error) {
         console.error('Failed to load form data:', error);
@@ -71,6 +93,14 @@ const ServiceRequestForm = () => {
   const validateForm = () => {
     if (!formData.request_type) {
       setError('Please select a request type.');
+      return false;
+    }
+    if (!formData.contract_id && contracts.length > 0) {
+      setError('Please select which property needs service.');
+      return false;
+    }
+    if (contracts.length === 0) {
+      setError('You must have an active contract to submit service requests.');
       return false;
     }
     if (!formData.title.trim()) {
@@ -246,6 +276,79 @@ const ServiceRequestForm = () => {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Property/Contract Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Which property needs service? *
+              </label>
+              {contracts.length === 0 ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-yellow-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-yellow-700">
+                      You don't have any active contracts. Please contact your property manager.
+                    </span>
+                  </div>
+                </div>
+              ) : contracts.length === 1 ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-blue-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <span className="text-blue-700 font-medium">Service request for: </span>
+                      <span className="text-blue-900">
+                        {contracts[0].property_details?.street} {contracts[0].property_details?.house_nr}, {contracts[0].property_details?.city}
+                        {contracts[0].title && ` (${contracts[0].title})`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {contracts.map((contract) => (
+                    <label
+                      key={contract.id}
+                      className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${
+                        formData.contract_id === contract.id
+                          ? 'border-purple-500 bg-purple-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="contract_id"
+                        value={contract.id}
+                        checked={formData.contract_id === contract.id}
+                        onChange={handleInputChange}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center ${
+                        formData.contract_id === contract.id
+                          ? 'border-purple-500 bg-purple-500'
+                          : 'border-gray-300'
+                      }`}>
+                        {formData.contract_id === contract.id && (
+                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {contract.property_details?.street} {contract.property_details?.house_nr}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {contract.property_details?.city} • {contract.title || 'Rental Contract'}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Priority Selection */}
