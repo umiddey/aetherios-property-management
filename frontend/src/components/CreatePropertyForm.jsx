@@ -41,7 +41,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const token = localStorage.getItem('jwt_token');
+        const token = localStorage.getItem('token');
         const response = await axios.get(`${API}/v1/users/`, {
           headers: { Authorization: `Bearer ${token}` }
         });
