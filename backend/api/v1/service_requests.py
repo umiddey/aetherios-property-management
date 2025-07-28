@@ -294,6 +294,11 @@ async def submit_portal_service_request(
         # Extract tenant info from portal JWT token
         tenant_id = portal_user["account_id"]
         
+        # DEBUG: Log the incoming request data
+        print(f"🔍 DEBUG PORTAL - Request data: {request.dict()}")
+        print(f"🔍 DEBUG PORTAL - Tenant preferred slots: {request.tenant_preferred_slots}")
+        print(f"🔍 DEBUG PORTAL - Number of preferred slots: {len(request.tenant_preferred_slots)}")
+        
         # Get tenant's property association
         property_id = await service.get_tenant_property_id(tenant_id)
         print(f"🔍 DEBUG - Tenant ID: {tenant_id}")
@@ -313,7 +318,8 @@ async def submit_portal_service_request(
             priority=request.priority,
             title=request.title,
             description=request.description,
-            attachment_urls=[]
+            attachment_urls=[],
+            tenant_preferred_slots=request.tenant_preferred_slots
         )
         
         # Create the service request

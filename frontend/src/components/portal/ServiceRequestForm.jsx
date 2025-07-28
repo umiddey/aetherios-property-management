@@ -19,7 +19,8 @@ const ServiceRequestForm = () => {
     title: '',
     description: '',
     contract_id: '',  // NEW: Selected contract for this service request
-    attachments: []
+    attachments: [],
+    preferred_slots: []  // NEW: Calendar widget preferred appointment days (date strings)
   });
   
   const [requestTypes, setRequestTypes] = useState([]);
@@ -142,13 +143,19 @@ const ServiceRequestForm = () => {
         'Content-Type': 'application/json'
       };
       
+      // Convert preferred slots to ISO datetime strings (00:00 time for day-only selection)
+      const tenant_preferred_slots = formData.preferred_slots
+        .filter(date => date)
+        .map(date => new Date(date + 'T00:00:00').toISOString());
+
       const response = await axios.post(
         `${BACKEND_URL}/api/v1/service-requests/portal/submit`,
         {
           request_type: formData.request_type,
           priority: formData.priority,
           title: formData.title.trim(),
-          description: formData.description.trim()
+          description: formData.description.trim(),
+          tenant_preferred_slots: tenant_preferred_slots
         },
         { headers }
       );
@@ -378,6 +385,90 @@ const ServiceRequestForm = () => {
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* Preferred Appointment Times */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Preferred appointment days (optional)
+              </label>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-blue-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                  </svg>
+                  <div className="text-sm text-blue-700">
+                    <p className="font-medium mb-1">Help us schedule faster!</p>
+                    <p>Select 1-3 preferred appointment days. If none work for our contractor, they'll suggest specific times based on urgency:</p>
+                    <ul className="mt-2 space-y-1">
+                      <li><span className="font-medium text-red-600">Emergency:</span> Next 1 working day</li>
+                      <li><span className="font-medium text-orange-600">Urgent:</span> Next 3-5 working days</li>
+                      <li><span className="font-medium text-green-600">Routine:</span> Up to 2 months out</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Calendar Widget */}
+              <div className="space-y-3">
+                {[0, 1, 2].map((index) => (
+                  <div key={index} className="flex items-center space-x-3">
+                    <span className="text-sm font-medium text-gray-500 w-20">
+                      {index === 0 ? 'Option 1:' : index === 1 ? 'Option 2:' : 'Option 3:'}
+                    </span>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 mb-1">Preferred Day</label>
+                      <input
+                        type="date"
+                        value={formData.preferred_slots[index] || ''}
+                        onChange={(e) => {
+                          const newSlots = [...formData.preferred_slots];
+                          newSlots[index] = e.target.value;
+                          setFormData(prev => ({ ...prev, preferred_slots: newSlots }));
+                        }}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      />
+                    </div>
+                    {formData.preferred_slots[index] && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newSlots = [...formData.preferred_slots];
+                          newSlots[index] = '';
+                          setFormData(prev => ({ ...prev, preferred_slots: newSlots }));
+                        }}
+                        className="text-red-500 hover:text-red-700 p-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              {/* Selected slots preview */}
+              {formData.preferred_slots.some(date => date) && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <h4 className="text-sm font-medium text-green-800 mb-2">Selected appointment preferences:</h4>
+                  <ul className="space-y-1">
+                    {formData.preferred_slots
+                      .filter(date => date)
+                      .map((date, index) => (
+                        <li key={index} className="text-sm text-green-700">
+                          {new Date(date).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* Title Input */}

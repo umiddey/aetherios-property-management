@@ -56,6 +56,7 @@ class ServiceRequestService:
         await self.validate_tenant_property_association(request.tenant_id, request.property_id)
         
         # Create service request document
+        print(f"🔍 DEBUG SERVICE - Creating request with preferred_slots: {request.tenant_preferred_slots}")
         service_request = ServiceRequest(
             tenant_id=request.tenant_id,
             property_id=request.property_id,
@@ -63,8 +64,10 @@ class ServiceRequestService:
             priority=request.priority,
             title=request.title,
             description=request.description,
-            attachment_urls=request.attachment_urls
+            attachment_urls=request.attachment_urls,
+            tenant_preferred_slots=request.tenant_preferred_slots  # 🔧 FIX: Add missing preferred slots
         )
+        print(f"🔍 DEBUG SERVICE - ServiceRequest object preferred_slots: {service_request.tenant_preferred_slots}")
         
         # Insert into database
         result = await self.collection.insert_one(service_request.dict())
@@ -158,8 +161,34 @@ class ServiceRequestService:
             for request in requests:
                 try:
                     # Get property address
-                    property_doc = await self.properties_collection.find_one({"id": request.get("property_id")})
-                    property_address = property_doc.get("address") if property_doc else "Address not found"
+                    property_id = request.get("property_id")
+                    print(f"🔍 DEBUG PROPERTY - Looking for property_id: {property_id}")
+                    property_doc = await self.properties_collection.find_one({"id": property_id})
+                    print(f"🔍 DEBUG PROPERTY - Found property_doc: {property_doc}")
+                    
+                    # Construct address from individual fields
+                    if property_doc:
+                        street = property_doc.get("street", "")
+                        house_nr = property_doc.get("house_nr", "")
+                        postcode = property_doc.get("postcode", "")
+                        city = property_doc.get("city", "")
+                        
+                        # Build address string
+                        address_parts = []
+                        if street and house_nr:
+                            address_parts.append(f"{street} {house_nr}")
+                        elif street:
+                            address_parts.append(street)
+                        if postcode and city:
+                            address_parts.append(f"{postcode} {city}")
+                        elif city:
+                            address_parts.append(city)
+                            
+                        property_address = ", ".join(address_parts) if address_parts else "Address incomplete"
+                    else:
+                        property_address = "Property not found"
+                        
+                    print(f"🔍 DEBUG PROPERTY - Constructed address: {property_address}")
                     
                     summary = ServiceRequestSummary(
                         id=request["id"],

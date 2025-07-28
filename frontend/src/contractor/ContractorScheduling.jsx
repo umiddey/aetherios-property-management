@@ -21,6 +21,7 @@ const ContractorScheduling = () => {
   
   const [selectedAction, setSelectedAction] = useState(''); // 'accept' or 'propose'
   const [selectedSlot, setSelectedSlot] = useState('');
+  const [selectedTime, setSelectedTime] = useState(''); // New: time selection for accepted day
   const [proposedDateTime, setProposedDateTime] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -58,7 +59,12 @@ const ContractorScheduling = () => {
     }
     
     if (selectedAction === 'accept' && !selectedSlot) {
-      setError('Please select a tenant preferred slot to accept');
+      setError('Please select a tenant preferred day to accept');
+      return;
+    }
+    
+    if (selectedAction === 'accept' && !selectedTime) {
+      setError('Please select a 30-minute time window for the chosen day');
       return;
     }
     
@@ -73,7 +79,8 @@ const ContractorScheduling = () => {
     try {
       const submitData = {
         action: selectedAction,
-        selected_slot: selectedAction === 'accept' ? selectedSlot : null,
+        selected_slot: selectedAction === 'accept' ? 
+          new Date(selectedSlot.split('T')[0] + 'T' + selectedTime).toISOString() : null,
         proposed_datetime: selectedAction === 'propose' ? proposedDateTime : null,
         contractor_notes: notes
       };
@@ -214,33 +221,48 @@ const ContractorScheduling = () => {
           </div>
         </div>
 
-        {/* Tenant Preferred Slots */}
+        {/* Tenant Preferred Days */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">📅 Tenant's Preferred Time Slots</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">📅 Tenant's Preferred Days</h2>
           
           {serviceRequest.tenant_preferred_slots && serviceRequest.tenant_preferred_slots.length > 0 ? (
-            <div className="space-y-3">
-              {serviceRequest.tenant_preferred_slots.map((slot, index) => (
-                <label key={index} className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300">
-                  <input
-                    type="radio"
-                    name="preferredSlot"
-                    value={slot}
-                    checked={selectedAction === 'accept' && selectedSlot === slot}
-                    onChange={(e) => {
-                      setSelectedAction('accept');
-                      setSelectedSlot(e.target.value);
-                    }}
-                    className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                  />
-                  <span className="ml-3 text-gray-900">
-                    {formatDateTime(slot)}
-                  </span>
-                </label>
-              ))}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                </svg>
+                <div className="text-sm text-blue-700">
+                  <p className="font-medium mb-2">Tenant requested these days:</p>
+                  <ul className="space-y-1">
+                    {serviceRequest.tenant_preferred_slots.map((slot, index) => (
+                      <li key={index} className="flex items-center">
+                        <span className="font-medium">Day {index + 1}:</span>
+                        <span className="ml-2">
+                          {new Date(slot).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-blue-600 font-medium">
+                    💡 You can accept one of these days or suggest a different time below
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
-            <p className="text-gray-500 italic">No specific time preferences - tenant is flexible with scheduling</p>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <p className="text-gray-500 italic flex items-center">
+                <svg className="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Tenant didn't specify preferred days - please suggest available times
+              </p>
+            </div>
           )}
         </div>
 
@@ -258,20 +280,110 @@ const ContractorScheduling = () => {
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-3">Choose Your Action</label>
             
-            <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 mb-3">
-              <input
-                type="radio"
-                name="action"
-                value="accept"
-                checked={selectedAction === 'accept'}
-                onChange={(e) => setSelectedAction(e.target.value)}
-                className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
-              />
-              <div className="ml-3">
-                <div className="text-green-700 font-medium">✅ Accept Tenant's Preferred Slot</div>
-                <div className="text-sm text-green-600">Choose one of the times listed above</div>
+            {/* Only show Accept option if tenant provided preferred days */}
+            {serviceRequest.tenant_preferred_slots && serviceRequest.tenant_preferred_slots.length > 0 && (
+              <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 mb-3">
+                <input
+                  type="radio"
+                  name="action"
+                  value="accept"
+                  checked={selectedAction === 'accept'}
+                  onChange={(e) => {
+                    setSelectedAction(e.target.value);
+                    if (e.target.value !== 'accept') {
+                      setSelectedSlot(''); // Clear selected slot when switching away from accept
+                      setSelectedTime(''); // Clear selected time when switching away from accept
+                    }
+                  }}
+                  className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                />
+                <div className="ml-3">
+                  <div className="text-green-700 font-medium">✅ Accept One of Tenant's Preferred Days</div>
+                  <div className="text-sm text-green-600">I can work on one of the days they requested</div>
+                </div>
+              </label>
+            )}
+
+            {/* Day Selection UI - appears when Accept is selected */}
+            {selectedAction === 'accept' && serviceRequest.tenant_preferred_slots && serviceRequest.tenant_preferred_slots.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-medium text-green-800 mb-3">📅 Which day works for you?</h4>
+                <div className="space-y-2">
+                  {serviceRequest.tenant_preferred_slots.map((slot, index) => (
+                    <label key={index} className="flex items-center p-3 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 bg-white">
+                      <input
+                        type="radio"
+                        name="preferredSlot"
+                        value={slot}
+                        checked={selectedSlot === slot}
+                        onChange={(e) => {
+                          setSelectedSlot(e.target.value);
+                          setSelectedTime(''); // Clear time when day changes
+                        }}
+                        className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                      />
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-green-900">
+                          Day {index + 1}: {new Date(slot).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-green-600 mt-2">💡 Select the day that works best for your schedule</p>
               </div>
-            </label>
+            )}
+
+            {/* Time Selection UI - appears after day is selected */}
+            {selectedAction === 'accept' && selectedSlot && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-medium text-blue-800 mb-3">🕐 What time works on {new Date(selectedSlot).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric'
+                })}?</h4>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-blue-700 mb-2">
+                    Select 30-minute appointment window
+                  </label>
+                  <select
+                    value={selectedTime}
+                    onChange={(e) => setSelectedTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Choose a time range...</option>
+                    <option value="08:00">8:00 AM - 8:30 AM</option>
+                    <option value="08:30">8:30 AM - 9:00 AM</option>
+                    <option value="09:00">9:00 AM - 9:30 AM</option>
+                    <option value="09:30">9:30 AM - 10:00 AM</option>
+                    <option value="10:00">10:00 AM - 10:30 AM</option>
+                    <option value="10:30">10:30 AM - 11:00 AM</option>
+                    <option value="11:00">11:00 AM - 11:30 AM</option>
+                    <option value="11:30">11:30 AM - 12:00 PM</option>
+                    <option value="12:00">12:00 PM - 12:30 PM</option>
+                    <option value="12:30">12:30 PM - 1:00 PM</option>
+                    <option value="13:00">1:00 PM - 1:30 PM</option>
+                    <option value="13:30">1:30 PM - 2:00 PM</option>
+                    <option value="14:00">2:00 PM - 2:30 PM</option>
+                    <option value="14:30">2:30 PM - 3:00 PM</option>
+                    <option value="15:00">3:00 PM - 3:30 PM</option>
+                    <option value="15:30">3:30 PM - 4:00 PM</option>
+                    <option value="16:00">4:00 PM - 4:30 PM</option>
+                    <option value="16:30">4:30 PM - 5:00 PM</option>
+                    <option value="17:00">5:00 PM - 5:30 PM</option>
+                    <option value="17:30">5:30 PM - 6:00 PM</option>
+                  </select>
+                  <p className="text-xs text-blue-600 mt-1">
+                    💡 Each appointment is a 30-minute window during business hours
+                  </p>
+                </div>
+              </div>
+            )}
             
             <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300">
               <input
@@ -279,12 +391,23 @@ const ContractorScheduling = () => {
                 name="action"
                 value="propose"
                 checked={selectedAction === 'propose'}
-                onChange={(e) => setSelectedAction(e.target.value)}
+                onChange={(e) => {
+                  setSelectedAction(e.target.value);
+                  if (e.target.value !== 'accept') {
+                    setSelectedSlot(''); // Clear selected slot when switching to propose
+                    setSelectedTime(''); // Clear selected time when switching to propose
+                  }
+                }}
                 className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
               />
               <div className="ml-3">
                 <div className="text-blue-700 font-medium">📅 Propose Different Time</div>
-                <div className="text-sm text-blue-600">Suggest an alternative date and time</div>
+                <div className="text-sm text-blue-600">
+                  {serviceRequest.tenant_preferred_slots && serviceRequest.tenant_preferred_slots.length > 0 
+                    ? "Their preferred days don't work - suggest alternative"
+                    : "Suggest an available date and time"
+                  }
+                </div>
               </div>
             </label>
           </div>

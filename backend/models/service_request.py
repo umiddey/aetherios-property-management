@@ -101,6 +101,7 @@ class ServiceRequestCreate(BaseModel):
     title: str = Field(..., min_length=5, max_length=100)
     description: str = Field(..., min_length=10, max_length=1000)
     attachment_urls: List[str] = Field(default_factory=list)
+    tenant_preferred_slots: List[datetime] = Field(default_factory=list, description="Tenant's 1-3 preferred appointment times")
 
 
 class ServiceRequestUpdate(BaseModel):
