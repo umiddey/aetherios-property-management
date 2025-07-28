@@ -757,8 +757,7 @@ class ServiceRequestService:
                 service_request,
                 service_request.contractor_email,
                 service_request.invoice_upload_token,
-                base_url,
-                completion_notes
+                base_url
             )
             
             if email_success:

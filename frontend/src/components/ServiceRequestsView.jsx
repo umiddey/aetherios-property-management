@@ -90,6 +90,7 @@ const ServiceRequestsView = ({
     return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-100 p-6">
       {/* Modern Header with Glassmorphism */}
@@ -241,7 +242,15 @@ const ServiceRequestsView = ({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
-                          onClick={() => setSelectedRequest(request)}
+                          onClick={async () => {
+                            try {
+                              const response = await cachedAxios.get(`${API}/v1/service-requests/${request.id}`);
+                              setSelectedRequest(response.data);
+                            } catch (error) {
+                              console.error('Error fetching service request details:', error);
+                              setSelectedRequest(request); // Fallback to summary data
+                            }
+                          }}
                           className="text-indigo-600 hover:text-indigo-900 mr-3"
                         >
                           View Details
@@ -324,6 +333,94 @@ const ServiceRequestsView = ({
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Description</label>
                   <p className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{selectedRequest.description || 'No description provided'}</p>
+                </div>
+
+                {/* Contractor Workflow Information */}
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Contractor Workflow</h3>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Assigned Contractor</label>
+                      <p className="mt-1 text-sm text-gray-900">{selectedRequest.contractor_email || 'Not assigned'}</p>
+                    </div>
+                    
+                    {selectedRequest.contractor_response_token && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Contractor Scheduling Link (Link 1)</label>
+                        <div className="mt-1 flex items-center space-x-2">
+                          <input 
+                            type="text" 
+                            readOnly 
+                            value={`http://localhost:3000/contractor/schedule/${selectedRequest.contractor_response_token}`}
+                            className="flex-1 text-xs bg-gray-100 border border-gray-300 rounded px-2 py-1"
+                          />
+                          <button 
+                            onClick={() => navigator.clipboard.writeText(`http://localhost:3000/contractor/schedule/${selectedRequest.contractor_response_token}`)}
+                            className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                          >
+                            Copy
+                          </button>
+                          <span className={`px-2 py-1 text-xs font-medium rounded ${
+                            selectedRequest.schedule_link_accessed ? 
+                            'bg-green-100 text-green-800' : 
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {selectedRequest.schedule_link_accessed ? '✅ Used' : '⏳ Pending'}
+                          </span>
+                        </div>
+                        {selectedRequest.schedule_link_accessed_at && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            Last accessed: {formatDate(selectedRequest.schedule_link_accessed_at)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {selectedRequest.invoice_upload_token && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Contractor Invoice Link (Link 2)</label>
+                        <div className="mt-1 flex items-center space-x-2">
+                          <input 
+                            type="text" 
+                            readOnly 
+                            value={`http://localhost:3000/contractor/invoice/${selectedRequest.invoice_upload_token}`}
+                            className="flex-1 text-xs bg-gray-100 border border-gray-300 rounded px-2 py-1"
+                          />
+                          <button 
+                            onClick={() => navigator.clipboard.writeText(`http://localhost:3000/contractor/invoice/${selectedRequest.invoice_upload_token}`)}
+                            className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                          >
+                            Copy
+                          </button>
+                          <span className={`px-2 py-1 text-xs font-medium rounded ${
+                            selectedRequest.invoice_link_accessed ? 
+                            'bg-green-100 text-green-800' : 
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {selectedRequest.invoice_link_accessed ? '✅ Used' : '⏳ Pending'}
+                          </span>
+                        </div>
+                        {selectedRequest.invoice_link_accessed_at && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            Last accessed: {formatDate(selectedRequest.invoice_link_accessed_at)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {selectedRequest.appointment_confirmed_datetime && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Appointment Scheduled</label>
+                        <p className="mt-1 text-sm text-gray-900">{formatDate(selectedRequest.appointment_confirmed_datetime)}</p>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Completion Status</label>
+                      <p className="mt-1 text-sm text-gray-900">{selectedRequest.completion_status || 'pending'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 

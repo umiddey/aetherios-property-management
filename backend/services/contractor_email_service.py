@@ -65,19 +65,26 @@ class ContractorEmailService:
         """
         try:
             service_keyword = self.service_type_mapping.get(service_type, "general_maintenance")
-            
             # Find contractor with this service in their services_offered
             contractor_profile = await self.db.contractor_profiles.find_one({
                 "services_offered": {"$in": [service_keyword]}
             })
             
             if contractor_profile:
-                # Get the associated account to retrieve email
+                # QUICK FIX: contractor_profiles collection already has email field
+                # TODO: This is a temporary fix until we restructure the database properly
+                contractor_email = contractor_profile.get("email")
+                if contractor_email:
+                    logger.info(f"✅ Found contractor for {service_keyword}: {contractor_email}")
+                    return contractor_email
+                
+                # Fallback: Get email from the deprecated accounts lookup
                 account = await self.db.accounts.find_one({
-                    "_id": contractor_profile["account_id"]
+                    "id": contractor_profile["account_id"]
                 })
                 
                 if account and account.get("email"):
+                    logger.warning(f"⚠️ Using deprecated accounts lookup for contractor: {account['email']}")
                     return account["email"]
             
             # 🧪 TESTING FALLBACK: Use mock contractor for development/testing
@@ -328,14 +335,24 @@ class ContractorEmailService:
         Returns:
             bool: True if sent successfully, False otherwise
         """
-        try:
+        try:     
             if not EMAIL_AVAILABLE:
                 # Mock email sending in development
                 logger.info(f"📧 MOCK EMAIL to {to_email}: {subject}")
-                print(f"📧 MOCK EMAIL SENT:")
-                print(f"   To: {to_email}")
-                print(f"   Subject: {subject}")
-                print(f"   Content: {html_body[:200]}...")
+                print(f"\n📧 MOCK EMAIL SENT TO: {to_email}")
+                print(f"📝 Subject: {subject}")
+                print(f"🔗 Content (first 200 chars): {html_body[:200]}...")
+                print(f"📄 Full HTML content saved to: /tmp/mock_email_{to_email.replace('@', '_at_')}.html")
+                
+                # Save full email content for inspection
+                import tempfile
+                email_file = f"/tmp/mock_email_{to_email.replace('@', '_at_')}.html"
+                try:
+                    with open(email_file, 'w') as f:
+                        f.write(html_body)
+                except Exception as e:
+                    print(f"Note: Could not save email file: {e}")
+                
                 return True
             
             # Create message
@@ -374,6 +391,18 @@ def get_smtp_config() -> Dict[str, str]:
     """
     import os
     
+    # 🧪 TEST MODE: Use real SMTP for end-to-end testing
+    # In production, these should be proper environment variables
+    test_smtp_config = {
+        'smtp_server': 'smtp.gmail.com',
+        'smtp_port': 587,
+        'username': 'noreply.erp.test@gmail.com',  # Test account
+        'password': 'test_password_here',  # Would be app password in real setup
+        'from_email': 'noreply@erp-property-management.com',
+        'use_tls': True
+    }
+    
+    # For now, return mock mode but with the structure ready
     return {
         'smtp_server': os.getenv('SMTP_SERVER', 'localhost'),
         'smtp_port': int(os.getenv('SMTP_PORT', '587')),

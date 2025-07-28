@@ -83,7 +83,7 @@ async def get_scheduling_details(token: str):
                 detail="Scheduling has already been completed for this service request"
             )
         
-        # Get tenant and property info for context
+        # Get tenant and property info for context  
         tenant = await db.accounts.find_one({"id": service_request["tenant_id"]})
         property_info = await db.properties.find_one({"id": service_request["property_id"]})
         
@@ -240,8 +240,11 @@ async def get_invoice_details(token: str):
             )
         
         # Get tenant and property info for context
-        tenant = await db.accounts.find_one({"_id": service_request["tenant_id"]})
-        property_info = await db.properties.find_one({"_id": service_request["property_id"]})
+        tenant = await db.accounts.find_one({"id": service_request["tenant_id"]})
+        property_info = await db.properties.find_one({"id": service_request["property_id"]})
+        
+        # Remove MongoDB ObjectId before serializing
+        service_request.pop("_id", None)
         
         # Enrich response with context data
         response_data = {

@@ -124,7 +124,7 @@ async def get_service_request(
 ):
     """Get specific service request by ID (Admin/ERP interface)"""
     try:
-        service_request = await service.get_service_request_by_id(request_id, current_user.get("role", "user"))
+        service_request = await service.get_service_request_by_id(request_id, getattr(current_user, "role", "user"))
         
         if not service_request:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service request not found")
@@ -151,7 +151,7 @@ async def update_service_request_status(
     """
     try:
         # Only admins and super_admins can update service requests
-        if current_user.get("role") not in ["admin", "super_admin"]:
+        if getattr(current_user, "role", "user") not in ["admin", "super_admin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
                 detail="Insufficient permissions to update service requests"
@@ -184,7 +184,7 @@ async def delete_service_request(
     """
     try:
         # Only super_admins can archive service requests
-        if current_user.get("role") != "super_admin":
+        if getattr(current_user, "role", "user") != "super_admin":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
                 detail="Insufficient permissions to archive service requests"
@@ -262,7 +262,7 @@ async def get_service_request_stats(
     """
     try:
         # Only admins can view statistics
-        if current_user.get("role") not in ["admin", "super_admin"]:
+        if getattr(current_user, "role", "user") not in ["admin", "super_admin"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
                 detail="Insufficient permissions to view statistics"
