@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import cachedAxios from '../utils/cachedAxios';
+import apiCache from '../utils/cache';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -59,8 +60,9 @@ const AccountDetailPage = ({
         portal_code: response.data.portal_code
       }));
       
-      setError('Portal code generated successfully!');
-      setTimeout(() => setError(''), 3000);
+      // Invalidate cache for this account so future navigation shows updated data
+      apiCache.delete(`${API}/v2/accounts/${id}`);
+      
     } catch (error) {
       console.error('Error generating portal code:', error);
       setError('Failed to generate portal code');

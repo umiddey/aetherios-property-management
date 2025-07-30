@@ -14,6 +14,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 from services.property_service import PropertyService
 from repositories.property_repository import PropertyRepository
+from services.tenant_service import TenantService
 
 logger = logging.getLogger(__name__)
 
@@ -96,12 +97,25 @@ async def get_portal_user(credentials: HTTPAuthorizationCredentials = Depends(se
                 detail="Invalid portal authentication credentials"
             )
         
-        # Verify account exists in accounts collection
-        account_doc = await db.accounts.find_one({"id": account_id})
-        if account_doc is None or not account_doc.get("portal_active"):
+        # Verify account exists and has active portal access using TenantService
+        tenant_service = TenantService(db)
+        tenant_account = await tenant_service.get_tenant_by_id(account_id)
+        
+        if tenant_account is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Portal account not found or inactive"
+            )
+        
+        # Check portal access in tenant profile data
+        portal_active = False
+        if tenant_account.profile_data:
+            portal_active = tenant_account.profile_data.get("portal_active", False)
+        
+        if not portal_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Portal access is not active for this account"
             )
         
         # Return portal user context for service request creation
@@ -109,8 +123,8 @@ async def get_portal_user(credentials: HTTPAuthorizationCredentials = Depends(se
             "account_id": account_id,
             "email": payload.get("email"),
             "type": "portal",
-            "account_type": account_doc.get("account_type", "tenant"),
-            "company_id": account_doc.get("company_id")
+            "account_type": tenant_account.account_type,
+            "company_id": None  # AccountResponse doesn't have metadata field
         }
         
     except jwt.PyJWTError:

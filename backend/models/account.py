@@ -49,12 +49,6 @@ class Account(BaseModel):
     updated_by: Optional[str] = None
     is_archived: bool = False
     
-    # Portal Access (for customer portal)
-    portal_code: Optional[str] = None  # Random 7-char code for portal access (one-time invitation)
-    portal_active: bool = False        # True after first login/activation
-    portal_email: Optional[str] = None  # Email chosen during portal activation (can differ from main email)
-    portal_password_hash: Optional[str] = None  # Hashed password for portal login
-    portal_last_login: Optional[datetime] = None
     
     # Notification Preferences
     notification_preferences: Dict[str, List[str]] = Field(default_factory=lambda: {
@@ -95,6 +89,13 @@ class TenantProfile(BaseModel):
     rental_status: Optional[str] = None  # active, inactive, notice_given, etc.
     last_payment_date: Optional[datetime] = None
     outstanding_balance: Optional[float] = 0.0
+    
+    # Portal Access (moved from base Account - tenant-specific)
+    portal_code: Optional[str] = None  # Random 7-char code for portal access (one-time invitation)
+    portal_active: bool = False        # True after first login/activation
+    portal_email: Optional[str] = None  # Email chosen during portal activation (can differ from main email)
+    portal_password_hash: Optional[str] = None  # Hashed password for portal login
+    portal_last_login: Optional[datetime] = None
 
 
 class EmployeeProfile(BaseModel):
@@ -198,17 +199,20 @@ class AccountResponse(BaseModel):
     updated_at: Optional[datetime]
     is_archived: bool
     
-    # Portal Information
-    portal_code: Optional[str]
-    portal_active: bool
-    portal_last_login: Optional[datetime]
-    
     # Computed Fields
     full_name: str = ""  # Will be computed as first_name + last_name
     display_name: str = ""  # Business logic for display
     
     # Profile Data (populated based on account_type)
     profile_data: Optional[Dict[str, Any]] = None
+
+
+class TenantAccountResponse(AccountResponse):
+    """Tenant-specific account response with portal fields"""
+    # Portal Information (only for tenant accounts)
+    portal_code: Optional[str] = None
+    portal_active: bool = False
+    portal_last_login: Optional[datetime] = None
     
     def __init__(self, **data):
         super().__init__(**data)

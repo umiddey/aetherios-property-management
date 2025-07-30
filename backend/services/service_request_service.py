@@ -22,6 +22,7 @@ from models.service_request import (
     ServiceRequestPriority
 )
 from services.contractor_email_service import ContractorEmailService, get_smtp_config
+from services.tenant_service import TenantService
 
 
 class ServiceRequestService:
@@ -30,8 +31,7 @@ class ServiceRequestService:
     def __init__(self, db: Database):
         self.db = db
         self.collection = db.service_requests
-        self.accounts_collection = db.accounts
-        self.tenants_collection = db.tenants  # Backward compatibility
+        self.tenant_service = TenantService(db)  # Use TenantService instead of direct collections
         self.properties_collection = db.properties
         self.tasks_collection = db.tasks
         self.users_collection = db.users
@@ -456,21 +456,17 @@ class ServiceRequestService:
         """Get tenant's active property ID from rental agreements"""
         print(f"🔍 get_tenant_property_id called with: {tenant_id}")
         
-        # Check accounts collection first
-        account = await self.accounts_collection.find_one({
-            "id": tenant_id,
-            "account_type": "tenant",
-            "is_archived": False
-        })
-        print(f"🔍 Account found in accounts: {account is not None}")
+        # Get tenant using TenantService
+        tenant_account = await self.tenant_service.get_tenant_by_id(tenant_id)
+        print(f"🔍 Tenant found: {tenant_account is not None}")
         
-        # If not found in accounts, check tenants collection (backward compatibility)
-        if not account:
-            account = await self.tenants_collection.find_one({
-                "id": tenant_id,
-                "is_archived": False
-            })
-            print(f"🔍 Account found in tenants: {account is not None}")
+        # Convert to dict for backward compatibility with existing code
+        account = None
+        if tenant_account and not tenant_account.is_archived:
+            account = {
+                "id": tenant_account.id,
+                "account_type": tenant_account.account_type
+            }
         
         if not account:
             print(f"❌ No account found for tenant_id: {tenant_id}")
@@ -503,13 +499,9 @@ class ServiceRequestService:
     # Validation and utility methods
     async def validate_tenant_property_association(self, tenant_id: str, property_id: str) -> bool:
         """Validate that tenant is associated with the property"""
-        # Check if tenant exists
-        tenant = await self.accounts_collection.find_one({"id": tenant_id, "account_type": "tenant"})
-        if not tenant:
-            # Check backward compatibility
-            tenant = await self.tenants_collection.find_one({"id": tenant_id})
-        
-        if not tenant:
+        # Check if tenant exists using TenantService
+        tenant_account = await self.tenant_service.get_tenant_by_id(tenant_id)
+        if not tenant_account:
             raise ValueError("Tenant not found")
         
         # Check if property exists
@@ -539,12 +531,9 @@ class ServiceRequestService:
     
     async def _enrich_service_request_response(self, service_request: ServiceRequest) -> ServiceRequestResponse:
         """Enrich service request with related data for response"""
-        # Get tenant info
-        tenant = await self.accounts_collection.find_one({"id": service_request.tenant_id})
-        if not tenant:
-            tenant = await self.tenants_collection.find_one({"id": service_request.tenant_id})
-        
-        tenant_name = f"{tenant['first_name']} {tenant['last_name']}" if tenant else None
+        # Get tenant info using TenantService
+        tenant_account = await self.tenant_service.get_tenant_by_id(service_request.tenant_id)
+        tenant_name = f"{tenant_account.first_name} {tenant_account.last_name}" if tenant_account else None
         
         # Get property info
         property_doc = await self.properties_collection.find_one({"id": service_request.property_id})

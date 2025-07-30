@@ -34,6 +34,8 @@ except ImportError as e:
 
 from models.service_request import ServiceRequest, ServiceRequestType
 from models.account import ContractorProfile
+from services.contractor_service import ContractorService
+from services.tenant_service import TenantService
 
 
 logger = logging.getLogger(__name__)
@@ -78,14 +80,13 @@ class ContractorEmailService:
                     logger.info(f"✅ Found contractor for {service_keyword}: {contractor_email}")
                     return contractor_email
                 
-                # Fallback: Get email from the deprecated accounts lookup
-                account = await self.db.accounts.find_one({
-                    "id": contractor_profile["account_id"]
-                })
+                # Fallback: Get email from contractor account using ContractorService
+                contractor_service = ContractorService(self.db)
+                contractor_account = await contractor_service.get_contractor_by_id(contractor_profile["account_id"])
                 
-                if account and account.get("email"):
-                    logger.warning(f"⚠️ Using deprecated accounts lookup for contractor: {account['email']}")
-                    return account["email"]
+                if contractor_account and contractor_account.email:
+                    logger.info(f"✅ Found contractor email via ContractorService: {contractor_account.email}")
+                    return contractor_account.email
             
             # 🧪 TESTING FALLBACK: Use mock contractor for development/testing
             logger.warning(f"No contractor found for service type: {service_type}")
@@ -132,11 +133,12 @@ class ContractorEmailService:
             bool: True if email sent successfully, False otherwise
         """
         try:
-            # Get tenant and property info for context
-            tenant = await self.db.accounts.find_one({"_id": service_request.tenant_id})
+            # Get tenant and property info for context using TenantService
+            tenant_service = TenantService(self.db)
+            tenant_account = await tenant_service.get_tenant_by_id(service_request.tenant_id)
             property_info = await self.db.properties.find_one({"_id": service_request.property_id})
             
-            tenant_name = f"{tenant.get('first_name', '')} {tenant.get('last_name', '')}" if tenant else "Tenant"
+            tenant_name = f"{tenant_account.first_name} {tenant_account.last_name}" if tenant_account else "Tenant"
             property_address = property_info.get("address", "Property") if property_info else "Property"
             
             # Construct Link 1 URL
@@ -241,11 +243,12 @@ class ContractorEmailService:
             bool: True if email sent successfully, False otherwise
         """
         try:
-            # Get tenant and property info
-            tenant = await self.db.accounts.find_one({"_id": service_request.tenant_id})
+            # Get tenant and property info using TenantService
+            tenant_service = TenantService(self.db)
+            tenant_account = await tenant_service.get_tenant_by_id(service_request.tenant_id)
             property_info = await self.db.properties.find_one({"_id": service_request.property_id})
             
-            tenant_name = f"{tenant.get('first_name', '')} {tenant.get('last_name', '')}" if tenant else "Tenant"
+            tenant_name = f"{tenant_account.first_name} {tenant_account.last_name}" if tenant_account else "Tenant"
             property_address = property_info.get("address", "Property") if property_info else "Property"
             
             # Construct Link 2 URL

@@ -3,18 +3,19 @@ Account API v2 - Unified account management endpoints
 Replaces fragmented tenant/customer system with hierarchical account structure
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from models.account import (
     Account, AccountType, AccountStatus, AccountCreate, AccountUpdate, AccountResponse,
-    TenantProfile, EmployeeProfile, ContractorProfile,
+    TenantProfile, EmployeeProfile, ContractorProfile, TenantAccountResponse,
     PortalCodeGenerate, PortalAccess, TenantMigration
 )
 from models.user import User
 from services.account_service import AccountService
+from services.tenant_service import TenantService
 from dependencies import get_current_user
 
 # Import database connection
@@ -30,7 +31,12 @@ def get_account_service(db: AsyncIOMotorDatabase = Depends(get_database)) -> Acc
     return AccountService(db)
 
 
-@router.post("/", response_model=AccountResponse, status_code=http_status.HTTP_201_CREATED)
+def get_tenant_service(db: AsyncIOMotorDatabase = Depends(get_database)) -> TenantService:
+    """Dependency to get tenant service instance"""
+    return TenantService(db)
+
+
+@router.post("/", response_model=Union[AccountResponse, TenantAccountResponse], status_code=http_status.HTTP_201_CREATED)
 async def create_account(
     account_data: AccountCreate,
     current_user: User = Depends(get_current_user),
@@ -49,7 +55,7 @@ async def create_account(
         )
 
 
-@router.get("/", response_model=List[AccountResponse])
+@router.get("/", response_model=List[Union[AccountResponse, TenantAccountResponse]])
 async def get_accounts(
     account_type: Optional[AccountType] = Query(None, description="Filter by account type"),
     status: Optional[AccountStatus] = Query(None, description="Filter by account status"),
@@ -83,7 +89,7 @@ async def get_accounts(
         )
 
 
-@router.get("/{account_id}", response_model=AccountResponse)
+@router.get("/{account_id}", response_model=Union[AccountResponse, TenantAccountResponse])
 async def get_account(
     account_id: str,
     account_service: AccountService = Depends(get_account_service),
@@ -101,7 +107,7 @@ async def get_account(
     return account
 
 
-@router.put("/{account_id}", response_model=AccountResponse)
+@router.put("/{account_id}", response_model=Union[AccountResponse, TenantAccountResponse])
 async def update_account(
     account_id: str,
     update_data: AccountUpdate,
@@ -161,17 +167,18 @@ async def archive_account(
 @router.post("/{account_id}/portal-code", response_model=Dict[str, str])
 async def generate_portal_code(
     account_id: str,
-    account_service: AccountService = Depends(get_account_service),
+    tenant_service: TenantService = Depends(get_tenant_service),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Generate a new portal access code for an account (typically for tenants)
+    Generate a new portal access code for a tenant account
+    Routes to TenantService for proper domain separation
     """
-    portal_code = await account_service.generate_portal_code(account_id)
+    portal_code = await tenant_service.generate_portal_code(account_id)
     if not portal_code:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
-            detail="Account not found or code generation failed"
+            detail="Tenant not found or code generation failed"
         )
     return {"portal_code": portal_code}
 
@@ -179,13 +186,13 @@ async def generate_portal_code(
 @router.post("/portal/validate", response_model=AccountResponse)
 async def validate_portal_access(
     portal_access: PortalAccess,
-    account_service: AccountService = Depends(get_account_service)
+    tenant_service: TenantService = Depends(get_tenant_service)
 ):
     """
-    Validate portal access code and return account information
-    Used by customer portal for authentication
+    Validate portal access code and return tenant account information
+    Used by customer portal for authentication - routes to TenantService
     """
-    account = await account_service.validate_portal_access(
+    account = await tenant_service.validate_portal_access(
         portal_access.portal_code
     )
     if not account:

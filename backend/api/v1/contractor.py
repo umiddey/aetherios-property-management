@@ -13,6 +13,7 @@ from dependencies import db
 from models.service_request import ServiceRequest, ServiceRequestStatus
 from services.contractor_email_service import ContractorEmailService, get_smtp_config
 from services.completion_tracking_service import CompletionTrackingService
+from services.tenant_service import TenantService
 
 
 router = APIRouter(prefix="/contractor", tags=["contractor"])
@@ -83,8 +84,21 @@ async def get_scheduling_details(token: str):
                 detail="Scheduling has already been completed for this service request"
             )
         
-        # Get tenant and property info for context  
-        tenant = await db.accounts.find_one({"id": service_request["tenant_id"]})
+        # Get tenant and property info for context using TenantService
+        tenant_service = TenantService(db)
+        tenant_account = await tenant_service.get_tenant_by_id(service_request["tenant_id"])
+        
+        # Convert to dict format for backward compatibility
+        tenant = None
+        if tenant_account:
+            tenant = {
+                "id": tenant_account.id,
+                "first_name": tenant_account.first_name,
+                "last_name": tenant_account.last_name,
+                "email": tenant_account.email,
+                "phone": tenant_account.phone,
+                "address": tenant_account.address
+            }
         property_info = await db.properties.find_one({"id": service_request["property_id"]})
         
         # Remove MongoDB specific fields and enrich with context data
@@ -239,8 +253,21 @@ async def get_invoice_details(token: str):
                 detail="Invoice has already been submitted for this service request"
             )
         
-        # Get tenant and property info for context
-        tenant = await db.accounts.find_one({"id": service_request["tenant_id"]})
+        # Get tenant and property info for context using TenantService
+        tenant_service = TenantService(db)
+        tenant_account = await tenant_service.get_tenant_by_id(service_request["tenant_id"])
+        
+        # Convert to dict format for backward compatibility
+        tenant = None
+        if tenant_account:
+            tenant = {
+                "id": tenant_account.id,
+                "first_name": tenant_account.first_name,
+                "last_name": tenant_account.last_name,
+                "email": tenant_account.email,
+                "phone": tenant_account.phone,
+                "address": tenant_account.address
+            }
         property_info = await db.properties.find_one({"id": service_request["property_id"]})
         
         # Remove MongoDB ObjectId before serializing

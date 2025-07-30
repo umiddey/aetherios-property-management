@@ -29,6 +29,11 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
     tax_id: '',
     contract_type: '',
     hourly_rate: '',
+    services_offered: [], // Critical field for service matching
+    specializations: [], // Additional contractor skills
+    service_areas: [], // Geographic coverage areas
+    license_number: '', // Professional license info
+    insurance_info: '', // Insurance details
     // Common fields
     notes: ''
   });
@@ -41,6 +46,12 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
     setError('');
 
     try {
+      // Validate contractor services_offered requirement
+      if (formData.account_type === 'contractor' && formData.services_offered.length === 0) {
+        setError('Please select at least one service for contractor accounts to enable job assignments');
+        return;
+      }
+
       // Build profile data based on account type
       let profile_data = {};
       
@@ -62,7 +73,12 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
         profile_data = {
           business_name: formData.company_name,
           tax_id: formData.tax_id,
-          hourly_rate: formData.hourly_rate ? parseFloat(formData.hourly_rate) : null
+          hourly_rate: formData.hourly_rate ? parseFloat(formData.hourly_rate) : null,
+          services_offered: formData.services_offered, // Critical for service matching
+          specializations: formData.specializations,
+          service_areas: formData.service_areas,
+          license_number: formData.license_number,
+          insurance_info: formData.insurance_info
         };
       }
 
@@ -514,6 +530,116 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   />
                 </div>
+              </div>
+
+              {/* Services Offered - CRITICAL for contractor matching */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Services Offered * (Required for job assignments)
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { value: 'plumbing', label: 'Plumbing', icon: '🔧' },
+                    { value: 'electrical', label: 'Electrical', icon: '⚡' },
+                    { value: 'hvac', label: 'HVAC', icon: '❄️' },
+                    { value: 'appliance_repair', label: 'Appliance Repair', icon: '🏠' },
+                    { value: 'general_maintenance', label: 'General Maintenance', icon: '🔨' },
+                    { value: 'cleaning', label: 'Cleaning', icon: '🧹' },
+                    { value: 'security', label: 'Security', icon: '🔒' }
+                  ].map((service) => (
+                    <label key={service.value} className="cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.services_offered.includes(service.value)}
+                        onChange={(e) => {
+                          const newServices = e.target.checked
+                            ? [...formData.services_offered, service.value]
+                            : formData.services_offered.filter(s => s !== service.value);
+                          setFormData({ ...formData, services_offered: newServices });
+                        }}
+                        className="sr-only"
+                      />
+                      <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                        formData.services_offered.includes(service.value)
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}>
+                        <div className="flex items-center">
+                          <span className="text-lg mr-2">{service.icon}</span>
+                          <span className="text-sm font-medium text-gray-900">{service.label}</span>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {formData.services_offered.length === 0 && (
+                  <p className="text-red-500 text-sm mt-1">Please select at least one service to enable job assignments</p>
+                )}
+              </div>
+
+              {/* Additional Contractor Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    License Number
+                  </label>
+                  <input
+                    type="text"
+                    name="license_number"
+                    value={formData.license_number}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    placeholder="Professional license number"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Insurance Info
+                  </label>
+                  <input
+                    type="text"
+                    name="insurance_info"
+                    value={formData.insurance_info}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    placeholder="Insurance provider and policy"
+                  />
+                </div>
+              </div>
+
+              {/* Service Areas */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Service Areas
+                </label>
+                <input
+                  type="text"
+                  value={formData.service_areas.join(', ')}
+                  onChange={(e) => {
+                    const areas = e.target.value.split(',').map(area => area.trim()).filter(area => area);
+                    setFormData({ ...formData, service_areas: areas });
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  placeholder="Cities or postal codes (comma separated): Munich, 80331, Augsburg"
+                />
+              </div>
+
+              {/* Specializations */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Specializations
+                </label>
+                <input
+                  type="text"
+                  value={formData.specializations.join(', ')}
+                  onChange={(e) => {
+                    const specs = e.target.value.split(',').map(spec => spec.trim()).filter(spec => spec);
+                    setFormData({ ...formData, specializations: specs });
+                  }}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  placeholder="Specific skills (comma separated): Emergency repairs, Solar installation, Industrial HVAC"
+                />
               </div>
             </>
           )}

@@ -34,6 +34,7 @@ except ImportError as e:
 
 from models.service_request import ServiceRequest
 from services.contractor_email_service import ContractorEmailService, get_smtp_config
+from services.tenant_service import TenantService
 
 
 logger = logging.getLogger(__name__)
@@ -62,8 +63,18 @@ class CompletionTrackingService:
             bool: True if email sent successfully, False otherwise
         """
         try:
-            # Get tenant and property info
-            tenant = await self.db.accounts.find_one({"_id": service_request.tenant_id})
+            # Get tenant info using TenantService
+            tenant_service = TenantService(self.db)
+            tenant_account = await tenant_service.get_tenant_by_id(service_request.tenant_id)
+            
+            # Convert to dict format for backward compatibility
+            tenant = None
+            if tenant_account:
+                tenant = {
+                    "first_name": tenant_account.first_name,
+                    "last_name": tenant_account.last_name,
+                    "email": tenant_account.email
+                }
             property_info = await self.db.properties.find_one({"_id": service_request.property_id})
             
             if not tenant or not tenant.get("email"):
@@ -359,11 +370,12 @@ class CompletionTrackingService:
             # Get property manager email (placeholder - implement based on your system)
             property_manager_email = "property.manager@example.com"  # TODO: Get from config
             
-            # Get tenant and property info
-            tenant = await self.db.accounts.find_one({"_id": service_request["tenant_id"]})
+            # Get tenant and property info using TenantService
+            tenant_service = TenantService(self.db)
+            tenant_account = await tenant_service.get_tenant_by_id(service_request["tenant_id"])
             property_info = await self.db.properties.find_one({"_id": service_request["property_id"]})
             
-            tenant_name = f"{tenant.get('first_name', '')} {tenant.get('last_name', '')}" if tenant else "Tenant"
+            tenant_name = f"{tenant_account.first_name} {tenant_account.last_name}" if tenant_account else "Tenant"
             property_address = property_info.get("address", "Property") if property_info else "Property"
             
             subject = f"🚨 Service Completion Disputed - {service_request['title']}"

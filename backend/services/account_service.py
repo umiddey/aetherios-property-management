@@ -3,8 +3,6 @@ Account Service - Business logic for unified account management
 Handles CRUD operations and business rules for Tenants, Employees, and Contractors
 """
 
-import secrets
-import string
 import re
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
@@ -35,12 +33,7 @@ class AccountService:
         """
         Create a new account with appropriate profile data
         """
-        # Generate portal code if needed
-        portal_code = None
-        if account_data.account_type == AccountType.TENANT:
-            portal_code = self._generate_portal_code()
-        
-        # Create base account
+        # Create base account (no portal fields - those are tenant-specific)
         account = Account(
             account_type=account_data.account_type,
             first_name=account_data.first_name,
@@ -48,15 +41,13 @@ class AccountService:
             email=account_data.email,
             phone=account_data.phone,
             address=account_data.address,
-            created_by=created_by,
-            portal_code=portal_code,
-            portal_active=False  # Will be set to True when tenant activates via invitation
+            created_by=created_by
         )
         
         # Create account and profile (no transactions needed for standalone MongoDB)
         try:
             # Convert account to dict and ensure proper types for MongoDB
-            account_dict = account.dict()
+            account_dict = account.model_dump()
             # Insert account
             result = await self.collection.insert_one(account_dict)
             # The account.id is already set from the UUID generation
@@ -76,14 +67,35 @@ class AccountService:
         """Create type-specific profile data"""
         if account_type == AccountType.TENANT:
             profile = TenantProfile(account_id=account_id, **profile_data)
-            await self.tenant_profiles.insert_one(profile.dict())
+            await self.tenant_profiles.insert_one(profile.model_dump())
         elif account_type == AccountType.EMPLOYEE:
             profile = EmployeeProfile(account_id=account_id, **profile_data)
-            await self.employee_profiles.insert_one(profile.dict())
+            await self.employee_profiles.insert_one(profile.model_dump())
         elif account_type == AccountType.CONTRACTOR:
             profile = ContractorProfile(account_id=account_id, **profile_data)
-            await self.contractor_profiles.insert_one(profile.dict())
+            await self.contractor_profiles.insert_one(profile.model_dump())
     
+    def _build_account_response(self, account_doc: Dict[str, Any], profile_data: Optional[Dict[str, Any]]) -> AccountResponse:
+        """Build appropriate AccountResponse type based on account type"""
+        # For tenant accounts, merge portal data and return TenantAccountResponse
+        if account_doc["account_type"] == AccountType.TENANT:
+            # Import here to avoid circular imports
+            from models.account import TenantAccountResponse
+            
+            # Merge portal fields from profile_data if available
+            portal_fields = {}
+            if profile_data:
+                portal_fields = {
+                    "portal_code": profile_data.get("portal_code"),
+                    "portal_active": profile_data.get("portal_active", False),
+                    "portal_last_login": profile_data.get("portal_last_login")
+                }
+            
+            return TenantAccountResponse(**account_doc, profile_data=profile_data, **portal_fields)
+        
+        # For employee/contractor accounts, return basic AccountResponse
+        return AccountResponse(**account_doc, profile_data=profile_data)
+
     async def get_account_by_id(self, account_id: str) -> Optional[AccountResponse]:
         """Get account by ID with profile data"""
         # Get base account using our UUID id field (not MongoDB _id)
@@ -97,14 +109,8 @@ class AccountService:
         # Get profile data
         profile_data = await self._get_profile_data(account_id, account_doc["account_type"])
         
-        # Ensure portal fields exist with defaults for backward compatibility
-        account_doc.setdefault("portal_code", None)
-        account_doc.setdefault("portal_active", False)
-        account_doc.setdefault("portal_last_login", None)
-        
-        # Create response
-        account_response = AccountResponse(**account_doc, profile_data=profile_data)
-        return account_response
+        # Use centralized response builder
+        return self._build_account_response(account_doc, profile_data)
     
     async def _get_profile_data(self, account_id: str, account_type: str) -> Optional[Dict[str, Any]]:
         """Get profile data based on account type"""
@@ -144,20 +150,17 @@ class AccountService:
             # Remove MongoDB _id field, keep our UUID id
             account_doc.pop("_id", None)
             
-            # Ensure portal fields exist with defaults for backward compatibility
-            account_doc.setdefault("portal_code", None)
-            account_doc.setdefault("portal_active", False)
-            account_doc.setdefault("portal_last_login", None)
-            
             profile_data = await self._get_profile_data(account_doc["id"], account_doc["account_type"])
-            account_response = AccountResponse(**account_doc, profile_data=profile_data)
+            
+            # Use centralized response builder
+            account_response = self._build_account_response(account_doc, profile_data)
             accounts.append(account_response)
         
         return accounts
     
     async def update_account(self, account_id: str, update_data: AccountUpdate, updated_by: str) -> Optional[AccountResponse]:
         """Update account with profile data"""
-        update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+        update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
         if update_dict:
             update_dict["updated_at"] = datetime.now(timezone.utc)
             update_dict["updated_by"] = updated_by
@@ -198,59 +201,6 @@ class AccountService:
         
         return result.modified_count > 0
     
-    async def generate_portal_code(self, account_id: str) -> Optional[str]:
-        """Generate a new portal access code for an account (invitation link)"""
-        new_code = self._generate_portal_code()
-        
-        result = await self.collection.update_one(
-            {"id": account_id},
-            {"$set": {
-                "portal_code": new_code,
-                "portal_active": False,  # Will be set to True when user activates with password
-                "updated_at": datetime.now(timezone.utc)
-            }}
-        )
-        
-        if result.modified_count > 0:
-            return new_code
-        return None
-    
-    def _generate_portal_code(self) -> str:
-        """Generate a random 7-character alphanumeric portal code"""
-        # Use URL-safe characters (no confusion between 0/O, 1/I, etc.)
-        characters = string.ascii_uppercase + string.digits
-        characters = characters.replace('0', '').replace('O', '').replace('1', '').replace('I', '')
-        
-        return ''.join(secrets.choice(characters) for _ in range(7))
-    
-    async def validate_portal_access(self, portal_code: str) -> Optional[AccountResponse]:
-        """Validate portal access and return account if valid"""
-        account_doc = await self.collection.find_one({
-            "portal_code": portal_code,
-            "portal_active": True,
-            "status": AccountStatus.ACTIVE,
-            "is_archived": False
-        })
-        
-        if account_doc:
-            # Update last login
-            await self.collection.update_one(
-                {"_id": account_doc["_id"]},
-                {"$set": {"portal_last_login": datetime.now(timezone.utc)}}
-            )
-            
-            # Return account response
-            account_doc["id"] = str(account_doc.pop("_id"))
-            
-            # Ensure portal fields exist with defaults for backward compatibility
-            account_doc.setdefault("portal_code", None)
-            account_doc.setdefault("portal_active", False)
-            account_doc.setdefault("portal_last_login", None)
-            
-            profile_data = await self._get_profile_data(account_doc["id"], account_doc["account_type"])
-            return AccountResponse(**account_doc, profile_data=profile_data)
-        
-        return None
     
     async def archive_account(self, account_id: str, archived_by: str) -> bool:
         """Archive an account (soft delete)"""
@@ -258,7 +208,6 @@ class AccountService:
             {"id": account_id},
             {"$set": {
                 "is_archived": True,
-                "portal_active": False,  # Disable portal access
                 "updated_at": datetime.now(timezone.utc),
                 "updated_by": archived_by
             }}
@@ -354,10 +303,6 @@ class AccountService:
                 # Remove MongoDB _id field, keep our UUID id
                 account_doc.pop("_id", None)
                 
-                # Ensure portal fields exist with defaults for backward compatibility
-                account_doc.setdefault("portal_code", None)
-                account_doc.setdefault("portal_active", False)
-                account_doc.setdefault("portal_last_login", None)
                 
                 profile_data = await self._get_profile_data(account_doc["id"], account_doc["account_type"])
                 account_response = AccountResponse(**account_doc, profile_data=profile_data)
