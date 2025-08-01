@@ -1,8 +1,12 @@
 // src/components/AccountsView.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../AuthContext';
 import Pagination from './Pagination';
 import { exportToCSV } from '../utils/exportUtils';
+import complianceService from '../services/complianceService';
+import LicenseManagementModal from './LicenseManagementModal';
+import { canManageLicenses } from '../utils/permissions';
 
 const AccountsView = ({
   accounts,
@@ -22,6 +26,99 @@ const AccountsView = ({
   setSearchTerm
 }) => {
   const { t } = useLanguage();
+  const { user } = useAuth(); // Get current user for permission checking
+  const [contractorLicenses, setContractorLicenses] = useState({}); // Map of contractor_id -> license summary
+  const [loadingLicenses, setLoadingLicenses] = useState(false);
+  const [licenseFilter, setLicenseFilter] = useState(null); // null, 'eligible', 'not_eligible', 'expiring'
+  const [licenseModal, setLicenseModal] = useState({ isOpen: false, contractor: null });
+  
+  // Check if user can manage licenses
+  const canUserManageLicenses = canManageLicenses(user);
+
+  const fetchContractorLicenses = async () => {
+    // Only fetch license data if user has permissions
+    if (!canUserManageLicenses) {
+      setLoadingLicenses(false);
+      return;
+    }
+    
+    const contractors = accounts.filter(account => account.account_type === 'contractor');
+    if (contractors.length === 0) return;
+
+    setLoadingLicenses(true);
+    const licenseData = {};
+
+    try {
+      const licensePromises = contractors.map(async (contractor) => {
+        try {
+          const summary = await complianceService.getContractorLicenseSummary(contractor.id);
+          licenseData[contractor.id] = summary;
+        } catch (error) {
+          // Handle different error types gracefully without console spam
+          if (error.response?.status === 403) {
+            // Silent handling of permission errors - user doesn't have access
+            licenseData[contractor.id] = { 
+              is_eligible_for_assignment: false, 
+              error: 'Permission denied',
+              total_licenses: 0,
+              valid_licenses: 0,
+              expired_licenses: 0,
+              expiring_soon: 0,
+              pending_verification: 0
+            };
+          } else if (error.response?.status === 404) {
+            // Contractor not found or no licenses
+            licenseData[contractor.id] = { 
+              is_eligible_for_assignment: false, 
+              error: 'No license data',
+              total_licenses: 0,
+              valid_licenses: 0,
+              expired_licenses: 0,
+              expiring_soon: 0,
+              pending_verification: 0
+            };
+          } else {
+            // Network or other errors - log once but don't spam console
+            if (process.env.NODE_ENV === 'development') {
+              console.warn(`License fetch failed for contractor ${contractor.id}:`, error.message);
+            }
+            licenseData[contractor.id] = { 
+              is_eligible_for_assignment: false, 
+              error: 'Connection error',
+              total_licenses: 0,
+              valid_licenses: 0,
+              expired_licenses: 0,
+              expiring_soon: 0,
+              pending_verification: 0
+            };
+          }
+        }
+      });
+
+      await Promise.all(licensePromises);
+      setContractorLicenses(licenseData);
+    } catch (error) {
+      // Only log general errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Error fetching contractor licenses:', error.message);
+      }
+      setContractorLicenses({});
+    } finally {
+      setLoadingLicenses(false);
+    }
+  };
+
+  // Fetch license data for contractors when accounts change (only if user has permissions)
+  useEffect(() => {
+    fetchContractorLicenses();
+  }, [accounts, canUserManageLicenses]);
+
+  // Reset license filter when account type filter changes away from contractor
+  useEffect(() => {
+    if (accountTypeFilter !== 'contractor' && accountTypeFilter !== null) {
+      setLicenseFilter(null);
+    }
+  }, [accountTypeFilter]);
 
   const getAccountTypeBadge = (accountType) => {
     const config = {
@@ -31,6 +128,19 @@ const AccountsView = ({
     };
     
     return config[accountType] || { color: 'bg-gray-100 text-gray-800', label: accountType };
+  };
+
+  const openLicenseModal = (contractor) => {
+    setLicenseModal({ isOpen: true, contractor });
+  };
+
+  const closeLicenseModal = () => {
+    setLicenseModal({ isOpen: false, contractor: null });
+  };
+
+  const handleLicenseUpdate = () => {
+    // Refresh contractor licenses after update
+    fetchContractorLicenses();
   };
 
   return (
@@ -104,7 +214,7 @@ const AccountsView = ({
             </div>
             <h2 className="text-2xl font-bold text-gray-800">🔍 Smart Filters</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">🏷️</span>
@@ -149,6 +259,40 @@ const AccountsView = ({
                 </div>
               </div>
             </div>
+
+            {/* License Compliance Filter (only show when contractors are being viewed and user has permissions) */}
+            {canUserManageLicenses && (
+            <div className="group">
+              <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                <span className="mr-2">📋</span>
+                License Compliance
+              </label>
+              <div className="relative">
+                <select
+                  value={licenseFilter || ''}
+                  onChange={(e) => setLicenseFilter(e.target.value || null)}
+                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 transition-all duration-300 font-medium group-hover:shadow-lg"
+                  disabled={accountTypeFilter !== 'contractor' && accountTypeFilter !== null}
+                >
+                  <option value="">All Contractors</option>
+                  <option value="eligible">✓ Eligible for Assignments</option>
+                  <option value="not_eligible">✗ Not Eligible</option>
+                  <option value="expiring">⚠️ Licenses Expiring Soon</option>
+                  <option value="expired">❌ Expired Licenses</option>
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+              {(accountTypeFilter !== 'contractor' && accountTypeFilter !== null) && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Available only for contractors
+                </p>
+              )}
+            </div>
+            )}
           </div>
         </div>
       </div>
@@ -184,7 +328,34 @@ const AccountsView = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-          {accounts.map((account, index) => {
+          {(() => {
+            // Apply license compliance filtering for contractors (only if user has permissions)
+            let filteredAccounts = accounts;
+            
+            if (licenseFilter && accountTypeFilter === 'contractor' && canUserManageLicenses) {
+              filteredAccounts = accounts.filter(account => {
+                if (account.account_type !== 'contractor') return false;
+                
+                const licenseData = contractorLicenses[account.id];
+                if (!licenseData) return licenseFilter === 'no_data';
+                
+                switch (licenseFilter) {
+                  case 'eligible':
+                    return licenseData.is_eligible_for_assignment;
+                  case 'not_eligible':
+                    return !licenseData.is_eligible_for_assignment;
+                  case 'expiring':
+                    return licenseData.expiring_soon > 0;
+                  case 'expired':
+                    return licenseData.expired_licenses > 0;
+                  default:
+                    return true;
+                }
+              });
+            }
+            
+            return filteredAccounts;
+          })().map((account, index) => {
             const getAccountTypeEmoji = (type) => {
               switch (type) {
                 case 'tenant': return '🏠';
@@ -234,10 +405,36 @@ const AccountsView = ({
                         <p className="text-gray-500 text-sm">ID: {account.id}</p>
                       </div>
                     </div>
-                    <div className="flex items-center">
+                    <div className="flex items-center space-x-2">
                       <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${getAccountTypeBadge(account.account_type).color} shadow-sm`}>
                         {getAccountTypeEmoji(account.account_type)} {getAccountTypeBadge(account.account_type).label}
                       </span>
+                      
+                      {/* License Status Badge for Contractors (only if user has permissions) */}
+                      {account.account_type === 'contractor' && canUserManageLicenses && (
+                        <div className="flex flex-col space-y-1">
+                          {loadingLicenses ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 animate-pulse">
+                              Loading...
+                            </span>
+                          ) : contractorLicenses[account.id] ? (
+                            <>
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${contractorLicenses[account.id].is_eligible_for_assignment ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} shadow-sm`}>
+                                {contractorLicenses[account.id].is_eligible_for_assignment ? '✓ Eligible' : '✗ Not Eligible'}
+                              </span>
+                              {contractorLicenses[account.id].expiring_soon > 0 && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 shadow-sm animate-pulse">
+                                  ⚠️ {contractorLicenses[account.id].expiring_soon} Expiring
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                              No License Data
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -284,6 +481,61 @@ const AccountsView = ({
                       <div className="text-sm font-medium text-gray-800">{formatDate(account.created_at)}</div>
                     </div>
 
+                    {/* License Information for Contractors (only if user has permissions) */}
+                    {account.account_type === 'contractor' && canUserManageLicenses && contractorLicenses[account.id] && (
+                      <div className="bg-amber-50/50 rounded-xl p-4">
+                        <div className="text-xs font-semibold text-amber-700 mb-2 flex items-center">
+                          <span className="mr-2">📋</span>
+                          License Compliance
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Total Licenses:</span>
+                            <span className="text-sm font-medium text-gray-800">{contractorLicenses[account.id].total_licenses}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-600">Valid:</span>
+                            <span className="text-sm font-medium text-green-600">{contractorLicenses[account.id].valid_licenses}</span>
+                          </div>
+                          {contractorLicenses[account.id].expired_licenses > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-gray-600">Expired:</span>
+                              <span className="text-sm font-medium text-red-600">{contractorLicenses[account.id].expired_licenses}</span>
+                            </div>
+                          )}
+                          {contractorLicenses[account.id].expiring_soon > 0 && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs text-gray-600">Expiring Soon:</span>
+                              <span className="text-sm font-medium text-yellow-600">{contractorLicenses[account.id].expiring_soon}</span>
+                            </div>
+                          )}
+                          <div className="mt-2 pt-2 border-t border-amber-200">
+                            <div className={`text-xs font-semibold ${contractorLicenses[account.id].is_eligible_for_assignment ? 'text-green-700' : 'text-red-700'}`}>
+                              {contractorLicenses[account.id].is_eligible_for_assignment ? '✓ Eligible for Assignments' : '✗ Not Eligible for Assignments'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* License Management Button for Contractors (only if user has permissions) */}
+                    {account.account_type === 'contractor' && canUserManageLicenses && (
+                      <div className="pt-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openLicenseModal(account);
+                          }}
+                          className="w-full px-4 py-3 bg-gradient-to-r from-amber-500 to-yellow-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-2"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          <span>📋 Manage Licenses</span>
+                        </button>
+                      </div>
+                    )}
+
                     {/* Action Button */}
                     <div className="pt-4 border-t border-gray-200/50">
                       <button
@@ -297,7 +549,7 @@ const AccountsView = ({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                        <span>👁️ View Details</span>
+                        <span>👁️ {account.account_type === 'contractor' ? 'View' : 'View Details'}</span>
                       </button>
                     </div>
                   </div>
@@ -332,6 +584,16 @@ const AccountsView = ({
             {accountTasks.length === 0 && <p className="text-sm text-gray-500">{t('accounts.noTasksAssociated')}</p>}
           </ul>
         </div>
+      )}
+
+      {/* License Management Modal (only if user has permissions) */}
+      {canUserManageLicenses && (
+        <LicenseManagementModal
+          isOpen={licenseModal.isOpen}
+          onClose={closeLicenseModal}
+          contractor={licenseModal.contractor}
+          onLicenseUpdate={handleLicenseUpdate}
+        />
       )}
     </div>
   );

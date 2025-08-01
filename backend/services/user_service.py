@@ -49,7 +49,7 @@ class UserService(BaseService):
             raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
         
         # Validate role
-        valid_roles = ["super_admin", "admin", "user"]
+        valid_roles = ["super_admin", "property_manager_admin", "user"]
         if data.role not in valid_roles:
             raise HTTPException(status_code=400, detail=f"Role must be one of: {valid_roles}")
     
@@ -71,7 +71,7 @@ class UserService(BaseService):
             raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
         
         if "role" in update_data:
-            valid_roles = ["super_admin", "admin", "user"]
+            valid_roles = ["super_admin", "property_manager_admin", "user"]
             if update_data["role"] not in valid_roles:
                 raise HTTPException(status_code=400, detail=f"Role must be one of: {valid_roles}")
     
@@ -214,8 +214,8 @@ class UserService(BaseService):
                         "super_admins": {
                             "$sum": {"$cond": [{"$eq": ["$role", "super_admin"]}, 1, 0]}
                         },
-                        "admins": {
-                            "$sum": {"$cond": [{"$eq": ["$role", "admin"]}, 1, 0]}
+                        "property_manager_admins": {
+                            "$sum": {"$cond": [{"$eq": ["$role", "property_manager_admin"]}, 1, 0]}
                         },
                         "regular_users": {
                             "$sum": {"$cond": [{"$eq": ["$role", "user"]}, 1, 0]}
@@ -231,7 +231,7 @@ class UserService(BaseService):
                     "total_users": 0,
                     "active_users": 0,
                     "super_admins": 0,
-                    "admins": 0,
+                    "property_manager_admins": 0,
                     "regular_users": 0
                 }
         except Exception as e:

@@ -85,3 +85,21 @@ async def get_super_admin(current_user: User = Depends(get_current_user)) -> Use
             detail="Insufficient privileges"
         )
     return current_user
+
+async def get_property_manager_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require property manager admin or higher privileges."""
+    if current_user.role not in ["property_manager_admin", "super_admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Property manager admin privileges required"
+        )
+    return current_user
+
+async def get_normal_user(current_user: User = Depends(get_current_user)) -> User:
+    """Require normal user or higher privileges (all logged in users)."""
+    if current_user.role not in ["user", "property_manager_admin", "super_admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User privileges required"
+        )
+    return current_user

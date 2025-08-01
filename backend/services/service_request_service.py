@@ -19,7 +19,9 @@ from models.service_request import (
     ServiceRequestStats,
     FileUploadResponse,
     ServiceRequestStatus,
-    ServiceRequestPriority
+    ServiceRequestPriority,
+    ServiceRequestApprovalStatus,
+    ServiceRequestApproval
 )
 from services.contractor_email_service import ContractorEmailService, get_smtp_config
 from services.tenant_service import TenantService
@@ -78,10 +80,11 @@ class ServiceRequestService:
         # Create corresponding ERP task for internal processing
         task_id = await self._create_erp_task_from_request(service_request, created_by)
         
-        # 🚀 CONTRACTOR AUTOMATION: Auto-find contractor and send Link 1 email
-        contractor_updates = await self._trigger_contractor_workflow(service_request)
+        # 🔄 APPROVAL WORKFLOW: Service requests now require property manager approval before contractor notification
+        # Status remains SUBMITTED, approval_status is PENDING_APPROVAL by default
+        # Contractor workflow will be triggered only after approval
         
-        # Update service request with task ID and contractor info
+        # Update service request with task ID but keep pending approval status
         update_data = {
             "updated_at": datetime.utcnow()
         }
@@ -89,19 +92,13 @@ class ServiceRequestService:
         if task_id:
             update_data.update({
                 "assigned_task_id": task_id,
-                "status": ServiceRequestStatus.ASSIGNED,
-                "assigned_at": datetime.utcnow()
+                # Keep status as SUBMITTED until approved - NO auto-assignment to ASSIGNED
+                "status": ServiceRequestStatus.SUBMITTED
             })
             service_request.assigned_task_id = task_id
-            service_request.status = ServiceRequestStatus.ASSIGNED
-            service_request.assigned_at = datetime.utcnow()
+            # service_request.status remains SUBMITTED
         
-        # Add contractor automation updates
-        if contractor_updates:
-            update_data.update(contractor_updates)
-            # Update service request object for response
-            for key, value in contractor_updates.items():
-                setattr(service_request, key, value)
+        # NO contractor automation updates - will be triggered after approval
         
         # Apply all updates
         await self.collection.update_one(
@@ -197,7 +194,8 @@ class ServiceRequestService:
                         priority=request["priority"],
                         status=request["status"],
                         submitted_at=request["submitted_at"],
-                        property_address=property_address
+                        property_address=property_address,
+                        approval_status=request.get("approval_status", "pending_approval")
                     )
                     summaries.append(summary)
                     print(f"✅ DEBUG - Processed service request: {request['id']}")
@@ -302,6 +300,217 @@ class ServiceRequestService:
         )
         
         return result.modified_count > 0
+    
+    
+    async def approve_service_request(
+        self, 
+        request_id: str, 
+        approval: ServiceRequestApproval, 
+        approved_by: str
+    ) -> Optional[ServiceRequestResponse]:
+        """
+        Approve or reject a service request
+        
+        When approved, this triggers the contractor workflow automation.
+        When rejected, the request status is updated but no contractor workflow is triggered.
+        
+        Args:
+            request_id: Service request ID
+            approval: Approval data (status and notes)
+            approved_by: User ID of the property manager making the decision
+        
+        Returns:
+            Updated service request response or None if not found
+        """
+        try:
+            # Get existing request
+            existing = await self.collection.find_one({"id": request_id, "is_archived": False})
+            if not existing:
+                print(f"❌ Service request not found: {request_id}")
+                return None
+            
+            # Verify request is in pending approval status
+            if existing.get("approval_status") != ServiceRequestApprovalStatus.PENDING_APPROVAL:
+                print(f"❌ Service request {request_id} is not in pending approval status: {existing.get('approval_status')}")
+                return None
+            
+            # Build approval update
+            approval_update = {
+                "approval_status": approval.approval_status.value,
+                "approved_by": approved_by,
+                "approved_at": datetime.utcnow(),
+                "approval_notes": approval.approval_notes,
+                "updated_at": datetime.utcnow()
+            }
+            
+            # If approved, trigger contractor workflow and update status
+            contractor_updates = {}
+            if approval.approval_status == ServiceRequestApprovalStatus.APPROVED:
+                print(f"✅ Approving service request {request_id} - triggering contractor workflow")
+                
+                # Create ServiceRequest object for contractor workflow
+                service_request = ServiceRequest(**existing)
+                
+                # Trigger contractor workflow
+                contractor_updates = await self._trigger_contractor_workflow(service_request)
+                
+                # Update status to ASSIGNED if contractor workflow succeeds
+                if contractor_updates:
+                    approval_update.update({
+                        "status": ServiceRequestStatus.ASSIGNED.value,
+                        "assigned_at": datetime.utcnow()
+                    })
+                    approval_update.update(contractor_updates)
+                    print(f"✅ Contractor workflow triggered successfully for request {request_id}")
+                else:
+                    print(f"⚠️ Contractor workflow failed for request {request_id} - keeping status as submitted")
+            
+            elif approval.approval_status == ServiceRequestApprovalStatus.REJECTED:
+                print(f"❌ Rejecting service request {request_id} - no contractor workflow")
+                # For rejected requests, we might want to set status to CANCELLED
+                approval_update["status"] = ServiceRequestStatus.CANCELLED.value
+            
+            # Update service request in database
+            result = await self.collection.update_one(
+                {"id": request_id},
+                {"$set": approval_update}
+            )
+            
+            if result.modified_count == 0:
+                print(f"❌ Failed to update service request {request_id}")
+                return None
+            
+            # Update corresponding ERP task if exists
+            if existing.get("assigned_task_id"):
+                task_status = ServiceRequestStatus.ASSIGNED if approval.approval_status == ServiceRequestApprovalStatus.APPROVED else ServiceRequestStatus.CANCELLED
+                await self._update_erp_task_from_request(existing["assigned_task_id"], task_status)
+            
+            # Get updated request and return response
+            updated_request = await self.collection.find_one({"id": request_id})
+            if updated_request:
+                service_request = ServiceRequest(**updated_request)
+                return await self._enrich_service_request_response(service_request)
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error in approve_service_request: {e}")
+            return None
+    
+    
+    async def get_pending_approval_requests(
+        self, 
+        skip: int = 0, 
+        limit: int = 50,
+        user_role: str = "user",
+        user_id: Optional[str] = None
+    ) -> List[ServiceRequestSummary]:
+        """
+        Get service requests that are pending property manager approval
+        
+        Args:
+            skip: Number of records to skip for pagination
+            limit: Maximum number of records to return
+            user_role: User role for access control
+            user_id: User ID for property-based filtering
+        
+        Returns:
+            List of service request summaries pending approval
+        """
+        try:
+            print(f"🔍 get_pending_approval_requests called with user_role={user_role}, user_id={user_id}")
+            
+            # Build query for pending approval requests
+            query = {
+                "is_archived": False,
+                "approval_status": ServiceRequestApprovalStatus.PENDING_APPROVAL.value
+            }
+            
+            print(f"🔍 Base query: {query}")
+            
+            # Role-based access control - only apply property filtering for regular users
+            # Super admins and property_manager_admins can see all pending approvals
+            if user_role == "user" and user_id:
+                managed_properties = await self.properties_collection.find(
+                    {"manager_id": user_id, "is_archived": False}
+                ).to_list(length=None)
+                
+                managed_property_ids = [prop["id"] for prop in managed_properties]
+                
+                if managed_property_ids:
+                    query["property_id"] = {"$in": managed_property_ids}
+                else:
+                    return []  # User manages no properties
+            # For super_admin and property_manager_admin, no property filtering - they see all
+            
+            # Execute query
+            print(f"🔍 Final query before execution: {query}")
+            cursor = self.collection.find(query).skip(skip).limit(limit).sort("submitted_at", 1)  # Oldest first for approval queue
+            requests = await cursor.to_list(length=limit)
+            
+            print(f"🔍 Found {len(requests)} requests matching query")
+            
+            if len(requests) > 0:
+                print(f"🔍 First request details:")
+                print(f"   ID: {requests[0].get('id')}")
+                print(f"   Status: {requests[0].get('status')}")
+                print(f"   Approval Status: {requests[0].get('approval_status')}")
+                print(f"   Property ID: {requests[0].get('property_id')}")
+            else:
+                print(f"🔍 No requests found - checking if any exist with pending_approval...")
+                test_count = await self.collection.count_documents({"approval_status": "pending_approval"})
+                print(f"🔍 Total requests with pending_approval status: {test_count}")
+                
+                all_count = await self.collection.count_documents({})
+                print(f"🔍 Total service requests in collection: {all_count}")
+            
+            # Convert to summary format
+            summaries = []
+            for request in requests:
+                try:
+                    # Get property address
+                    property_doc = await self.properties_collection.find_one({"id": request.get("property_id")})
+                    
+                    if property_doc:
+                        street = property_doc.get("street", "")
+                        house_nr = property_doc.get("house_nr", "")
+                        postcode = property_doc.get("postcode", "")
+                        city = property_doc.get("city", "")
+                        
+                        address_parts = []
+                        if street and house_nr:
+                            address_parts.append(f"{street} {house_nr}")
+                        elif street:
+                            address_parts.append(street)
+                        if postcode and city:
+                            address_parts.append(f"{postcode} {city}")
+                        elif city:
+                            address_parts.append(city)
+                            
+                        property_address = ", ".join(address_parts) if address_parts else "Address incomplete"
+                    else:
+                        property_address = "Property not found"
+                    
+                    summary = ServiceRequestSummary(
+                        id=request["id"],
+                        title=request["title"],
+                        request_type=request["request_type"],
+                        priority=request["priority"],
+                        status=request["status"],
+                        submitted_at=request["submitted_at"],
+                        property_address=property_address,
+                        approval_status=request.get("approval_status", "pending_approval")
+                    )
+                    summaries.append(summary)
+                except Exception as e:
+                    print(f"❌ Error processing pending approval request {request.get('id', 'unknown')}: {e}")
+                    continue
+            
+            return summaries
+            
+        except Exception as e:
+            print(f"❌ Error fetching pending approval requests: {e}")
+            return []
     
     
     async def upload_attachment(self, request_id: str, file: UploadFile, uploaded_by: str) -> FileUploadResponse:
@@ -639,64 +848,102 @@ class ServiceRequestService:
     
     async def _trigger_contractor_workflow(self, service_request: ServiceRequest) -> Optional[Dict[str, Any]]:
         """
-        🚀 CONTRACTOR AUTOMATION: Auto-find contractor and send Link 1 email
+        🚀 ENTERPRISE CONTRACTOR AUTOMATION: Intelligent contractor matching and workflow
         
-        This method implements the complete contractor workflow automation:
-        1. Find contractor by service_type
-        2. Generate scheduling token (Link 1)
-        3. Send scheduling email to contractor
+        This method implements the complete enterprise contractor workflow automation:
+        1. Get property location for geographic matching
+        2. Use intelligent contractor matching (best contractors, not just first found)
+        3. Generate scheduling tokens and send emails to selected contractors
         4. Return updates for service request
         
         Returns:
             Dict with contractor-related updates for the service request, or None if automation fails
         """
         try:
-            # Step 1: Find contractor by service type
-            contractor_email = await self.contractor_email_service.find_contractor_by_service_type(
-                service_request.request_type
-            )
-            
-            if not contractor_email:
-                print(f"⚠️ No contractor found for service type: {service_request.request_type}")
+            # Step 1: Get property information for geographic matching
+            property_info = await self.properties_collection.find_one({"id": service_request.property_id})
+            if not property_info:
+                print(f"⚠️ Property not found: {service_request.property_id}")
                 return None
             
-            # Step 2: Generate scheduling token (Link 1)
-            scheduling_token = self.contractor_email_service.generate_scheduling_token()
+            property_address = f"{property_info.get('street', '')} {property_info.get('house_nr', '')}".strip()
+            property_city = property_info.get('city', '')
+            property_postal_code = property_info.get('postcode', '')
             
-            # Step 3: Send Link 1 email to contractor
+            # Step 2: Determine assignment strategy based on priority
+            assignment_strategy = "best_match"  # Default
+            if service_request.priority.value == "emergency":
+                assignment_strategy = "multiple_bid"  # Send to multiple contractors for faster response
+            elif service_request.priority.value == "urgent":
+                assignment_strategy = "best_match"  # Send to best single contractor
+            else:  # routine
+                assignment_strategy = "load_balance"  # Balance workload across contractors
+            
+            # Step 3: Use enterprise contractor matching
+            contractor_emails = await self.contractor_email_service.find_contractors_for_service_request(
+                service_request=service_request,
+                property_address=property_address,
+                property_city=property_city,
+                property_postal_code=property_postal_code,
+                assignment_strategy=assignment_strategy
+            )
+            
+            if not contractor_emails:
+                print(f"⚠️ No contractors found for service type: {service_request.request_type}")
+                return None
+            
+            # Step 4: Generate scheduling tokens and send emails
             base_url = "http://localhost:3000"  # TODO: Get from environment config
+            successful_assignments = []
+            contractor_tokens = {}
             
-            email_success = await self.contractor_email_service.send_scheduling_email(
-                service_request,
-                contractor_email,
-                scheduling_token,
-                base_url
-            )
+            for contractor_email in contractor_emails:
+                # Generate unique scheduling token for each contractor
+                scheduling_token = self.contractor_email_service.generate_scheduling_token()
+                
+                # Send Link 1 email to contractor
+                email_success = await self.contractor_email_service.send_scheduling_email(
+                    service_request,
+                    contractor_email,
+                    scheduling_token,
+                    base_url
+                )
+                
+                if email_success:
+                    successful_assignments.append(contractor_email)
+                    contractor_tokens[contractor_email] = scheduling_token
+                    print(f"✅ Sent scheduling email to: {contractor_email}")
+                else:
+                    print(f"❌ Failed to send scheduling email to: {contractor_email}")
             
-            if not email_success:
-                print(f"❌ Failed to send scheduling email to contractor: {contractor_email}")
+            if not successful_assignments:
+                print(f"❌ Failed to send emails to any contractors")
                 return None
             
-            # Step 4: Generate invoice token (Link 2) for later use
+            # Step 5: Generate invoice token (Link 2) for later use
             invoice_token = self.contractor_email_service.generate_invoice_token()
             
             # Return updates for service request
             contractor_updates = {
-                "contractor_email": contractor_email,
-                "contractor_response_token": scheduling_token,
+                "contractor_email": successful_assignments[0],  # Primary contractor
+                "contractor_response_token": contractor_tokens[successful_assignments[0]],  # Primary token
                 "invoice_upload_token": invoice_token,
-                "contractor_email_sent_at": datetime.utcnow()
+                "contractor_email_sent_at": datetime.utcnow(),
+                "assignment_strategy": assignment_strategy
             }
             
-            print(f"✅ Contractor workflow triggered successfully:")
-            print(f"   📧 Contractor: {contractor_email}")
-            print(f"   🔗 Scheduling Link: {base_url}/contractor/schedule/{scheduling_token}")
+            print(f"✅ Enterprise contractor workflow triggered successfully:")
+            print(f"   📧 Contractors: {len(successful_assignments)} assigned")
+            print(f"   🎯 Strategy: {assignment_strategy}")
+            print(f"   🏠 Property: {property_address}, {property_city}")
             print(f"   📋 Service: {service_request.title}")
+            for email in successful_assignments:
+                print(f"      → {email}")
             
             return contractor_updates
             
         except Exception as e:
-            print(f"❌ Error in contractor workflow automation: {e}")
+            print(f"❌ Error in enterprise contractor workflow automation: {e}")
             # Don't fail service request creation if contractor automation fails
             return None
 

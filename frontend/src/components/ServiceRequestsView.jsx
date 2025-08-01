@@ -24,9 +24,11 @@ const ServiceRequestsView = ({
     priority: '',
     request_type: ''
   });
+  const [approvalModal, setApprovalModal] = useState(null);
+  const [approving, setApproving] = useState(false);
 
   // Available filter options
-  const statusOptions = ['pending', 'assigned', 'in_progress', 'completed', 'closed'];
+  const statusOptions = ['submitted', 'pending_approval', 'assigned', 'in_progress', 'completed', 'closed', 'cancelled'];
   const priorityOptions = ['routine', 'urgent', 'emergency'];
   const typeOptions = ['plumbing', 'electrical', 'hvac', 'appliances', 'general_maintenance', 'pest_control', 'locks_keys', 'exterior'];
 
@@ -66,6 +68,48 @@ const ServiceRequestsView = ({
     setCurrentPage(1); // Reset to first page when filtering
   };
 
+  const handleApproval = (requestId, action) => {
+    // Set up approval modal with request details
+    const request = serviceRequests.find(r => r.id === requestId);
+    setApprovalModal({
+      requestId,
+      action,
+      request,
+      notes: ''
+    });
+  };
+
+  const submitApproval = async () => {
+    if (!approvalModal) return;
+    
+    setApproving(true);
+    try {
+      const approval = {
+        approval_status: approvalModal.action,
+        approval_notes: approvalModal.notes || null
+      };
+
+      const response = await cachedAxios.put(
+        `${API}/v1/service-requests/${approvalModal.requestId}/approve`,
+        approval
+      );
+
+      // Refresh the service requests list
+      await fetchServiceRequests();
+      
+      // Close modal
+      setApprovalModal(null);
+      
+      // Show success message
+      console.log(`Service request ${approvalModal.action} successfully`);
+    } catch (error) {
+      console.error('Error approving service request:', error);
+      setError(`Failed to ${approvalModal.action} service request`);
+    } finally {
+      setApproving(false);
+    }
+  };
+
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'emergency': return 'bg-red-100 text-red-800 border-red-200';
@@ -77,11 +121,13 @@ const ServiceRequestsView = ({
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'assigned': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'submitted': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'pending_approval': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'assigned': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'in_progress': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'closed': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
@@ -120,9 +166,9 @@ const ServiceRequestsView = ({
               </div>
               <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 border border-white/30">
                 <div className="text-2xl font-bold text-orange-600">
-                  {serviceRequests.filter(r => r.status === 'pending').length}
+                  {serviceRequests.filter(r => r.approval_status === 'pending_approval').length}
                 </div>
-                <div className="text-sm text-gray-600">Pending</div>
+                <div className="text-sm text-gray-600">Pending Approval</div>
               </div>
             </div>
           </div>
@@ -241,20 +287,40 @@ const ServiceRequestsView = ({
                         {request.property_address || 'Property N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={async () => {
-                            try {
-                              const response = await cachedAxios.get(`${API}/v1/service-requests/${request.id}`);
-                              setSelectedRequest(response.data);
-                            } catch (error) {
-                              console.error('Error fetching service request details:', error);
-                              setSelectedRequest(request); // Fallback to summary data
-                            }
-                          }}
-                          className="text-indigo-600 hover:text-indigo-900 mr-3"
-                        >
-                          View Details
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await cachedAxios.get(`${API}/v1/service-requests/${request.id}`);
+                                setSelectedRequest(response.data);
+                              } catch (error) {
+                                console.error('Error fetching service request details:', error);
+                                setSelectedRequest(request); // Fallback to summary data
+                              }
+                            }}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            View Details
+                          </button>
+                          
+                          {/* Show approval buttons for pending_approval approval_status */}
+                          {request.approval_status === 'pending_approval' && (
+                            <>
+                              <button
+                                onClick={() => handleApproval(request.id, 'approved')}
+                                className="text-green-600 hover:text-green-900 px-2 py-1 rounded text-xs bg-green-50 hover:bg-green-100"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleApproval(request.id, 'rejected')}
+                                className="text-red-600 hover:text-red-900 px-2 py-1 rounded text-xs bg-red-50 hover:bg-red-100"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -435,6 +501,78 @@ const ServiceRequestsView = ({
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
                 >
                   Manage Request
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {approvalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">
+                  {approvalModal.action === 'approved' ? 'Approve' : 'Reject'} Service Request
+                </h2>
+                <button
+                  onClick={() => setApprovalModal(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <h3 className="font-medium text-gray-900 mb-2">{approvalModal.request?.title}</h3>
+                <p className="text-sm text-gray-600">{approvalModal.request?.description}</p>
+                <div className="mt-2 flex space-x-2">
+                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(approvalModal.request?.priority)}`}>
+                    {approvalModal.request?.priority?.charAt(0).toUpperCase() + approvalModal.request?.priority?.slice(1)}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {formatRequestType(approvalModal.request?.request_type)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {approvalModal.action === 'approved' ? 'Approval Notes (Optional)' : 'Rejection Reason (Optional)'}
+                </label>
+                <textarea
+                  value={approvalModal.notes}
+                  onChange={(e) => setApprovalModal(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  rows={3}
+                  placeholder={approvalModal.action === 'approved' ? 'Add approval notes...' : 'Explain why this request is being rejected...'}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setApprovalModal(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  disabled={approving}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitApproval}
+                  disabled={approving}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium text-white ${
+                    approvalModal.action === 'approved' 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-red-600 hover:bg-red-700'
+                  } disabled:opacity-50`}
+                >
+                  {approving ? 'Processing...' : 
+                    (approvalModal.action === 'approved' ? 'Approve Request' : 'Reject Request')
+                  }
                 </button>
               </div>
             </div>

@@ -143,20 +143,42 @@ class ContractorProfile(BaseModel):
     specializations: List[str] = Field(default_factory=list)
     service_areas: List[str] = Field(default_factory=list)  # Geographic areas
     
+    # Geographic Intelligence
+    service_radius_km: float = 25.0  # Default 25km service radius
+    latitude: Optional[float] = None  # Contractor base location
+    longitude: Optional[float] = None
+    postal_codes_served: List[str] = Field(default_factory=list)  # Specific postal codes
+    travel_rate_per_km: float = 0.50  # Travel compensation per km
+    
     # Rates and Billing
     hourly_rate: Optional[float] = None
     fixed_rates: Dict[str, float] = Field(default_factory=dict)  # service -> rate
+    emergency_rate_multiplier: float = 1.5  # Emergency service rate multiplier
     currency: str = "EUR"
     
-    # Performance Metrics
-    rating: Optional[float] = None
+    # Performance Metrics & Quality Scoring
+    rating: float = 5.0  # Average rating (1-5 stars)
     completed_jobs: int = 0
     average_response_time: Optional[float] = None  # in hours
+    completion_rate: float = 100.0  # Percentage of jobs completed successfully
+    on_time_rate: float = 100.0  # Percentage of jobs completed on time
+    tenant_satisfaction_score: float = 5.0  # Average tenant satisfaction (1-5)
+    last_job_completed: Optional[datetime] = None
     
-    # Availability
+    # Availability & Capacity Management
     available: bool = True
+    max_concurrent_jobs: int = 3  # Maximum jobs contractor can handle simultaneously
+    current_job_count: int = 0  # Current active jobs
     availability_schedule: Optional[str] = None
+    emergency_available: bool = False  # Available for emergency calls 24/7
     preferred_contact_method: str = "email"
+    response_time_target: int = 2  # Target response time in hours
+    
+    # Business Verification
+    license_verified: bool = False
+    insurance_verified: bool = False
+    background_check_completed: bool = False
+    verification_date: Optional[datetime] = None
 
 
 # API Request/Response Models

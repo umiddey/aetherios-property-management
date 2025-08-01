@@ -36,6 +36,7 @@ from models.service_request import ServiceRequest, ServiceRequestType
 from models.account import ContractorProfile
 from services.contractor_service import ContractorService
 from services.tenant_service import TenantService
+from services.contractor_matching_service import ContractorMatchingService, PropertyLocation
 
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,10 @@ class ContractorEmailService:
         self.db = db
         self.smtp_config = smtp_config
         
-        # Service type to contractor mapping
+        # Initialize enterprise contractor matching service
+        self.contractor_matching_service = ContractorMatchingService(db)
+        
+        # Legacy service type mapping (for backward compatibility)
         self.service_type_mapping = {
             ServiceRequestType.PLUMBING: "plumbing",
             ServiceRequestType.ELECTRICAL: "electrical", 
@@ -60,10 +64,73 @@ class ContractorEmailService:
             ServiceRequestType.OTHER: "general_maintenance"
         }
     
-    async def find_contractor_by_service_type(self, service_type: ServiceRequestType) -> Optional[str]:
+    async def find_contractors_for_service_request(
+        self, 
+        service_request: ServiceRequest, 
+        property_address: str,
+        property_city: str = "",
+        property_postal_code: str = "",
+        assignment_strategy: str = "best_match"
+    ) -> List[str]:
         """
-        Find primary contractor email for the given service type.
-        Returns the contractor email or None if not found.
+        Enterprise contractor matching - finds best contractors for service request
+        
+        Args:
+            service_request: The service request to match
+            property_address: Property address for geographic matching
+            property_city: Property city for geographic matching
+            property_postal_code: Property postal code for geographic matching
+            assignment_strategy: "best_match", "multiple_bid", or "load_balance"
+            
+        Returns:
+            List of contractor emails for notification
+        """
+        try:
+            # Create property location for geographic matching
+            property_location = PropertyLocation(
+                property_id=service_request.property_id,
+                address=property_address,
+                city=property_city,
+                postal_code=property_postal_code
+            )
+            
+            # Use enterprise matching service
+            contractor_emails = await self.contractor_matching_service.assign_contractors_to_request(
+                service_request=service_request,
+                property_location=property_location,
+                assignment_strategy=assignment_strategy
+            )
+            
+            if contractor_emails:
+                logger.info(f"✅ Enterprise matching found {len(contractor_emails)} contractors: {contractor_emails}")
+                
+                # Update contractor workloads
+                for email in contractor_emails:
+                    # Get contractor account ID from email
+                    contractor_account = await self.db.accounts.find_one({"email": email})
+                    if contractor_account:
+                        await self.contractor_matching_service.update_contractor_workload(
+                            contractor_account["id"], 
+                            job_assigned=True
+                        )
+                
+                return contractor_emails
+            
+            # Fallback to legacy matching if enterprise matching fails
+            logger.warning("Enterprise matching failed, falling back to legacy method")
+            legacy_email = await self.find_contractor_by_service_type_legacy(service_request.request_type)
+            return [legacy_email] if legacy_email else []
+            
+        except Exception as e:
+            logger.error(f"Error in enterprise contractor matching: {e}")
+            # Fallback to legacy matching
+            legacy_email = await self.find_contractor_by_service_type_legacy(service_request.request_type)
+            return [legacy_email] if legacy_email else []
+    
+    async def find_contractor_by_service_type_legacy(self, service_type: ServiceRequestType) -> Optional[str]:
+        """
+        Legacy single contractor matching (for backward compatibility)
+        Returns the first contractor email found for the service type.
         """
         try:
             service_keyword = self.service_type_mapping.get(service_type, "general_maintenance")
@@ -73,19 +140,12 @@ class ContractorEmailService:
             })
             
             if contractor_profile:
-                # QUICK FIX: contractor_profiles collection already has email field
-                # TODO: This is a temporary fix until we restructure the database properly
-                contractor_email = contractor_profile.get("email")
-                if contractor_email:
-                    logger.info(f"✅ Found contractor for {service_keyword}: {contractor_email}")
-                    return contractor_email
-                
-                # Fallback: Get email from contractor account using ContractorService
+                # Get email from contractor account using ContractorService
                 contractor_service = ContractorService(self.db)
                 contractor_account = await contractor_service.get_contractor_by_id(contractor_profile["account_id"])
                 
                 if contractor_account and contractor_account.email:
-                    logger.info(f"✅ Found contractor email via ContractorService: {contractor_account.email}")
+                    logger.info(f"✅ Found contractor email via legacy method: {contractor_account.email}")
                     return contractor_account.email
             
             # 🧪 TESTING FALLBACK: Use mock contractor for development/testing
@@ -119,7 +179,7 @@ class ContractorEmailService:
         return f"invoice_{uuid.uuid4().hex[:16]}"
     
     async def send_scheduling_email(self, service_request: ServiceRequest, contractor_email: str, 
-                                  scheduling_token: str, base_url: str) -> bool:
+                                  scheduling_token: str, base_url: str, contractor_match_info: Dict = None) -> bool:
         """
         Send Link 1 email to contractor for appointment scheduling.
         
@@ -163,7 +223,19 @@ class ContractorEmailService:
             
             priority_text = priority_constraints.get(service_request.priority, "")
             
-            # Email content
+            # Enhanced email content with contractor match information
+            match_info_html = ""
+            if contractor_match_info:
+                match_info_html = f"""
+                    <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; color: #0277bd;">📊 Why You Were Selected</h3>
+                        <p><strong>Distance:</strong> {contractor_match_info.get('distance_km', 'N/A')} km from property</p>
+                        <p><strong>Quality Score:</strong> {contractor_match_info.get('quality_score', 'N/A'):.1f}/1.0</p>
+                        <p><strong>Estimated Cost:</strong> €{contractor_match_info.get('estimated_cost', 'N/A')}</p>
+                        <p><strong>Expected Response:</strong> {contractor_match_info.get('estimated_response_time', 'N/A')} hours</p>
+                    </div>
+                """
+            
             subject = f"🔧 New Service Request: {service_request.title} - {service_request.priority.upper()}"
             
             html_body = f"""
@@ -173,6 +245,8 @@ class ContractorEmailService:
                     <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
                         🔧 New Service Request Assignment
                     </h2>
+                    
+                    {match_info_html}
                     
                     <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
                         <h3 style="margin-top: 0; color: #1f2937;">Request Details</h3>

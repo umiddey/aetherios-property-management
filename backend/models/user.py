@@ -7,7 +7,7 @@ import uuid
 
 class UserRole(str, Enum):
     SUPER_ADMIN = "super_admin"
-    ADMIN = "admin"
+    PROPERTY_MANAGER_ADMIN = "property_manager_admin"
     USER = "user"
 
 

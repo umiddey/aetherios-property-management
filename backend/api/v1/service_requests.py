@@ -20,7 +20,9 @@ from models.service_request import (
     FileUploadResponse,
     ServiceRequestType,
     ServiceRequestPriority,
-    ServiceRequestStatus
+    ServiceRequestStatus,
+    ServiceRequestApprovalStatus,
+    ServiceRequestApproval
 )
 from dependencies import get_current_user, get_portal_user, db
 from services.service_request_service import ServiceRequestService
@@ -116,6 +118,42 @@ async def get_service_requests(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve service requests: {str(e)}")
 
 
+# Property Manager Approval Endpoints - MUST COME BEFORE /{request_id} ROUTE
+@router.get("/pending-approval", response_model=List[ServiceRequestSummary])
+async def get_pending_approval_requests(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Number of records to return"),
+    current_user=Depends(get_current_user),
+    service: ServiceRequestService = Depends(get_service_request_service)
+):
+    """
+    Get service requests that are pending property manager approval
+    
+    This endpoint returns all service requests that require property manager approval
+    before contractor workflow can be triggered.
+    """
+    try:
+        print(f"🔍 API: get_pending_approval_requests called")
+        print(f"🔍 API: current_user = {current_user}")
+        print(f"🔍 API: user role = {getattr(current_user, 'role', 'user')}")
+        print(f"🔍 API: user id = {current_user.id}")
+        
+        pending_requests = await service.get_pending_approval_requests(
+            skip=skip,
+            limit=limit,
+            user_role=getattr(current_user, "role", "user"),
+            user_id=current_user.id
+        )
+        
+        print(f"🔍 API: returning {len(pending_requests)} pending requests")
+        return pending_requests
+    except Exception as e:
+        print(f"❌ ERROR - Failed to get pending approval requests: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve pending approval requests")
+
+
 @router.get("/{request_id}", response_model=ServiceRequestResponse)
 async def get_service_request(
     request_id: str,
@@ -200,6 +238,55 @@ async def delete_service_request(
         raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to archive service request")
+
+
+
+
+@router.put("/{request_id}/approve", response_model=ServiceRequestResponse)
+async def approve_service_request(
+    request_id: str,
+    approval: ServiceRequestApproval,
+    current_user=Depends(get_current_user),
+    service: ServiceRequestService = Depends(get_service_request_service)
+):
+    """
+    Approve or reject a service request
+    
+    When approved, this triggers the contractor workflow automation.
+    When rejected, the request is marked as cancelled.
+    
+    Only property managers and admins can approve service requests.
+    """
+    try:
+        # Check permissions - property managers and above can approve
+        user_role = getattr(current_user, "role", "user")
+        if user_role not in ["user", "property_manager_admin", "super_admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions to approve service requests"
+            )
+        
+        # Approve or reject the request
+        updated_request = await service.approve_service_request(
+            request_id=request_id,
+            approval=approval,
+            approved_by=current_user.id
+        )
+        
+        if not updated_request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service request not found or not in pending approval status"
+            )
+        
+        return updated_request
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        print(f"❌ ERROR - Failed to approve service request: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to approve service request")
 
 
 # File Upload Endpoints

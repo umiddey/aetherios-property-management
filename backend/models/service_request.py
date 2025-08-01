@@ -32,11 +32,19 @@ class ServiceRequestPriority(str, Enum):
 class ServiceRequestStatus(str, Enum):
     """Service request lifecycle status"""
     SUBMITTED = "submitted"         # Initial submission from customer portal
+    PENDING_APPROVAL = "pending_approval"  # Waiting for property manager approval
     ASSIGNED = "assigned"          # Assigned to internal team or contractor
     IN_PROGRESS = "in_progress"    # Work has begun
     COMPLETED = "completed"        # Work finished, awaiting tenant confirmation
     CLOSED = "closed"             # Request resolved and closed
     CANCELLED = "cancelled"       # Request cancelled by tenant or admin
+
+
+class ServiceRequestApprovalStatus(str, Enum):
+    """Service request approval status for property manager oversight"""
+    PENDING_APPROVAL = "pending_approval"  # Default state - awaiting approval
+    APPROVED = "approved"          # Property manager approved - can proceed to contractor
+    REJECTED = "rejected"          # Property manager rejected - will not proceed
 
 
 # Base Service Request Model
@@ -66,6 +74,12 @@ class ServiceRequest(BaseModel):
     assigned_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
+    
+    # Property Manager Approval Workflow
+    approval_status: ServiceRequestApprovalStatus = ServiceRequestApprovalStatus.PENDING_APPROVAL
+    approved_by: Optional[str] = None  # User ID of property manager who approved/rejected
+    approved_at: Optional[datetime] = None  # Timestamp of approval/rejection
+    approval_notes: Optional[str] = Field(None, max_length=500, description="Property manager notes on approval decision")
     
     # ERP Integration
     assigned_task_id: Optional[str] = None  # Links to main ERP task system when assigned
@@ -112,6 +126,12 @@ class ServiceRequestUpdate(BaseModel):
     estimated_completion: Optional[datetime] = None
 
 
+class ServiceRequestApproval(BaseModel):
+    """Model for service request approval/rejection"""
+    approval_status: ServiceRequestApprovalStatus
+    approval_notes: Optional[str] = Field(None, max_length=500, description="Property manager notes on approval decision")
+
+
 class ServiceRequestResponse(BaseModel):
     """Full service request response model for API"""
     id: str
@@ -133,6 +153,12 @@ class ServiceRequestResponse(BaseModel):
     estimated_completion: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    
+    # Property Manager Approval Workflow
+    approval_status: ServiceRequestApprovalStatus
+    approved_by: Optional[str]
+    approved_at: Optional[datetime]
+    approval_notes: Optional[str]
     
     # Contractor Automation Fields
     tenant_preferred_slots: List[datetime]
@@ -158,6 +184,8 @@ class ServiceRequestSummary(BaseModel):
     status: ServiceRequestStatus
     submitted_at: datetime
     property_address: Optional[str] = None
+    # Approval workflow fields
+    approval_status: ServiceRequestApprovalStatus = ServiceRequestApprovalStatus.PENDING_APPROVAL
 
 
 # File Upload Models

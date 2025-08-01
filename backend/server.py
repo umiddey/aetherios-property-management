@@ -36,6 +36,7 @@ from api.v1.contracts import router as contracts_router
 from api.v1.service_requests import router as service_requests_router, public_router as service_requests_public_router
 from api.v1.portal import router as portal_router
 from api.v1.contractor import router as contractor_router
+from api.v1.compliance import router as compliance_router
 from api.v2.accounts import router as accounts_v2_router
 from repositories.property_repository import PropertyRepository
 
@@ -381,6 +382,7 @@ app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(contracts_router, prefix="/api/v1")
 app.include_router(service_requests_router, prefix="/api/v1")
 app.include_router(contractor_router, prefix="/api/v1")
+app.include_router(compliance_router, prefix="/api/v1/compliance")
 
 # Test endpoint to verify no auth issues
 @app.get("/api/v1/test-public")

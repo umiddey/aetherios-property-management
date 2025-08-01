@@ -12,6 +12,8 @@ from models.account import (
     Account, AccountType, AccountStatus, AccountCreate, AccountUpdate, AccountResponse,
     ContractorProfile
 )
+from models.contractor_license import ContractorLicense, LicenseType, VerificationStatus
+from services.license_verification_service import LicenseVerificationService
 
 
 class ContractorService:
@@ -21,6 +23,7 @@ class ContractorService:
         self.db = db
         self.collection = db["accounts"]  # Base account data
         self.contractor_profiles = db["contractor_profiles"]  # Contractor-specific data (no portal fields)
+        self.license_service = LicenseVerificationService(db)  # License management service
     
     async def create_contractor(self, account_data: AccountCreate, created_by: str) -> AccountResponse:
         """
@@ -256,3 +259,291 @@ class ContractorService:
                     matching_contractors.append(contractor)
         
         return matching_contractors
+    
+    # =================================================================
+    # LICENSE MANAGEMENT METHODS
+    # =================================================================
+    
+    async def get_contractor_licenses(self, contractor_id: str) -> List[ContractorLicense]:
+        """
+        Get all licenses for a contractor
+        
+        Args:
+            contractor_id: Contractor's account ID
+            
+        Returns:
+            List[ContractorLicense]: List of contractor's licenses
+        """
+        try:
+            # Verify contractor exists
+            contractor = await self.get_contractor_by_id(contractor_id)
+            if not contractor:
+                raise ValueError(f"Contractor with ID {contractor_id} not found")
+            
+            # Get licenses using LicenseVerificationService
+            licenses = await self.license_service.get_licenses_for_contractor(contractor_id)
+            
+            return licenses
+            
+        except Exception as e:
+            raise Exception(f"Failed to get licenses for contractor {contractor_id}: {str(e)}")
+    
+    async def add_contractor_license(self, contractor_id: str, license_data: dict) -> ContractorLicense:
+        """
+        Add new license to contractor
+        
+        Args:
+            contractor_id: Contractor's account ID
+            license_data: License data dictionary
+            
+        Returns:
+            ContractorLicense: Created license
+            
+        Raises:
+            ValueError: If contractor not found or license data invalid
+            Exception: If license creation fails
+        """
+        try:
+            # Verify contractor exists
+            contractor = await self.get_contractor_by_id(contractor_id)
+            if not contractor:
+                raise ValueError(f"Contractor with ID {contractor_id} not found")
+            
+            # Ensure contractor_id is set in license data
+            license_data["contractor_id"] = contractor_id
+            
+            # Create license using LicenseVerificationService
+            license = await self.license_service.create_license(license_data)
+            
+            if not license:
+                raise Exception("License creation failed - no license returned")
+            
+            return license
+            
+        except ValueError as e:
+            # Re-raise validation errors
+            raise e
+        except Exception as e:
+            raise Exception(f"Failed to add license for contractor {contractor_id}: {str(e)}")
+    
+    async def update_contractor_license(self, license_id: str, update_data: dict) -> Optional[ContractorLicense]:
+        """
+        Update existing contractor license
+        
+        Args:
+            license_id: License ID to update
+            update_data: Dictionary of fields to update
+            
+        Returns:
+            ContractorLicense: Updated license or None if not found
+            
+        Raises:
+            Exception: If update fails
+        """
+        try:
+            # Add updated_at timestamp
+            update_data["updated_at"] = datetime.now(timezone.utc)
+            
+            # Convert license_id to ObjectId for MongoDB query
+            from bson import ObjectId
+            
+            # Update license in database
+            result = await self.license_service.collection.update_one(
+                {"_id": ObjectId(license_id)},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count == 0:
+                return None
+            
+            # Get updated license
+            license_doc = await self.license_service.collection.find_one({"_id": ObjectId(license_id)})
+            if license_doc:
+                # Convert MongoDB document to ContractorLicense model
+                license = ContractorLicense(**license_doc)
+                return license
+            
+            return None
+            
+        except Exception as e:
+            raise Exception(f"Failed to update license {license_id}: {str(e)}")
+    
+    async def remove_contractor_license(self, license_id: str) -> bool:
+        """
+        Remove/archive contractor license
+        
+        Args:
+            license_id: License ID to remove
+            
+        Returns:
+            bool: True if license was removed successfully
+            
+        Raises:
+            Exception: If removal fails
+        """
+        try:
+            from bson import ObjectId
+            
+            # For now, we'll do a hard delete. In production, consider soft delete with archived flag
+            result = await self.license_service.collection.delete_one({"_id": ObjectId(license_id)})
+            
+            return result.deleted_count > 0
+            
+        except Exception as e:
+            raise Exception(f"Failed to remove license {license_id}: {str(e)}")
+    
+    async def get_expiring_licenses(self, days_ahead: int = 30) -> List[Dict[str, Any]]:
+        """
+        Get licenses expiring soon across all contractors with contractor details
+        
+        Args:
+            days_ahead: Number of days to look ahead for expiring licenses (default: 30)
+            
+        Returns:
+            List[Dict]: List of expiring licenses with contractor information
+        """
+        try:
+            # Get expiring licenses using LicenseVerificationService
+            expiring_licenses = await self.license_service.get_expired_licenses(days_ahead)
+            
+            # Enrich with contractor information
+            enriched_licenses = []
+            for license in expiring_licenses:
+                try:
+                    # Get contractor details
+                    contractor = await self.get_contractor_by_id(license.contractor_id)
+                    
+                    if contractor:
+                        license_dict = {
+                            "license_id": license.license_id,
+                            "license_type": license.license_type,
+                            "license_number": license.license_number,
+                            "issuing_authority": license.issuing_authority,
+                            "issue_date": license.issue_date,
+                            "expiration_date": license.expiration_date,
+                            "verification_status": license.verification_status,
+                            "days_until_expiration": license.days_until_expiration(),
+                            "is_expired": license.is_expired(),
+                            "contractor": {
+                                "id": contractor.id,
+                                "first_name": contractor.first_name,
+                                "last_name": contractor.last_name,
+                                "email": contractor.email,
+                                "phone": contractor.phone,
+                                "company_name": contractor.profile_data.get("company_name", "") if contractor.profile_data else ""
+                            }
+                        }
+                        enriched_licenses.append(license_dict)
+                except Exception as e:
+                    # Log error but continue with other licenses
+                    print(f"Error enriching license {license.license_id}: {str(e)}")
+                    continue
+            
+            return enriched_licenses
+            
+        except Exception as e:
+            raise Exception(f"Failed to get expiring licenses: {str(e)}")
+    
+    async def get_contractor_license_summary(self, contractor_id: str) -> Dict[str, Any]:
+        """
+        Get comprehensive license summary for a contractor
+        
+        Args:
+            contractor_id: Contractor's account ID
+            
+        Returns:
+            Dict: License summary with counts, status, and contractor info
+        """
+        try:
+            # Verify contractor exists
+            contractor = await self.get_contractor_by_id(contractor_id)
+            if not contractor:
+                raise ValueError(f"Contractor with ID {contractor_id} not found")
+            
+            # Get license summary from LicenseVerificationService
+            summary = await self.license_service.get_contractor_license_summary(contractor_id)
+            
+            # Add contractor information to summary
+            summary["contractor"] = {
+                "id": contractor.id,
+                "first_name": contractor.first_name,
+                "last_name": contractor.last_name,
+                "email": contractor.email,
+                "phone": contractor.phone,
+                "company_name": contractor.profile_data.get("company_name", "") if contractor.profile_data else "",
+                "status": contractor.status
+            }
+            
+            return summary
+            
+        except ValueError as e:
+            # Re-raise validation errors
+            raise e
+        except Exception as e:
+            raise Exception(f"Failed to get license summary for contractor {contractor_id}: {str(e)}")
+    
+    async def validate_contractor_for_service(self, contractor_id: str, service_type: str) -> Dict[str, Any]:
+        """
+        Validate if contractor can be assigned to a service type based on licenses
+        
+        Args:
+            contractor_id: Contractor's account ID
+            service_type: Type of service requested
+            
+        Returns:
+            Dict: Validation result with eligibility and details
+        """
+        try:
+            # Verify contractor exists
+            contractor = await self.get_contractor_by_id(contractor_id)
+            if not contractor:
+                return {
+                    "eligible": False,
+                    "reason": f"Contractor with ID {contractor_id} not found",
+                    "contractor_id": contractor_id,
+                    "service_type": service_type
+                }
+            
+            # Check general license validity
+            has_valid_licenses = await self.license_service.verify_contractor_licenses(contractor_id)
+            
+            # Check service-specific license validity
+            has_service_license = await self.license_service.validate_license_for_service_type(contractor_id, service_type)
+            
+            # Get license summary for details
+            license_summary = await self.license_service.get_contractor_license_summary(contractor_id)
+            
+            eligible = has_valid_licenses and has_service_license
+            
+            result = {
+                "eligible": eligible,
+                "contractor_id": contractor_id,
+                "service_type": service_type,
+                "has_valid_licenses": has_valid_licenses,
+                "has_service_specific_license": has_service_license,
+                "license_summary": license_summary,
+                "contractor": {
+                    "name": f"{contractor.first_name} {contractor.last_name}",
+                    "email": contractor.email,
+                    "company_name": contractor.profile_data.get("company_name", "") if contractor.profile_data else ""
+                }
+            }
+            
+            if not eligible:
+                reasons = []
+                if not has_valid_licenses:
+                    reasons.append("No valid licenses found")
+                if not has_service_license:
+                    reasons.append(f"No valid license for {service_type} service")
+                result["reason"] = "; ".join(reasons)
+            
+            return result
+            
+        except Exception as e:
+            return {
+                "eligible": False,
+                "reason": f"Validation error: {str(e)}",
+                "contractor_id": contractor_id,
+                "service_type": service_type,
+                "error": str(e)
+            }

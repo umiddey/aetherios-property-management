@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "axios": "^1.10.0",
     "i18next": "^23.16.0",
     "jspdf": "^3.0.1",

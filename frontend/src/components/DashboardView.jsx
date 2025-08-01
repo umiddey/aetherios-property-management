@@ -1,9 +1,12 @@
 // src/components/DashboardView.js
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../AuthContext';
 import cachedAxios from '../utils/cachedAxios';
 import ClickableElement from './ClickableElement';
 import { exportDashboardStats } from '../utils/exportUtils';
+import complianceService from '../services/complianceService';
+import { canManageLicenses } from '../utils/permissions';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -22,8 +25,15 @@ const DashboardView = ({
   logAction
 }) => {
   const { t } = useLanguage(); // Use the language context
+  const { user } = useAuth(); // Get current user for permission checking
   const [recentProperties, setRecentProperties] = useState([]);
   const [loadingProperties, setLoadingProperties] = useState(true);
+  const [licenseStats, setLicenseStats] = useState(null);
+  const [expiringLicenses, setExpiringLicenses] = useState([]);
+  const [loadingLicenses, setLoadingLicenses] = useState(true);
+  
+  // Check if user can manage licenses
+  const canUserManageLicenses = canManageLicenses(user);
 
   // Fetch recent properties independently of the properties page filter
   useEffect(() => {
@@ -42,6 +52,38 @@ const DashboardView = ({
 
     fetchRecentProperties();
   }, []);
+
+  // Fetch license compliance data (only if user has permissions)
+  useEffect(() => {
+    const fetchLicenseData = async () => {
+      if (!canUserManageLicenses) {
+        setLoadingLicenses(false);
+        return;
+      }
+      
+      try {
+        setLoadingLicenses(true);
+        const [statsData, expiringData] = await Promise.all([
+          complianceService.getLicenseOverviewStats(),
+          complianceService.getExpiringLicenses(30)
+        ]);
+        setLicenseStats(statsData);
+        setExpiringLicenses(expiringData);
+      } catch (error) {
+        console.error('Error fetching license data:', error);
+        // Handle 403 errors gracefully for users without permissions
+        if (error.response?.status === 403) {
+          console.log('User does not have license management permissions');
+        }
+        setLicenseStats(null);
+        setExpiringLicenses([]);
+      } finally {
+        setLoadingLicenses(false);
+      }
+    };
+
+    fetchLicenseData();
+  }, [canUserManageLicenses]);
 
   const handleTaskClick = (taskId) => {
     logAction('view_task', { taskId });
@@ -263,7 +305,7 @@ const DashboardView = ({
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
           {/* Properties Stat - Holographic Card */}
           <div className="group relative bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/30 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 overflow-hidden">
             {/* Animated background */}
@@ -403,6 +445,65 @@ const DashboardView = ({
               </div>
             </div>
           </div>
+
+          {/* License Compliance - Alert Card (only for admin users) */}
+          {canUserManageLicenses && (
+          <div className="group relative bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/30 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/20 via-yellow-500/10 to-orange-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-2 right-2 w-16 h-16 bg-amber-400/20 rounded-full blur-2xl group-hover:bg-amber-400/30 transition-all duration-500"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+                <div className={`px-3 py-1.5 rounded-xl border ${(expiringLicenses?.length > 0 || licenseStats?.contractors_with_expired_licenses > 0) ? 'bg-red-100/80 border-red-200/50 animate-pulse' : 'bg-green-100/80 border-green-200/50'} backdrop-blur-sm`}>
+                  {loadingLicenses ? (
+                    <span className="text-xs font-black text-gray-700 tracking-wider">LOADING</span>
+                  ) : (
+                    <span className={`text-xs font-black tracking-wider ${(expiringLicenses?.length > 0 || licenseStats?.contractors_with_expired_licenses > 0) ? 'text-red-700' : 'text-green-700'}`}>
+                      {(expiringLicenses?.length > 0 || licenseStats?.contractors_with_expired_licenses > 0) ? 'COMPLIANCE ALERT' : 'COMPLIANT'}
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              <h3 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">License Compliance</h3>
+              <div className="flex items-baseline">
+                <p className="text-4xl font-black bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
+                  {loadingLicenses ? '...' : (licenseStats?.compliance_percentage || 0)}%
+                </p>
+                {!loadingLicenses && (expiringLicenses?.length > 0 || licenseStats?.contractors_with_expired_licenses > 0) && (
+                  <div className="ml-3 flex items-center">
+                    <div className="w-2 h-2 bg-red-400 rounded-full animate-ping"></div>
+                    <span className="text-xs text-red-600 font-medium ml-1">
+                      {expiringLicenses?.length || 0} EXPIRING
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-1000 ${(licenseStats?.compliance_percentage || 0) >= 90 ? 'bg-gradient-to-r from-green-500 to-emerald-600' : (licenseStats?.compliance_percentage || 0) >= 70 ? 'bg-gradient-to-r from-yellow-500 to-amber-600' : 'bg-gradient-to-r from-red-500 to-orange-600'}`}
+                  style={{width: `${licenseStats?.compliance_percentage || 0}%`}}
+                ></div>
+              </div>
+
+              {/* Click handler to navigate to license management */}
+              <button
+                onClick={() => {
+                  logAction('navigate_to_license_management_from_compliance');
+                  handleNav('license-management');
+                }}
+                className="absolute inset-0 w-full h-full bg-transparent hover:bg-white/5 transition-colors duration-200"
+                aria-label="View license management details"
+              />
+            </div>
+          </div>
+          )}
         </div>
       </div>
 

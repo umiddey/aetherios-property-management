@@ -30,8 +30,10 @@ import ContractsView from './ContractsView';
 import CreateContractForm from './CreateContractForm';
 import ContractDetailPage from './ContractDetailPage';
 import ContractEditPage from './ContractEditPage';
+import LicenseManagementView from './LicenseManagementView';
 import Breadcrumb from './Breadcrumb';
 import LanguageSwitcher from './LanguageSwitcher';
+import { canManageLicenses } from '../utils/permissions';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -60,6 +62,11 @@ const Dashboard = () => {
   const [accountTypeFilter, setAccountTypeFilter] = useState(null);
   const [accountSearchTerm, setAccountSearchTerm] = useState('');
   const [userPage, setUserPage] = useState(1);
+  
+  // Notification bell state
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(false);
   
   const [propertyFilters, setPropertyFilters] = useState({
     property_type: 'complex',
@@ -133,6 +140,20 @@ const Dashboard = () => {
       };
     }
   }, [user, showSuccess]);
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNotifications && !event.target.closest('.notification-bell')) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
 
   useEffect(() => {
     const handleContractCreated = async (event) => {
@@ -285,7 +306,8 @@ const Dashboard = () => {
         propertiesRes,
         tenantsRes,
         invoicesRes,
-        usersRes
+        usersRes,
+        pendingApprovalsRes
       ] = await Promise.all([
         cachedAxios.get(statsUrl),
         cachedAxios.get(`${API}/v1/tasks`),
@@ -294,7 +316,8 @@ const Dashboard = () => {
         cachedAxios.get(`${API}/v1/properties?${buildPropertyParams()}`),
         cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
         cachedAxios.get(`${API}/v1/invoices?${buildInvoiceParams()}`),
-        cachedAxios.get(`${API}/v1/users`)
+        cachedAxios.get(`${API}/v1/users`),
+        cachedAxios.get(`${API}/v1/service-requests/pending-approval`).catch(() => ({ data: [] })) // Graceful failure
       ]);
       
       // Set all state at once with safety checks
@@ -306,6 +329,7 @@ const Dashboard = () => {
       setTenants(filterTenants(tenantsRes.data));
       setInvoices(Array.isArray(invoicesRes.data) ? invoicesRes.data : []);
       setUsersList(Array.isArray(usersRes.data) ? usersRes.data : []);
+      setPendingApprovals(Array.isArray(pendingApprovalsRes.data) ? pendingApprovalsRes.data : []);
     } catch (error) {
       console.error('Error fetching data:', error);
       showError(error, 'Failed to load dashboard data');
@@ -627,6 +651,33 @@ const Dashboard = () => {
     navigate(`/${view}`, { state });
   };
 
+  // Notification bell handlers
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+  };
+
+  const handleQuickApproval = async (requestId, action, notes = '') => {
+    try {
+      const approval = {
+        approval_status: action,
+        approval_notes: notes || null
+      };
+
+      await cachedAxios.put(`${API}/v1/service-requests/${requestId}/approve`, approval);
+      
+      // Remove from pending approvals
+      setPendingApprovals(prev => prev.filter(req => req.id !== requestId));
+      
+      // Refresh data to update stats
+      await fetchData();
+      
+      showSuccess(`Service request ${action} successfully`);
+    } catch (error) {
+      console.error('Error approving service request:', error);
+      showError(error, `Failed to ${action} service request`);
+    }
+  };
+
   const currentViewFromPath = location.pathname.slice(1) || 'dashboard';
 
   if (authLoading) {
@@ -677,11 +728,123 @@ const Dashboard = () => {
                 <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tasks')}</button>
                 <button onClick={() => handleNav('service-requests')} className={currentViewFromPath === 'service-requests' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>Service Requests</button>
                 <button onClick={() => handleNav('contracts')} className={currentViewFromPath === 'contracts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.contracts')}</button>
+                {canManageLicenses(user) && (
+                  <button onClick={() => handleNav('license-management')} className={currentViewFromPath === 'license-management' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>License Management</button>
+                )}
                 {user?.role === 'super_admin' && (
                   <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.users')}</button>
                 )}
               </nav>
               <LanguageSwitcher />
+              
+              {/* Notification Bell */}
+              <div className="relative notification-bell">
+                <button
+                  onClick={toggleNotifications}
+                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  
+                  {/* Notification Badge */}
+                  {pendingApprovals.length > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full min-w-[20px] h-5">
+                      {pendingApprovals.length > 99 ? '99+' : pendingApprovals.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown */}
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900">Pending Approvals</h3>
+                        <span className="text-sm text-gray-500">{pendingApprovals.length} pending</span>
+                      </div>
+                    </div>
+                    
+                    <div className="max-h-80 overflow-y-auto">
+                      {pendingApprovals.length === 0 ? (
+                        <div className="p-6 text-center text-gray-500">
+                          <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p>No pending approvals</p>
+                        </div>
+                      ) : (
+                        pendingApprovals.map((request) => (
+                          <div key={request.id} className="p-4 border-b border-gray-100 hover:bg-gray-50">
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-gray-900 truncate">{request.title}</h4>
+                                <p className="text-xs text-gray-500 mt-1">{request.property_address}</p>
+                                <div className="flex items-center space-x-2 mt-2">
+                                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                                    request.priority === 'emergency' ? 'bg-red-100 text-red-800' :
+                                    request.priority === 'urgent' ? 'bg-orange-100 text-orange-800' :
+                                    'bg-green-100 text-green-800'
+                                  }`}>
+                                    {request.priority}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    {new Date(request.submitted_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col space-y-1">
+                                <button
+                                  onClick={() => {
+                                    handleNav('service-requests', { selectedRequestId: request.id });
+                                    setShowNotifications(false);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                                >
+                                  View Details
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    handleQuickApproval(request.id, 'approved');
+                                    setShowNotifications(false);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    handleQuickApproval(request.id, 'rejected');
+                                    setShowNotifications(false);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    
+                    {pendingApprovals.length > 0 && (
+                      <div className="p-4 border-t border-gray-200 bg-gray-50">
+                        <button
+                          onClick={() => {
+                            handleNav('service-requests');
+                            setShowNotifications(false);
+                          }}
+                          className="w-full text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                        >
+                          View All Service Requests →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
               <button onClick={logout} className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
                 <div className="flex items-center space-x-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -912,6 +1075,7 @@ const Dashboard = () => {
           <Route path="/contracts/:id" element={<ContractDetailPage />} />
           <Route path="/contracts/:id/edit" element={<ContractEditPage />} />
           <Route path="/create-contract" element={<CreateContractForm />} />
+          <Route path="/license-management" element={<LicenseManagementView handleNav={handleNav} />} />
         </Routes>
       </main>
     </div>
