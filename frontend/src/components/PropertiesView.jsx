@@ -14,6 +14,8 @@ const PropertiesView = ({
   handleNav,
   getStatusColor,
   getPropertyTypeColor,
+  getFurnishingStatusColor,
+  getFurnishingStatusText,
   formatDate
 }) => {
   const { t } = useLanguage();
@@ -192,11 +194,11 @@ const PropertiesView = ({
               <div className="absolute top-2 right-2 w-20 h-20 bg-blue-400/20 rounded-full blur-2xl group-hover:bg-blue-400/30 transition-all duration-500"></div>
               
               {/* Status Badge */}
-              <div className="absolute top-4 right-4">
-                <div className={`px-3 py-1.5 text-xs font-black rounded-xl shadow-lg ${getStatusColor(property.status)} backdrop-blur-sm`}>
+              {/* <div className="absolute top-4 right-4">
+                <div className={`px-3 py-1.5 text-xs font-black ${getStatusColor(property.status)} backdrop-blur-sm`}>
                   {property.status === 'empty' ? t('properties.empty') : property.status === 'occupied' ? t('properties.occupied') : property.status}
                 </div>
-              </div>
+              </div> */}
               
               <div className="relative z-10">
                 {/* Property Icon & Type */}
@@ -206,8 +208,16 @@ const PropertiesView = ({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                   </div>
-                  <div className={`px-3 py-1.5 text-xs font-black rounded-xl ${getPropertyTypeColor(property.property_type)} shadow-lg`}>
-                    {property.property_type?.toUpperCase()}
+                  <div className="flex flex-col space-y-1.5">
+                    <div className={`px-2.5 py-1 text-xs font-black rounded-lg ${getStatusColor(property.status)} backdrop-blur-sm`}>
+                      {property.status === 'empty' ? t('properties.empty') : property.status === 'occupied' ? t('properties.occupied') : property.status}
+                    </div>
+                    <div className={`px-2.5 py-1 text-xs font-black rounded-lg ${getPropertyTypeColor(property.property_type)} shadow-md`}>
+                      {property.property_type?.toUpperCase()}
+                    </div>
+                    <div className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-md ${getFurnishingStatusColor(property.furnishing_status)}`}>
+                      {getFurnishingStatusText(property.furnishing_status)}
+                    </div>
                   </div>
                 </div>
                 

@@ -709,8 +709,9 @@ async def _create_erp_invoice(service_request: dict, invoice: InvoiceSubmission,
         invoice_id = str(uuid.uuid4())
         
         # Get contract for this tenant/property for proper invoice creation
+        # Note: contracts use other_party_id for tenant, not tenant_id
         contract = await db.contracts.find_one({
-            "tenant_id": service_request["tenant_id"],
+            "other_party_id": service_request["tenant_id"],
             "property_id": service_request["property_id"],
             "status": "active"
         })
@@ -735,7 +736,7 @@ async def _create_erp_invoice(service_request: dict, invoice: InvoiceSubmission,
             "invoice_category": "contractor_service",
             
             # Service request linkage
-            "service_request_id": service_request["_id"],
+            "service_request_id": str(service_request["_id"]),
             "contractor_email": service_request.get("contractor_email"),
             "service_type": service_request["request_type"],
             

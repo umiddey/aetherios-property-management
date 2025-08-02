@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 import uuid
@@ -18,6 +18,12 @@ class PropertyStatus(str, Enum):
     ACTIVE = "active"
     CANCEL = "cancel"
     EMPTY = "empty"
+
+
+class FurnishingStatus(str, Enum):
+    FURNISHED = "furnished"
+    UNFURNISHED = "unfurnished"
+    PARTIALLY_FURNISHED = "partially_furnished"
 
 
 class Property(BaseModel):
@@ -42,6 +48,8 @@ class Property(BaseModel):
     owner_phone: Optional[str] = None
     parent_id: Optional[str] = None
     manager_id: str = Field(..., description="User ID of the property manager responsible for this property")
+    furnishing_status: FurnishingStatus = FurnishingStatus.UNFURNISHED
+    furnished_items: Optional[List[str]] = Field(default_factory=list, description="List of furnished item IDs")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str
     is_archived: bool = False
@@ -69,6 +77,8 @@ class PropertyCreate(BaseModel):
     owner_phone: Optional[str] = None
     parent_id: Optional[str] = None
     manager_id: str = Field(..., description="User ID of the property manager responsible for this property")
+    furnishing_status: FurnishingStatus = FurnishingStatus.UNFURNISHED
+    furnished_items: Optional[List[str]] = Field(default_factory=list, description="List of furnished item IDs")
 
 
 class PropertyUpdate(BaseModel):
@@ -92,6 +102,8 @@ class PropertyUpdate(BaseModel):
     owner_phone: Optional[str] = None
     parent_id: Optional[str] = None
     manager_id: Optional[str] = Field(None, description="User ID of the property manager responsible for this property")
+    furnishing_status: Optional[FurnishingStatus] = None
+    furnished_items: Optional[List[str]] = None
     is_archived: Optional[bool] = None
 
 
@@ -105,4 +117,5 @@ class PropertyFilters(BaseModel):
     archived: Optional[bool] = None
     city: Optional[str] = None
     parent_id: Optional[str] = None
+    furnishing_status: Optional[FurnishingStatus] = None
     search: Optional[str] = None

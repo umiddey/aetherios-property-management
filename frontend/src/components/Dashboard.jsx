@@ -22,6 +22,7 @@ import CreateTaskForm from './CreateTaskForm';
 import CreateAccountForm from './CreateAccountForm';
 import UserForm from './UserForm';
 import PropertyDetailPage from './PropertyDetailPage';
+import PropertyEditPage from './PropertyEditPage';
 import TenantDetailPage from './TenantDetailPage';
 import InvoiceDetailPage from './InvoiceDetailPage';
 import TaskDetailPage from './TaskDetailPage';
@@ -513,6 +514,24 @@ const Dashboard = () => {
     }
   }, []);
 
+  const getFurnishingStatusColor = useCallback((status) => {
+    switch (status) {
+      case 'furnished': return 'bg-emerald-100 text-emerald-800';
+      case 'unfurnished': return 'bg-gray-100 text-gray-800';
+      case 'partially_furnished': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  }, []);
+
+  const getFurnishingStatusText = useCallback((status) => {
+    switch (status) {
+      case 'furnished': return '🛋️ FURNISHED';
+      case 'unfurnished': return '🏠 UNFURNISHED';
+      case 'partially_furnished': return '🏡 PARTIAL';
+      default: return '🏠 UNFURNISHED'; // Default to unfurnished instead of unknown
+    }
+  }, []);
+
   const getRoleColor = (role) => {
     switch (role) {
       case 'super_admin': return 'bg-red-100 text-red-800';
@@ -884,8 +903,11 @@ const Dashboard = () => {
             handleNav={handleNav} 
             getStatusColor={getStatusColor} 
             getPropertyTypeColor={getPropertyTypeColor} 
+            getFurnishingStatusColor={getFurnishingStatusColor}
+            getFurnishingStatusText={getFurnishingStatusText}
             formatDate={formatDate}
           />} />
+          <Route path="/properties/:id/edit" element={<PropertyEditPage />} />
           <Route path="/properties/:id" element={<PropertyDetailPage 
             getStatusColor={getStatusColor} 
             getPropertyTypeColor={getPropertyTypeColor} 

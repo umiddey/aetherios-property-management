@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
+import FurnishedItemsManager from './FurnishedItemsManager';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -28,7 +29,9 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     owner_email: '',
     owner_phone: '',
     parent_id: '',
-    manager_id: ''
+    manager_id: '',
+    furnishing_status: 'unfurnished',
+    furnished_items: []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,6 +39,7 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
   const [isGeneratingId, setIsGeneratingId] = useState(false);
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [showFurnishedItemsModal, setShowFurnishedItemsModal] = useState(false);
 
   // Fetch users for manager dropdown
   useEffect(() => {
@@ -139,7 +143,11 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     setError('');
 
     try {
-      const submitData = {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+
+      // First, create the property without furnished items
+      const propertyData = {
         ...formData,
         surface_area: parseFloat(formData.surface_area),
         number_of_rooms: parseInt(formData.number_of_rooms),
@@ -147,10 +155,47 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
         max_tenants: formData.max_tenants ? parseInt(formData.max_tenants) : null,
         rent_per_sqm: formData.rent_per_sqm ? parseFloat(formData.rent_per_sqm) : null,
         cold_rent: formData.cold_rent ? parseFloat(formData.cold_rent) : null,
-        parent_id: formData.parent_id || null
+        parent_id: formData.parent_id || null,
+        furnished_items: [] // Start with empty list
       };
 
-      await axios.post(`${API}/v1/properties/`, submitData);
+      const propertyResponse = await axios.post(`${API}/v1/properties/`, propertyData, { headers });
+      const createdProperty = propertyResponse.data;
+      
+      // If there are furnished items, create them
+      if (formData.furnished_items.length > 0) {
+        const createdItemIds = [];
+        
+        for (const item of formData.furnished_items) {
+          // Skip temporary items that don't have real data
+          if (item.id && item.id.startsWith('temp_')) {
+            const itemData = {
+              property_id: createdProperty.id,
+              name: item.name,
+              category: item.category,
+              description: item.description || '',
+              brand: item.brand || '',
+              model: item.model || '',
+              condition: item.condition,
+              ownership: item.ownership,
+              purchase_price: item.purchase_price || null,
+              current_value: item.current_value || null,
+              is_essential: item.is_essential || false
+            };
+            
+            const itemResponse = await axios.post(`${API}/v1/furnished-items/`, itemData, { headers });
+            createdItemIds.push(itemResponse.data.id);
+          }
+        }
+        
+        // Update property with furnished item IDs if any were created
+        if (createdItemIds.length > 0) {
+          await axios.put(`${API}/v1/properties/${createdProperty.id}`, {
+            furnished_items: createdItemIds
+          }, { headers });
+        }
+      }
+
       onSuccess();
     } catch (error) {
       console.log(error);
@@ -297,6 +342,56 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
                 <option value="building">{t('properties.building')}</option>
                 <option value="complex">Komplex</option>
               </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Furnishing Status *
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                </div>
+                <select
+                  name="furnishing_status"
+                  value={formData.furnishing_status}
+                  onChange={handleChange}
+                  className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  required
+                >
+                  <option value="unfurnished">🏠 Unfurnished</option>
+                  <option value="furnished">🛋️ Furnished</option>
+                  <option value="partially_furnished">🏡 Partially Furnished</option>
+                </select>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Legal classification required for German property law compliance
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Furnished Items
+              </label>
+              <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                <span className="text-sm text-gray-600">
+                  {formData.furnished_items.length} items
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowFurnishedItemsModal(true)}
+                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  disabled={formData.furnishing_status === 'unfurnished'}
+                >
+                  Manage Items
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Add/remove furnished items (enabled for furnished properties)
+              </p>
             </div>
           </div>
 
@@ -690,6 +785,43 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
           </div>
         </form>
       </div>
+
+      {/* Furnished Items Modal */}
+      {showFurnishedItemsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">Manage Furnished Items</h3>
+                <button
+                  onClick={() => setShowFurnishedItemsModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <FurnishedItemsManager
+                items={formData.furnished_items}
+                onItemsChange={(items) => setFormData({ ...formData, furnished_items: items })}
+                propertyId={formData.id}
+                isEditMode={false}
+              />
+              
+              <div className="flex justify-end mt-6 pt-6 border-t">
+                <button
+                  onClick={() => setShowFurnishedItemsModal(false)}
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

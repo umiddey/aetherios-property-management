@@ -22,6 +22,7 @@ const PropertyDetailPage = ({
   const [agreements, setAgreements] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [manager, setManager] = useState(null);
+  const [furnishedItems, setFurnishedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -47,6 +48,15 @@ const PropertyDetailPage = ({
           } catch (managerError) {
             console.warn('Could not fetch manager details:', managerError);
           }
+        }
+        
+        // Fetch furnished items for the property
+        try {
+          const itemsRes = await cachedAxios.get(`${API}/v1/furnished-items/property/${id}`);
+          setFurnishedItems(itemsRes.data || []);
+        } catch (itemsError) {
+          console.warn('Could not fetch furnished items:', itemsError);
+          setFurnishedItems([]);
         }
       } catch (error) {
         console.error('Error fetching property details:', error);
@@ -576,6 +586,73 @@ const PropertyDetailPage = ({
             </div>
           )}
         </div>
+
+        {/* Furnished Items Section */}
+        {property.furnishing_status !== 'unfurnished' && (
+          <div className="mt-8 bg-white shadow-lg rounded-xl p-6 border border-gray-200">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Furnished Items ({furnishedItems.length})
+              </h2>
+              <span className={`px-3 py-1 text-xs font-bold rounded-lg ${
+                property.furnishing_status === 'furnished' ? 'bg-emerald-100 text-emerald-800' :
+                property.furnishing_status === 'partially_furnished' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {property.furnishing_status === 'furnished' ? '🛋️ Furnished' :
+                 property.furnishing_status === 'partially_furnished' ? '🏡 Partially Furnished' :
+                 '🏠 Unfurnished'}
+              </span>
+            </div>
+            
+            {furnishedItems.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {furnishedItems.map((item, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-gray-900">{item.name}</h3>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        item.ownership === 'landlord' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {item.ownership === 'landlord' ? '🏠 Landlord' : '👤 Tenant'}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-sm text-gray-600">
+                      <p><span className="font-medium">Category:</span> {item.category}</p>
+                      {item.brand && <p><span className="font-medium">Brand:</span> {item.brand}</p>}
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Condition:</span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          item.condition === 'new' ? 'bg-green-100 text-green-800' :
+                          item.condition === 'excellent' ? 'bg-blue-100 text-blue-800' :
+                          item.condition === 'good' ? 'bg-yellow-100 text-yellow-800' :
+                          item.condition === 'fair' ? 'bg-orange-100 text-orange-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {item.condition}
+                        </span>
+                      </div>
+                      {item.current_value && (
+                        <p><span className="font-medium">Value:</span> €{item.current_value}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <p>No furnished items registered yet</p>
+                <p className="text-sm">Use the edit button to manage furnished items</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Quick Actions */}
         <div className="mt-8 bg-white shadow-lg rounded-xl p-6 border border-gray-200">
