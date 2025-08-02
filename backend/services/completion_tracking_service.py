@@ -215,8 +215,13 @@ class CompletionTrackingService:
                     }
                 )
                 
-                # Trigger invoice email (Link 2)
-                await self._trigger_invoice_workflow(service_request)
+                # Enable invoice upload (unified email workflow)
+                await self.db.service_requests.update_one(
+                    {"_id": service_request["_id"]},
+                    {"$set": {"invoice_upload_enabled": True}}
+                )
+                
+                logger.info(f"Invoice upload enabled for contractor: {service_request.get('contractor_email')}")
                 
                 logger.info(f"Service request {service_request['_id']} confirmed complete by tenant")
                 return True
@@ -282,8 +287,13 @@ class CompletionTrackingService:
                 }
             )
             
-            # Trigger invoice workflow (Link 2)
-            await self._trigger_invoice_workflow(service_request)
+            # Enable invoice upload (unified email workflow)
+            await self.db.service_requests.update_one(
+                {"_id": service_request["_id"]},
+                {"$set": {"invoice_upload_enabled": True}}
+            )
+            
+            logger.info(f"Invoice upload enabled for contractor: {service_request.get('contractor_email')}")
             
             logger.info(f"Service request {service_request_id} auto-confirmed after tenant timeout")
             return True
@@ -292,67 +302,6 @@ class CompletionTrackingService:
             logger.error(f"Error auto-confirming completion: {e}")
             return False
     
-    async def _trigger_invoice_workflow(self, service_request: Dict) -> bool:
-        """
-        Trigger the invoice workflow by sending Link 2 email to contractor.
-        
-        Args:
-            service_request: The service request document
-        
-        Returns:
-            bool: True if triggered successfully, False otherwise
-        """
-        try:
-            # Check if invoice email already sent
-            if service_request.get("invoice_link_sent"):
-                logger.info(f"Invoice link already sent for service request {service_request['_id']}")
-                return True
-            
-            # Generate invoice token if not exists
-            invoice_token = service_request.get("invoice_upload_token")
-            if not invoice_token:
-                invoice_token = self.contractor_email_service.generate_invoice_token()
-                await self.db.service_requests.update_one(
-                    {"_id": service_request["_id"]},
-                    {"$set": {"invoice_upload_token": invoice_token}}
-                )
-            
-            # Get contractor email
-            contractor_email = service_request.get("contractor_email")
-            if not contractor_email:
-                logger.error(f"No contractor email for service request {service_request['_id']}")
-                return False
-            
-            # Send Link 2 email
-            base_url = "http://localhost:3000"  # TODO: Get from config
-            
-            # Convert dict to ServiceRequest object for email service
-            sr_obj = ServiceRequest(**service_request)
-            
-            success = await self.contractor_email_service.send_invoice_email(
-                sr_obj, contractor_email, invoice_token, base_url
-            )
-            
-            if success:
-                # Mark invoice link as sent
-                await self.db.service_requests.update_one(
-                    {"_id": service_request["_id"]},
-                    {
-                        "$set": {
-                            "invoice_link_sent": True,
-                            "invoice_link_sent_at": datetime.utcnow(),
-                            "updated_at": datetime.utcnow()
-                        }
-                    }
-                )
-                
-                logger.info(f"Invoice workflow triggered for service request {service_request['_id']}")
-                
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error triggering invoice workflow: {e}")
-            return False
     
     async def _notify_property_management_of_dispute(self, service_request: Dict, 
                                                    tenant_feedback: Optional[str] = None) -> bool:

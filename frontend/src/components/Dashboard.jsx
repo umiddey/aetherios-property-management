@@ -775,7 +775,14 @@ const Dashboard = () => {
                         </div>
                       ) : (
                         pendingApprovals.map((request) => (
-                          <div key={request.id} className="p-4 border-b border-gray-100 hover:bg-gray-50">
+                          <div 
+                            key={request.id} 
+                            className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                            onClick={() => {
+                              handleNav('service-requests', { selectedRequestId: request.id });
+                              setShowNotifications(false);
+                            }}
+                          >
                             <div className="flex items-start space-x-3">
                               <div className="flex-1 min-w-0">
                                 <h4 className="text-sm font-medium text-gray-900 truncate">{request.title}</h4>
@@ -795,16 +802,8 @@ const Dashboard = () => {
                               </div>
                               <div className="flex flex-col space-y-1">
                                 <button
-                                  onClick={() => {
-                                    handleNav('service-requests', { selectedRequestId: request.id });
-                                    setShowNotifications(false);
-                                  }}
-                                  className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                                >
-                                  View Details
-                                </button>
-                                <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     handleQuickApproval(request.id, 'approved');
                                     setShowNotifications(false);
                                   }}
@@ -813,7 +812,8 @@ const Dashboard = () => {
                                   Approve
                                 </button>
                                 <button
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     handleQuickApproval(request.id, 'rejected');
                                     setShowNotifications(false);
                                   }}

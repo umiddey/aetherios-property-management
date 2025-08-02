@@ -67,7 +67,8 @@ class ServiceRequestService:
             title=request.title,
             description=request.description,
             attachment_urls=request.attachment_urls,
-            tenant_preferred_slots=request.tenant_preferred_slots  # 🔧 FIX: Add missing preferred slots
+            tenant_preferred_slots=request.tenant_preferred_slots,  # 🔧 FIX: Add missing preferred slots
+            approval_status=ServiceRequestApprovalStatus.PENDING_APPROVAL  # 🔧 FIX: Explicitly set approval status
         )
         print(f"🔍 DEBUG SERVICE - ServiceRequest object preferred_slots: {service_request.tenant_preferred_slots}")
         
@@ -896,40 +897,46 @@ class ServiceRequestService:
             base_url = "http://localhost:3000"  # TODO: Get from environment config
             successful_assignments = []
             contractor_tokens = {}
+            invoice_tokens = {}
             
             for contractor_email in contractor_emails:
                 # Generate unique scheduling token for each contractor
                 scheduling_token = self.contractor_email_service.generate_scheduling_token()
                 
-                # Send Link 1 email to contractor
-                email_success = await self.contractor_email_service.send_scheduling_email(
+                # Generate invoice token for unified email
+                invoice_token = self.contractor_email_service.generate_invoice_token()
+                
+                # Send unified email to contractor with both scheduling and invoice links
+                email_success = await self.contractor_email_service.send_unified_contractor_email(
                     service_request,
                     contractor_email,
                     scheduling_token,
-                    base_url
+                    invoice_token,
+                    base_url,
+                    contractor_match_info=None,
+                    invoice_upload_enabled=False  # Disabled until job completion
                 )
                 
                 if email_success:
                     successful_assignments.append(contractor_email)
                     contractor_tokens[contractor_email] = scheduling_token
-                    print(f"✅ Sent scheduling email to: {contractor_email}")
+                    invoice_tokens[contractor_email] = invoice_token
+                    print(f"✅ Sent unified contractor email to: {contractor_email}")
                 else:
-                    print(f"❌ Failed to send scheduling email to: {contractor_email}")
+                    print(f"❌ Failed to send unified contractor email to: {contractor_email}")
             
             if not successful_assignments:
                 print(f"❌ Failed to send emails to any contractors")
                 return None
             
-            # Step 5: Generate invoice token (Link 2) for later use
-            invoice_token = self.contractor_email_service.generate_invoice_token()
-            
             # Return updates for service request
             contractor_updates = {
                 "contractor_email": successful_assignments[0],  # Primary contractor
                 "contractor_response_token": contractor_tokens[successful_assignments[0]],  # Primary token
-                "invoice_upload_token": invoice_token,
+                "invoice_upload_token": invoice_tokens[successful_assignments[0]],  # Primary invoice token
                 "contractor_email_sent_at": datetime.utcnow(),
-                "assignment_strategy": assignment_strategy
+                "assignment_strategy": assignment_strategy,
+                "invoice_upload_enabled": False  # Disabled until job completion
             }
             
             print(f"✅ Enterprise contractor workflow triggered successfully:")
@@ -975,7 +982,8 @@ class ServiceRequestService:
                 "completion_notes": completion_notes,
                 "completed_by_tenant": completed_by_tenant,
                 "completed_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
+                "updated_at": datetime.utcnow(),
+                "invoice_upload_enabled": True  # Enable invoice upload when job is completed
             }
             
             # Update in database
@@ -987,9 +995,12 @@ class ServiceRequestService:
             if result.modified_count == 0:
                 return None
             
-            # Trigger Link 2 invoice workflow if contractor info exists
-            if service_request.contractor_email and service_request.invoice_upload_token:
-                await self._trigger_invoice_workflow(service_request, completion_notes)
+            # Invoice upload is now enabled via update_data above
+            # No need to send separate invoice email - unified email already contains both links
+            print(f"✅ Service request completed - invoice upload now enabled:")
+            print(f"   📋 Service: {service_request.title}")
+            print(f"   📧 Contractor: {service_request.contractor_email}")
+            print(f"   🔗 Invoice upload link is now active for contractor")
             
             # Update corresponding ERP task
             if hasattr(service_request, 'erp_task_id') and service_request.erp_task_id:
@@ -1002,42 +1013,62 @@ class ServiceRequestService:
         except Exception as e:
             print(f"❌ Error marking service request complete: {e}")
             return None
-
-
-    async def _trigger_invoice_workflow(self, service_request: ServiceRequest, completion_notes: str = ""):
+    
+    async def mark_service_request_complete_admin(
+        self, 
+        request_id: str, 
+        completed_by: str, 
+        completion_notes: str = ""
+    ) -> Optional[ServiceRequest]:
         """
-        Trigger Link 2 invoice workflow after service completion
+        Mark service request as completed by property manager/admin
         
-        Sends email to contractor with invoice upload link.
+        This enables invoice upload for contractors and updates the service request
+        status to completed. Used when property manager marks job as done.
         """
         try:
-            if not service_request.contractor_email or not service_request.invoice_upload_token:
-                print(f"⚠️ Cannot trigger invoice workflow - missing contractor email or token")
-                return
+            # Get the service request
+            service_request = await self.get_service_request_by_id(request_id)
             
-            base_url = "http://localhost:3000"  # TODO: Get from environment config
+            if not service_request:
+                return None
             
-            # Send Link 2 email to contractor
-            email_success = await self.contractor_email_service.send_invoice_email(
-                service_request,
-                service_request.contractor_email,
-                service_request.invoice_upload_token,
-                base_url
+            # Update the service request with completion data
+            update_data = {
+                "status": ServiceRequestStatus.COMPLETED.value,
+                "completion_status": "admin_confirmed",
+                "completion_notes": completion_notes,
+                "completed_by_admin": completed_by,
+                "completed_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+                "invoice_upload_enabled": True  # Enable invoice upload when job is completed
+            }
+            
+            # Update in database
+            result = await self.collection.update_one(
+                {"id": request_id},
+                {"$set": update_data}
             )
             
-            if email_success:
-                # Update service request with invoice email sent timestamp
-                await self.collection.update_one(
-                    {"id": service_request.id},
-                    {"$set": {"invoice_link_sent": True, "invoice_email_sent_at": datetime.utcnow()}}
-                )
-                
-                print(f"✅ Invoice workflow triggered successfully:")
-                print(f"   📧 Contractor: {service_request.contractor_email}")
-                print(f"   🔗 Invoice Link: {base_url}/contractor/invoice/{service_request.invoice_upload_token}")
-                print(f"   📋 Service: {service_request.title}")
-            else:
-                print(f"❌ Failed to send invoice email to contractor: {service_request.contractor_email}")
-                
+            if result.modified_count == 0:
+                return None
+            
+            print(f"✅ Service request completed by admin - invoice upload now enabled:")
+            print(f"   📋 Service: {service_request.title}")
+            print(f"   👤 Completed by: {completed_by}")
+            print(f"   📧 Contractor: {service_request.contractor_email}")
+            print(f"   🔗 Invoice upload link is now active for contractor")
+            
+            # Update corresponding ERP task
+            if hasattr(service_request, 'erp_task_id') and service_request.erp_task_id:
+                await self._update_erp_task_from_request(service_request.erp_task_id, ServiceRequestStatus.COMPLETED)
+            
+            # Return updated service request
+            updated_request = await self.get_service_request_by_id(request_id)
+            return updated_request
+            
         except Exception as e:
-            print(f"❌ Error in invoice workflow: {e}")
+            print(f"❌ Error marking service request complete (admin): {e}")
+            return None
+
+

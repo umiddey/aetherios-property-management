@@ -1,8 +1,10 @@
 // src/components/ServiceRequestsView.jsx
 import React, { useState, useEffect } from 'react';
-import cachedAxios from '../utils/cachedAxios';
+import { useLocation } from 'react-router-dom';
+import cachedAxios, { invalidateCache } from '../utils/cachedAxios';
 import { useLanguage } from '../contexts/LanguageContext';
 import Pagination from './Pagination';
+import ServiceRequestManagementModal from './ServiceRequestManagementModal';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -13,6 +15,7 @@ const ServiceRequestsView = ({
   logAction
 }) => {
   const { t } = useLanguage();
+  const location = useLocation();
   const [serviceRequests, setServiceRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,6 +29,7 @@ const ServiceRequestsView = ({
   });
   const [approvalModal, setApprovalModal] = useState(null);
   const [approving, setApproving] = useState(false);
+  const [managementModalOpen, setManagementModalOpen] = useState(false);
 
   // Available filter options
   const statusOptions = ['submitted', 'pending_approval', 'assigned', 'in_progress', 'completed', 'closed', 'cancelled'];
@@ -35,6 +39,41 @@ const ServiceRequestsView = ({
   useEffect(() => {
     fetchServiceRequests();
   }, [currentPage, filters]);
+
+  // Handle notification navigation - auto-open specific request detail
+  useEffect(() => {
+    const selectedRequestId = location.state?.selectedRequestId;
+    if (selectedRequestId && serviceRequests.length > 0) {
+      // Find the request in the current list
+      const targetRequest = serviceRequests.find(request => request.id === selectedRequestId);
+      if (targetRequest) {
+        // Auto-open the detail modal for this specific request
+        console.log(`🎯 Auto-opening detail modal for notification request: ${targetRequest.title}`);
+        setSelectedRequest(targetRequest);
+        
+        // Clear the state to prevent re-opening on subsequent renders
+        window.history.replaceState(null, '', window.location.pathname);
+      } else {
+        // If request not found in current page, try to fetch it directly
+        console.log(`🔍 Request ${selectedRequestId} not found in current page, fetching directly...`);
+        fetchSpecificRequest(selectedRequestId);
+      }
+    }
+  }, [serviceRequests, location.state]);
+
+  const fetchSpecificRequest = async (requestId) => {
+    try {
+      const response = await cachedAxios.get(`${API}/v1/service-requests/${requestId}`);
+      console.log(`✅ Fetched specific request: ${response.data.title}`);
+      setSelectedRequest(response.data);
+      
+      // Clear the state
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch (error) {
+      console.error(`❌ Failed to fetch request ${requestId}:`, error);
+      setError(`Could not find the requested service request`);
+    }
+  };
 
   const fetchServiceRequests = async () => {
     try {
@@ -94,11 +133,15 @@ const ServiceRequestsView = ({
         approval
       );
 
+      // Clear cache to force fresh data
+      invalidateCache('service-requests');
+      
       // Refresh the service requests list
       await fetchServiceRequests();
       
-      // Close modal
+      // Close modal AND detail modal
       setApprovalModal(null);
+      setSelectedRequest(null);
       
       // Show success message
       console.log(`Service request ${approvalModal.action} successfully`);
@@ -488,6 +531,27 @@ const ServiceRequestsView = ({
                     </div>
                   </div>
                 </div>
+              {/* Approval buttons for pending requests */}
+                {selectedRequest.approval_status === 'pending_approval' && (
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Approval Actions</h3>
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        onClick={() => handleApproval(selectedRequest.id, 'rejected')}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => handleApproval(selectedRequest.id, 'approved')}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
+                      >
+                        Approve
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               <div className="mt-6 flex justify-end space-x-3">
@@ -498,6 +562,7 @@ const ServiceRequestsView = ({
                   Close
                 </button>
                 <button
+                  onClick={() => setManagementModalOpen(true)}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
                 >
                   Manage Request
@@ -578,6 +643,20 @@ const ServiceRequestsView = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Management Modal */}
+      {managementModalOpen && selectedRequest && (
+        <ServiceRequestManagementModal
+          selectedRequest={selectedRequest}
+          onClose={() => setManagementModalOpen(false)}
+          onRequestUpdated={() => {
+            fetchServiceRequests();
+            setManagementModalOpen(false);
+            setSelectedRequest(null);
+          }}
+          logAction={logAction}
+        />
       )}
     </div>
   );

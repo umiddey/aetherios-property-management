@@ -94,6 +94,7 @@ class ServiceRequest(BaseModel):
     contractor_response_token: Optional[str] = None  # Unique token for Link 1 (scheduling)
     invoice_upload_token: Optional[str] = None  # Unique token for Link 2 (invoice upload)
     contractor_email_sent_at: Optional[datetime] = None  # When contractor automation email was sent
+    invoice_upload_enabled: bool = False  # Controls when contractors can access invoice upload functionality
     
     # Internal Notes (admin only)
     internal_notes: Optional[str] = None
@@ -168,6 +169,7 @@ class ServiceRequestResponse(BaseModel):
     invoice_link_sent: bool
     contractor_response_token: Optional[str]
     invoice_upload_token: Optional[str]
+    invoice_upload_enabled: bool
     
     # Additional fields for frontend display
     tenant_name: Optional[str] = None  # Populated from accounts collection

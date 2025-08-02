@@ -9,28 +9,16 @@ from datetime import datetime
 from typing import Optional, List, Dict
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-# Email imports - handle compatibility issues
-try:
-    import smtplib
-    from email.mime.text import MimeText
-    from email.mime.multipart import MimeMultipart
-    EMAIL_AVAILABLE = True
-except ImportError as e:
-    logging.warning(f"Email libraries not available: {e}")
-    EMAIL_AVAILABLE = False
-    # Mock classes for development
-    class MimeText:
-        def __init__(self, *args, **kwargs): pass
-    class MimeMultipart:
-        def __init__(self, *args, **kwargs): pass
-    class smtplib:
-        class SMTP:
-            def __init__(self, *args, **kwargs): pass
-            def starttls(self): pass
-            def login(self, *args, **kwargs): pass
-            def send_message(self, *args, **kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *args): pass
+# Force real email sending - FUCK THE IMPORT ISSUES
+import smtplib
+import email.mime.text as mime_text_module
+import email.mime.multipart as mime_multipart_module
+
+# Get the classes directly from the modules
+MimeText = getattr(mime_text_module, 'MIMEText')
+MimeMultipart = getattr(mime_multipart_module, 'MIMEMultipart')
+
+EMAIL_AVAILABLE = True  # FORCE TRUE - WE'RE SENDING REAL EMAILS
 
 from models.service_request import ServiceRequest, ServiceRequestType
 from models.account import ContractorProfile
@@ -178,16 +166,21 @@ class ContractorEmailService:
         """Generate unique token for Link 2 (invoice interface)"""
         return f"invoice_{uuid.uuid4().hex[:16]}"
     
-    async def send_scheduling_email(self, service_request: ServiceRequest, contractor_email: str, 
-                                  scheduling_token: str, base_url: str, contractor_match_info: Dict = None) -> bool:
+    async def send_unified_contractor_email(self, service_request: ServiceRequest, contractor_email: str, 
+                                           scheduling_token: str, invoice_token: str, base_url: str, 
+                                           contractor_match_info: Dict = None, invoice_upload_enabled: bool = False) -> bool:
         """
-        Send Link 1 email to contractor for appointment scheduling.
+        Send unified email to contractor with both scheduling and invoice upload links.
+        Invoice upload link is disabled until job completion.
         
         Args:
             service_request: The service request object
             contractor_email: Contractor's email address
             scheduling_token: Unique token for scheduling interface
-            base_url: Base URL for the application (e.g., https://yourdomain.com)
+            invoice_token: Unique token for invoice interface
+            base_url: Base URL for the application
+            contractor_match_info: Optional contractor matching information
+            invoice_upload_enabled: Whether invoice upload is currently enabled
         
         Returns:
             bool: True if email sent successfully, False otherwise
@@ -201,8 +194,9 @@ class ContractorEmailService:
             tenant_name = f"{tenant_account.first_name} {tenant_account.last_name}" if tenant_account else "Tenant"
             property_address = property_info.get("address", "Property") if property_info else "Property"
             
-            # Construct Link 1 URL
+            # Construct URLs
             scheduling_url = f"{base_url}/contractor/schedule/{scheduling_token}"
+            invoice_url = f"{base_url}/contractor/invoice/{invoice_token}"
             
             # Format preferred slots
             preferred_slots_text = ""
@@ -236,14 +230,38 @@ class ContractorEmailService:
                     </div>
                 """
             
-            subject = f"🔧 New Service Request: {service_request.title} - {service_request.priority.upper()}"
+            # Cost thresholds for invoice information
+            thresholds = {
+                "plumbing": {"emergency": 500, "urgent": 300, "routine": 150},
+                "electrical": {"emergency": 300, "urgent": 250, "routine": 150},
+                "hvac": {"emergency": 800, "urgent": 500, "routine": 200},
+                "appliance": {"emergency": 400, "urgent": 300, "routine": 150},
+                "general_maintenance": {"emergency": 200, "urgent": 150, "routine": 100}
+            }
+            
+            service_key = self.service_type_mapping.get(service_request.request_type, "general_maintenance")
+            threshold = thresholds.get(service_key, {}).get(service_request.priority, 150)
+            
+            # Invoice section styling - ALWAYS ACTIVE (no disabled styling)
+            invoice_section_style = "background-color: #f0fdf4;"  # Always use enabled styling
+            invoice_button_style = ("background-color: #059669; color: white; padding: 15px 30px; "
+                                  "text-decoration: none; border-radius: 8px; font-weight: bold; "
+                                  "display: inline-block;")  # Always clickable
+            
+            # Status text shows current availability but doesn't disable link
+            if not invoice_upload_enabled:
+                invoice_status_text = "ℹ️ <strong>Invoice upload available after job completion or appointment end time</strong>"
+            else:
+                invoice_status_text = "✅ <strong>Invoice upload is now available</strong>"
+            
+            subject = f"🔧 Service Request Assignment: {service_request.title} - {service_request.priority.upper()}"
             
             html_body = f"""
             <html>
             <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                     <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
-                        🔧 New Service Request Assignment
+                        🔧 Service Request Assignment
                     </h2>
                     
                     {match_info_html}
@@ -268,124 +286,64 @@ class ContractorEmailService:
                         <pre style="margin: 0; white-space: pre-wrap;">{preferred_slots_text}</pre>
                     </div>
                     
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{scheduling_url}" 
-                           style="background-color: #2563eb; color: white; padding: 15px 30px; 
-                                  text-decoration: none; border-radius: 8px; font-weight: bold; 
-                                  display: inline-block;">
-                            📅 Schedule Appointment
-                        </a>
-                    </div>
-                    
-                    <div style="border-top: 1px solid #e5e7eb; padding-top: 15px; font-size: 12px; color: #6b7280;">
-                        <p><strong>What happens next?</strong></p>
-                        <ul>
-                            <li>Click the button above to access the scheduling interface</li>
+                    <!-- STEP 1: APPOINTMENT SCHEDULING (Always Active) -->
+                    <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+                        <h3 style="margin-top: 0; color: #1e40af;">📅 STEP 1: Schedule Appointment</h3>
+                        <p>Start by scheduling your appointment with the tenant.</p>
+                        
+                        <div style="text-align: center; margin: 20px 0;">
+                            <a href="{scheduling_url}" 
+                               style="background-color: #2563eb; color: white; padding: 15px 30px; 
+                                      text-decoration: none; border-radius: 8px; font-weight: bold; 
+                                      display: inline-block;">
+                                📅 Schedule Appointment
+                            </a>
+                        </div>
+                        
+                        <ul style="font-size: 14px; color: #374151;">
                             <li>Choose to accept a tenant's preferred slot OR propose your own</li>
                             <li>Once confirmed, the tenant will be automatically notified</li>
-                            <li>After service completion, you'll receive an invoice upload link</li>
                         </ul>
+                    </div>
+                    
+                    <!-- STEP 2: INVOICE UPLOAD (Conditional) -->
+                    <div style="{invoice_section_style} padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+                        <h3 style="margin-top: 0; color: #065f46;">💰 STEP 2: Invoice Upload</h3>
+                        <p>{invoice_status_text}</p>
                         
-                        <p style="margin-top: 15px;">
-                            <em>This link expires in 7 days. For questions, contact property management.</em>
-                        </p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """
-            
-            # Send email
-            return await self._send_email(contractor_email, subject, html_body)
-            
-        except Exception as e:
-            logger.error(f"Error sending scheduling email: {e}")
-            return False
-    
-    async def send_invoice_email(self, service_request: ServiceRequest, contractor_email: str,
-                               invoice_token: str, base_url: str) -> bool:
-        """
-        Send Link 2 email to contractor for invoice submission.
-        
-        Args:
-            service_request: The service request object
-            contractor_email: Contractor's email address  
-            invoice_token: Unique token for invoice interface
-            base_url: Base URL for the application
-        
-        Returns:
-            bool: True if email sent successfully, False otherwise
-        """
-        try:
-            # Get tenant and property info using TenantService
-            tenant_service = TenantService(self.db)
-            tenant_account = await tenant_service.get_tenant_by_id(service_request.tenant_id)
-            property_info = await self.db.properties.find_one({"_id": service_request.property_id})
-            
-            tenant_name = f"{tenant_account.first_name} {tenant_account.last_name}" if tenant_account else "Tenant"
-            property_address = property_info.get("address", "Property") if property_info else "Property"
-            
-            # Construct Link 2 URL
-            invoice_url = f"{base_url}/contractor/invoice/{invoice_token}"
-            
-            # Cost thresholds based on service type and priority
-            thresholds = {
-                "plumbing": {"emergency": 500, "urgent": 300, "routine": 150},
-                "electrical": {"emergency": 300, "urgent": 250, "routine": 150},
-                "hvac": {"emergency": 800, "urgent": 500, "routine": 200},
-                "appliance": {"emergency": 400, "urgent": 300, "routine": 150},
-                "general_maintenance": {"emergency": 200, "urgent": 150, "routine": 100}
-            }
-            
-            service_key = self.service_type_mapping.get(service_request.request_type, "general_maintenance")
-            threshold = thresholds.get(service_key, {}).get(service_request.priority, 150)
-            
-            # Email content
-            subject = f"💰 Service Complete: Upload Invoice - {service_request.title}"
-            
-            html_body = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                    <h2 style="color: #059669; border-bottom: 2px solid #059669; padding-bottom: 10px;">
-                        💰 Service Complete - Invoice Upload
-                    </h2>
-                    
-                    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="margin-top: 0; color: #1f2937;">Completed Service</h3>
-                        <p><strong>Service:</strong> {service_request.title}</p>
-                        <p><strong>Type:</strong> {service_request.request_type.replace('_', ' ').title()}</p>
-                        <p><strong>Property:</strong> {property_address}</p>
-                        <p><strong>Tenant:</strong> {tenant_name}</p>
-                        <p><strong>Completed:</strong> {datetime.utcnow().strftime('%A, %B %d, %Y')}</p>
-                    </div>
-                    
-                    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                        <h3 style="margin-top: 0; color: #92400e;">💡 Auto-Processing Information</h3>
-                        <p>Invoices <strong>under €{threshold}</strong> will be automatically processed and paid.</p>
-                        <p>Invoices over €{threshold} require property manager approval.</p>
-                    </div>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{invoice_url}" 
-                           style="background-color: #059669; color: white; padding: 15px 30px; 
-                                  text-decoration: none; border-radius: 8px; font-weight: bold; 
-                                  display: inline-block;">
-                            📄 Upload Invoice
-                        </a>
+                        <div style="background-color: #fef3c7; padding: 10px; border-radius: 4px; margin: 15px 0;">
+                            <p style="margin: 0; font-size: 14px;"><strong>💡 Auto-Processing:</strong> Invoices under €{threshold} are automatically processed and paid.</p>
+                        </div>
+                        
+                        <div style="text-align: center; margin: 20px 0;">
+                            <a href="{invoice_url}" 
+                               style="{invoice_button_style}">
+                                📄 Upload Invoice
+                            </a>
+                        </div>
+                        
+                        <div style="font-size: 12px; color: #6b7280;">
+                            <p><strong>Invoice Requirements:</strong></p>
+                            <ul>
+                                <li>PDF or image format (JPG, PNG)</li>
+                                <li>Must include: service description, amount, your business details</li>
+                                <li>German tax compliance required (VAT, business registration)</li>
+                                <li>Payment processed within 5-7 business days after approval</li>
+                            </ul>
+                        </div>
                     </div>
                     
                     <div style="border-top: 1px solid #e5e7eb; padding-top: 15px; font-size: 12px; color: #6b7280;">
-                        <p><strong>Invoice Requirements:</strong></p>
-                        <ul>
-                            <li>PDF or image format (JPG, PNG)</li>
-                            <li>Must include: service description, amount, your business details</li>
-                            <li>German tax compliance required (VAT, business registration)</li>
-                            <li>Payment processed within 5-7 business days after approval</li>
-                        </ul>
+                        <p><strong>Workflow Summary:</strong></p>
+                        <ol>
+                            <li><strong>Schedule appointment</strong> using the button above</li>
+                            <li><strong>Complete the service</strong> at the scheduled time</li>
+                            <li><strong>Upload invoice</strong> once the job is marked as completed</li>
+                            <li><strong>Receive payment</strong> within 5-7 business days</li>
+                        </ol>
                         
                         <p style="margin-top: 15px;">
-                            <em>This link expires in 14 days. Upload promptly to ensure quick payment.</em>
+                            <em>Links expire in 7-14 days. For questions, contact property management.</em>
                         </p>
                     </div>
                 </div>
@@ -397,8 +355,9 @@ class ContractorEmailService:
             return await self._send_email(contractor_email, subject, html_body)
             
         except Exception as e:
-            logger.error(f"Error sending invoice email: {e}")
+            logger.error(f"Error sending unified contractor email: {e}")
             return False
+
     
     async def _send_email(self, to_email: str, subject: str, html_body: str) -> bool:
         """
@@ -479,7 +438,7 @@ def get_smtp_config() -> Dict[str, str]:
         'use_tls': True
     }
     
-    # For now, return mock mode but with the structure ready
+    # Use environment variables for SMTP configuration
     return {
         'smtp_server': os.getenv('SMTP_SERVER', 'localhost'),
         'smtp_port': int(os.getenv('SMTP_PORT', '587')),

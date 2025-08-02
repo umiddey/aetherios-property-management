@@ -289,6 +289,60 @@ async def approve_service_request(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to approve service request")
 
 
+@router.post("/{request_id}/complete")
+async def mark_service_request_complete_admin(
+    request_id: str,
+    completion_data: dict = {},
+    current_user=Depends(get_current_user),
+    service: ServiceRequestService = Depends(get_service_request_service)
+):
+    """
+    Mark service request as completed by property manager/admin
+    
+    This enables invoice upload for contractors when job is marked complete.
+    Only property managers and admins can mark requests as complete.
+    """
+    try:
+        # Check permissions - property managers and above can mark complete
+        user_role = getattr(current_user, "role", "user")
+        if user_role not in ["user", "property_manager_admin", "super_admin"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions to mark service requests as complete"
+            )
+        
+        # Get the service request
+        service_request = await service.get_service_request_by_id(request_id)
+        if not service_request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Service request not found"
+            )
+        
+        # Check if request is in a state that can be completed
+        if service_request.status not in [ServiceRequestStatus.IN_PROGRESS, ServiceRequestStatus.ASSIGNED]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Service request must be assigned or in progress to mark as complete"
+            )
+        
+        # Mark as completed
+        updated_request = await service.mark_service_request_complete_admin(
+            request_id=request_id,
+            completed_by=current_user.id,
+            completion_notes=completion_data.get("notes", "")
+        )
+        
+        return {"message": "Service request marked as completed by property manager", "request": updated_request}
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        print(f"❌ ERROR - Failed to mark service request as complete: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to mark service request as complete")
+
+
 # File Upload Endpoints
 @router.post("/{request_id}/files", response_model=FileUploadResponse)
 async def upload_service_request_file(

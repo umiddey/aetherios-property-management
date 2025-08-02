@@ -226,13 +226,13 @@ async def submit_scheduling_response(
 
 
 # Invoice Endpoints (Link 2)
-@router.get("/invoice/{token}")
-async def get_invoice_details(token: str):
+@router.get("/invoice/{token}/availability")
+async def check_invoice_upload_availability(token: str):
     """
-    Get service request details for contractor invoice submission (Link 2)
+    Check if invoice upload is available for the given token.
     
-    This endpoint is called when contractor clicks the invoice link in their email.
-    Returns service completion details and upload requirements.
+    Returns upload availability status and reason if disabled.
+    Used by contractor portal to enable/disable invoice upload interface.
     """
     try:
         # Find service request by invoice token
@@ -248,9 +248,108 @@ async def get_invoice_details(token: str):
         
         # Check if invoice already submitted
         if service_request.get("invoice_submitted"):
+            return {
+                "upload_enabled": False,
+                "message": "Invoice has already been submitted for this service request",
+                "reason": "already_submitted"
+            }
+        
+        # Check job completion criteria:
+        # 1. Explicitly marked as completed by tenant/property manager OR
+        # 2. Appointment date has passed (job should be done)
+        
+        job_completed = False
+        completion_reason = ""
+        
+        # Check if explicitly completed
+        if service_request.get("status") in ["completed", "closed"]:
+            job_completed = True
+            completion_reason = "marked_completed"
+        
+        # Check if appointment END time has passed (appointment + duration)
+        appointment_datetime = service_request.get("appointment_confirmed_datetime")
+        if appointment_datetime:
+            # Default appointment duration based on priority
+            duration_hours = {
+                "emergency": 2,    # Emergency jobs: 2 hours
+                "urgent": 1.5,     # Urgent jobs: 1.5 hours  
+                "routine": 1       # Routine jobs: 1 hour
+            }
+            
+            request_priority = service_request.get("priority", "routine")
+            appointment_duration_hours = duration_hours.get(request_priority, 1)
+            
+            # Calculate appointment end time
+            from datetime import timedelta
+            appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
+            
+            if datetime.utcnow() >= appointment_end_time:
+                job_completed = True
+                if not completion_reason:
+                    completion_reason = "appointment_time_passed"
+        
+        if job_completed:
+            return {
+                "upload_enabled": True,
+                "message": "Invoice upload is available",
+                "reason": "available",
+                "completion_reason": completion_reason
+            }
+        else:
+            # Provide specific guidance with appointment end time
+            message = "Invoice upload not yet available. "
+            available_after = None
+            
+            if appointment_datetime:
+                # Calculate when upload will be available (appointment end time)
+                request_priority = service_request.get("priority", "routine")
+                duration_hours = {"emergency": 2, "urgent": 1.5, "routine": 1}
+                appointment_duration_hours = duration_hours.get(request_priority, 1)
+                
+                from datetime import timedelta
+                appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
+                available_after = appointment_end_time
+                
+                message += f"Job scheduled for {appointment_datetime.strftime('%B %d, %Y at %I:%M %p')}. "
+                message += f"Upload will be available after {appointment_end_time.strftime('%B %d, %Y at %I:%M %p')} or when marked completed by property manager."
+            else:
+                message += "Please schedule the appointment first, then complete the work."
+            
+            return {
+                "upload_enabled": False,
+                "message": message,
+                "reason": "job_not_completed",
+                "appointment_datetime": appointment_datetime.isoformat() if appointment_datetime else None,
+                "available_after": available_after.isoformat() if available_after else None
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check invoice upload availability"
+        )
+
+
+@router.get("/invoice/{token}")
+async def get_invoice_details(token: str):
+    """
+    Get service request details for contractor invoice submission (Link 2)
+    
+    This endpoint is called when contractor clicks the invoice link in their email.
+    Always returns service details but includes upload availability status.
+    """
+    try:
+        # Find service request by invoice token
+        service_request = await db.service_requests.find_one({
+            "invoice_upload_token": token
+        })
+        
+        if not service_request:
             raise HTTPException(
-                status_code=status.HTTP_410_GONE,
-                detail="Invoice has already been submitted for this service request"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid or expired invoice link"
             )
         
         # Get tenant and property info for context using TenantService
@@ -270,14 +369,71 @@ async def get_invoice_details(token: str):
             }
         property_info = await db.properties.find_one({"id": service_request["property_id"]})
         
+        # Check upload availability (using same logic as availability endpoint)
+        job_completed = False
+        completion_reason = ""
+        upload_message = ""
+        
+        # Check if invoice already submitted
+        if service_request.get("invoice_submitted"):
+            upload_enabled = False
+            upload_message = "Invoice has already been submitted for this service request"
+        else:
+            # Check if explicitly completed
+            if service_request.get("status") in ["completed", "closed"]:
+                job_completed = True
+                completion_reason = "marked_completed"
+            
+            # Check if appointment END time has passed (appointment + duration)
+            appointment_datetime = service_request.get("appointment_confirmed_datetime")
+            if appointment_datetime:
+                # Default appointment duration based on priority
+                duration_hours = {
+                    "emergency": 2,    # Emergency jobs: 2 hours
+                    "urgent": 1.5,     # Urgent jobs: 1.5 hours  
+                    "routine": 1       # Routine jobs: 1 hour
+                }
+                
+                request_priority = service_request.get("priority", "routine")
+                appointment_duration_hours = duration_hours.get(request_priority, 1)
+                
+                # Calculate appointment end time
+                from datetime import timedelta
+                appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
+                
+                if datetime.utcnow() >= appointment_end_time:
+                    job_completed = True
+                    if not completion_reason:
+                        completion_reason = "appointment_time_passed"
+            
+            upload_enabled = job_completed
+            if upload_enabled:
+                upload_message = "Invoice upload is available"
+            else:
+                if appointment_datetime:
+                    # Calculate appointment end time for messaging
+                    request_priority = service_request.get("priority", "routine")
+                    duration_hours = {"emergency": 2, "urgent": 1.5, "routine": 1}
+                    appointment_duration_hours = duration_hours.get(request_priority, 1)
+                    
+                    from datetime import timedelta
+                    appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
+                    
+                    upload_message = f"Job scheduled for {appointment_datetime.strftime('%B %d, %Y at %I:%M %p')}. Upload will be enabled after {appointment_end_time.strftime('%B %d, %Y at %I:%M %p')} or when marked completed by property manager."
+                else:
+                    upload_message = "Please schedule the appointment first, then complete the work."
+        
         # Remove MongoDB ObjectId before serializing
         service_request.pop("_id", None)
         
-        # Enrich response with context data
+        # Enrich response with context data and upload status
         response_data = {
             **service_request,
             "tenant_name": f"{tenant.get('first_name', '')} {tenant.get('last_name', '')}" if tenant else None,
-            "property_address": property_info.get("address") if property_info else None
+            "property_address": property_info.get("address") if property_info else None,
+            "upload_enabled": upload_enabled,
+            "upload_message": upload_message,
+            "completion_reason": completion_reason if job_completed else None
         }
         
         return response_data
@@ -393,6 +549,30 @@ async def submit_invoice(
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
                 detail="Invoice has already been submitted for this service request"
+            )
+        
+        # Check if upload is allowed (job completion criteria with appointment END time)
+        job_completed = False
+        if service_request.get("status") in ["completed", "closed"]:
+            job_completed = True
+        
+        appointment_datetime = service_request.get("appointment_confirmed_datetime")
+        if appointment_datetime:
+            # Calculate appointment end time based on priority
+            duration_hours = {"emergency": 2, "urgent": 1.5, "routine": 1}
+            request_priority = service_request.get("priority", "routine")
+            appointment_duration_hours = duration_hours.get(request_priority, 1)
+            
+            from datetime import timedelta
+            appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
+            
+            if datetime.utcnow() >= appointment_end_time:
+                job_completed = True
+        
+        if not job_completed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invoice upload not yet available. Job must be completed or appointment date must have passed."
             )
         
         # Validate invoice amount
