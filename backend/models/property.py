@@ -49,7 +49,6 @@ class Property(BaseModel):
     parent_id: Optional[str] = None
     manager_id: str = Field(..., description="User ID of the property manager responsible for this property")
     furnishing_status: FurnishingStatus = FurnishingStatus.UNFURNISHED
-    furnished_items: Optional[List[str]] = Field(default_factory=list, description="List of furnished item IDs")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str
     is_archived: bool = False
@@ -78,8 +77,6 @@ class PropertyCreate(BaseModel):
     parent_id: Optional[str] = None
     manager_id: str = Field(..., description="User ID of the property manager responsible for this property")
     furnishing_status: FurnishingStatus = FurnishingStatus.UNFURNISHED
-    furnished_items: Optional[List[str]] = Field(default_factory=list, description="List of furnished item IDs")
-
 
 class PropertyUpdate(BaseModel):
     name: Optional[str] = None
@@ -103,7 +100,6 @@ class PropertyUpdate(BaseModel):
     parent_id: Optional[str] = None
     manager_id: Optional[str] = Field(None, description="User ID of the property manager responsible for this property")
     furnishing_status: Optional[FurnishingStatus] = None
-    furnished_items: Optional[List[str]] = None
     is_archived: Optional[bool] = None
 
 

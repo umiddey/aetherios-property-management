@@ -403,12 +403,6 @@ class PropertyService(BaseService):
         result = await self.db.furnished_items.insert_one(item_dict)
         item_dict["_id"] = str(result.inserted_id)
         
-        # Update property's furnished_items list
-        await self.collection.update_one(
-            {"id": item_data.property_id},
-            {"$addToSet": {"furnished_items": item_dict["id"]}}
-        )
-        
         return item_dict
     
     async def get_furnished_items_by_property(self, property_id: str) -> List[Dict[str, Any]]:
@@ -445,21 +439,14 @@ class PropertyService(BaseService):
         return None
     
     async def delete_furnished_item(self, item_id: str, property_id: str) -> bool:
-        """Soft delete a furnished item and remove from property's list."""
+        """Soft delete a furnished item."""
         # Soft delete the item
         result = await self.db.furnished_items.update_one(
             {"id": item_id},
             {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
         )
         
-        # Remove from property's furnished_items list
-        if result.modified_count > 0:
-            await self.collection.update_one(
-                {"id": property_id},
-                {"$pull": {"furnished_items": item_id}}
-            )
-            return True
-        return False
+        return result.modified_count > 0
     
     async def get_furnished_items_with_filters(self, filters: FurnishedItemFilters) -> List[Dict[str, Any]]:
         """Get furnished items with filtering."""

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import cachedAxios from '../utils/cachedAxios';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const ITEM_CATEGORIES = [
   { value: 'furniture', label: '🪑 Furniture', icon: '🪑' },
@@ -64,28 +68,73 @@ const FurnishedItemsManager = ({
     setEditingItem(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const newItem = {
-      id: editingItem ? editingItem.id : `temp_${Date.now()}`,
-      ...formData,
+    const itemData = {
+      name: formData.name.trim(),
+      category: formData.category,
+      description: formData.description || null,
+      brand: formData.brand || null,
+      model: formData.model || null,
+      condition: formData.condition,
+      ownership: formData.ownership,
       purchase_price: formData.purchase_price ? parseFloat(formData.purchase_price) : null,
       current_value: formData.current_value ? parseFloat(formData.current_value) : null,
-      property_id: propertyId,
-      created_at: editingItem ? editingItem.created_at : new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      is_essential: formData.is_essential
     };
 
-    if (editingItem) {
-      // Update existing item
-      const updatedItems = items.map(item => 
-        item.id === editingItem.id ? newItem : item
-      );
-      onItemsChange(updatedItems);
+    if (isEditMode && propertyId) {
+      // API mode - save to database
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
+
+        if (editingItem) {
+          // Update existing item
+          const response = await cachedAxios.put(
+            `${API}/v1/furnished-items/${editingItem.id}?property_id=${propertyId}`,
+            itemData,
+            { headers }
+          );
+          
+          const updatedItems = items.map(item => 
+            item.id === editingItem.id ? response.data : item
+          );
+          onItemsChange(updatedItems);
+        } else {
+          // Create new item
+          const response = await cachedAxios.post(
+            `${API}/v1/furnished-items/`,
+            { ...itemData, property_id: propertyId },
+            { headers }
+          );
+          
+          onItemsChange([...items, response.data]);
+        }
+      } catch (error) {
+        console.error('Error saving furnished item:', error);
+        alert('Failed to save furnished item. Please try again.');
+        return;
+      }
     } else {
-      // Add new item
-      onItemsChange([...items, newItem]);
+      // Local state mode (for property creation)
+      const newItem = {
+        id: editingItem ? editingItem.id : `temp_${Date.now()}`,
+        ...itemData,
+        property_id: propertyId,
+        created_at: editingItem ? editingItem.created_at : new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      if (editingItem) {
+        const updatedItems = items.map(item => 
+          item.id === editingItem.id ? newItem : item
+        );
+        onItemsChange(updatedItems);
+      } else {
+        onItemsChange([...items, newItem]);
+      }
     }
 
     resetForm();
@@ -108,10 +157,30 @@ const FurnishedItemsManager = ({
     setShowAddForm(true);
   };
 
-  const handleDelete = (itemId) => {
+  const handleDelete = async (itemId) => {
     if (window.confirm('Are you sure you want to remove this item?')) {
-      const updatedItems = items.filter(item => item.id !== itemId);
-      onItemsChange(updatedItems);
+      if (isEditMode && propertyId) {
+        // API mode - delete from database
+        try {
+          const token = localStorage.getItem('token');
+          const headers = { Authorization: `Bearer ${token}` };
+          
+          await cachedAxios.delete(
+            `${API}/v1/furnished-items/${itemId}?property_id=${propertyId}`,
+            { headers }
+          );
+          
+          const updatedItems = items.filter(item => item.id !== itemId);
+          onItemsChange(updatedItems);
+        } catch (error) {
+          console.error('Error deleting furnished item:', error);
+          alert('Failed to delete furnished item. Please try again.');
+        }
+      } else {
+        // Local state mode
+        const updatedItems = items.filter(item => item.id !== itemId);
+        onItemsChange(updatedItems);
+      }
     }
   };
 

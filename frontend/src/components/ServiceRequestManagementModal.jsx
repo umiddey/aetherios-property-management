@@ -78,8 +78,6 @@ const ServiceRequestManagementModal = ({
         `${API}/v1/service-requests/${selectedRequest.id}/complete`,
         { notes: statusForm.completion_notes }
       );
-      
-      console.log('✅ Service request marked complete:', response.data);
       logAction('Service request marked complete', { 
         requestId: selectedRequest.id,
         title: selectedRequest.title 
@@ -91,7 +89,7 @@ const ServiceRequestManagementModal = ({
       onClose();
       
     } catch (error) {
-      console.error('❌ Error marking request complete:', error);
+
       setError(error.response?.data?.detail || 'Failed to mark request as complete');
     } finally {
       setLoading(false);

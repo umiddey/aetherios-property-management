@@ -19,6 +19,7 @@ const ServiceRequestForm = () => {
     title: '',
     description: '',
     contract_id: '',  // NEW: Selected contract for this service request
+    related_furnished_item_id: '',  // NEW: Optional furnished item selection
     attachments: [],
     preferred_slots: []  // NEW: Calendar widget preferred appointment days (date strings)
   });
@@ -26,6 +27,7 @@ const ServiceRequestForm = () => {
   const [requestTypes, setRequestTypes] = useState([]);
   const [priorities, setPriorities] = useState([]);
   const [contracts, setContracts] = useState([]);  // NEW: Available contracts for this tenant
+  const [furnishedItems, setFurnishedItems] = useState([]);  // NEW: Furnished items for selected property
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -70,6 +72,37 @@ const ServiceRequestForm = () => {
     
     loadFormData();
   }, []);
+
+  // Load furnished items when contract is selected
+  useEffect(() => {
+    const loadFurnishedItems = async () => {
+      if (!formData.contract_id) {
+        setFurnishedItems([]);
+        return;
+      }
+
+      try {
+        // Get property_id from selected contract
+        const selectedContract = contracts.find(c => c.id === formData.contract_id);
+        if (!selectedContract?.property_id) return;
+
+        const token = secureStorage.getPortalToken();
+        const response = await axios.get(
+          `${BACKEND_URL}/api/v1/portal/furnished-items/property/${selectedContract.property_id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        
+        setFurnishedItems(response.data || []);
+      } catch (error) {
+        console.warn('Could not load furnished items:', error);
+        setFurnishedItems([]);
+      }
+    };
+
+    loadFurnishedItems();
+  }, [formData.contract_id, contracts]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -155,6 +188,7 @@ const ServiceRequestForm = () => {
           priority: formData.priority,
           title: formData.title.trim(),
           description: formData.description.trim(),
+          related_furnished_item_id: formData.related_furnished_item_id || null,
           tenant_preferred_slots: tenant_preferred_slots
         },
         { headers }
@@ -357,6 +391,89 @@ const ServiceRequestForm = () => {
                 </div>
               )}
             </div>
+
+            {/* Furnished Items Selection (Optional) */}
+            {furnishedItems.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Is this issue related to a specific furnished item? (Optional)
+                </label>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                  <p className="text-sm text-blue-800">
+                    💡 Selecting a furnished item helps us determine responsibility and prioritize your request according to German rental law.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-all">
+                    <input
+                      type="radio"
+                      name="related_furnished_item_id"
+                      value=""
+                      checked={formData.related_furnished_item_id === ''}
+                      onChange={handleInputChange}
+                      className="mr-3 text-purple-600 focus:ring-purple-500"
+                    />
+                    <div>
+                      <div className="font-medium text-gray-900">General property issue</div>
+                      <div className="text-sm text-gray-600">Not related to a specific furnished item</div>
+                    </div>
+                  </label>
+                  {furnishedItems.map((item) => (
+                    <label
+                      key={item.id}
+                      className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${
+                        formData.related_furnished_item_id === item.id
+                          ? 'border-purple-500 bg-purple-50'
+                          : 'border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="related_furnished_item_id"
+                        value={item.id}
+                        checked={formData.related_furnished_item_id === item.id}
+                        onChange={handleInputChange}
+                        className="mr-3 text-purple-600 focus:ring-purple-500"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium text-gray-900">{item.name}</div>
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              item.ownership === 'landlord' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                            }`}>
+                              {item.ownership === 'landlord' ? '🏠 Landlord' : '👤 Tenant'}
+                            </span>
+                            {item.is_essential && (
+                              <span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full">
+                                ⚠️ Essential
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          <span className="capitalize">{item.category}</span>
+                          {item.brand && <span> • {item.brand}</span>}
+                          {item.condition && <span> • {item.condition} condition</span>}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {formData.related_furnished_item_id && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-green-800 font-medium">
+                        Item selected - We'll determine responsibility according to German rental law
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Priority Selection */}
             <div>

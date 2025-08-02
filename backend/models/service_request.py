@@ -65,6 +65,11 @@ class ServiceRequest(BaseModel):
     title: str = Field(..., min_length=5, max_length=100, description="Brief description of the issue")
     description: str = Field(..., min_length=10, max_length=1000, description="Detailed description of the problem")
     
+    # Furnished Items Context (German Legal Integration)
+    related_furnished_item_id: Optional[str] = None  # Links to furnished_items collection if issue is item-specific
+    furnished_item_category: Optional[str] = None  # Category of related item for legal responsibility determination
+    legal_responsibility: Optional[str] = None  # "landlord" | "tenant" | "shared" - determined by German law logic
+    
     # File Attachments
     attachment_urls: List[str] = Field(default_factory=list, description="URLs to uploaded photos/documents")
     
@@ -117,6 +122,10 @@ class ServiceRequestCreate(BaseModel):
     description: str = Field(..., min_length=10, max_length=1000)
     attachment_urls: List[str] = Field(default_factory=list)
     tenant_preferred_slots: List[datetime] = Field(default_factory=list, description="Tenant's 1-3 preferred appointment times")
+    
+    # 🔧 FURNISHED ITEMS: Allow frontend to specify furnished item context
+    related_furnished_item_id: Optional[str] = Field(None, description="ID of furnished item related to this service request")
+    furnished_item_category: Optional[str] = Field(None, description="Category of furnished item for legal responsibility")
 
 
 class ServiceRequestUpdate(BaseModel):
@@ -224,6 +233,10 @@ class PortalServiceRequestCreate(BaseModel):
     title: str = Field(..., min_length=5, max_length=100)
     description: str = Field(..., min_length=10, max_length=1000)
     tenant_preferred_slots: List[datetime] = Field(default_factory=list, description="Tenant's 1-3 preferred appointment times")
+    
+    # 🔧 FURNISHED ITEMS: Allow portal users to specify furnished item context
+    related_furnished_item_id: Optional[str] = Field(None, description="ID of furnished item related to this service request")
+    furnished_item_category: Optional[str] = Field(None, description="Category of furnished item for legal responsibility")
     # tenant_id and property_id will be extracted from JWT token
 
 

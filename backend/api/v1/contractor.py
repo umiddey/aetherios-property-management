@@ -720,19 +720,42 @@ async def _create_erp_invoice(service_request: dict, invoice: InvoiceSubmission,
             print(f"⚠️ No active contract found for invoice creation")
             return None
         
+        # 🔧 GERMAN LEGAL INTEGRATION: Check legal responsibility for proper invoice assignment
+        legal_responsibility = service_request.get("legal_responsibility")
+        
+        # Determine who should be invoiced based on German legal analysis
+        if legal_responsibility == "landlord":
+            # Landlord responsible: Invoice goes to property manager/owner, not tenant
+            invoice_recipient_id = None  # No tenant_id = landlord invoice
+            invoice_description_prefix = "Landlord Responsibility Service"
+            invoice_type = "credit"  # 🔧 Landlord invoices are credits (Provider Receives)
+            print(f"🏛️ German Legal: Creating LANDLORD invoice (responsibility: {legal_responsibility})")
+        elif legal_responsibility == "tenant":
+            # Tenant responsible: Normal tenant invoice
+            invoice_recipient_id = service_request["tenant_id"]
+            invoice_description_prefix = "Tenant Responsibility Service"
+            invoice_type = "service"  # 🔧 Tenant invoices are debits (Customer Pays)
+            print(f"🏛️ German Legal: Creating TENANT invoice (responsibility: {legal_responsibility})")
+        else:
+            # Unknown/shared responsibility: Default to landlord (conservative approach)
+            invoice_recipient_id = None  # Default to landlord responsibility
+            invoice_description_prefix = "Service"
+            invoice_type = "credit"  # 🔧 Default to landlord (conservative approach)
+            print(f"⚠️ German Legal: Unknown responsibility ({legal_responsibility}), defaulting to LANDLORD")
+        
         # Create invoice document following existing invoice model
         invoice_doc = {
             "id": invoice_id,
             "invoice_number": f"SVC-{datetime.utcnow().strftime('%Y%m%d')}-{invoice_id[:8].upper()}",
-            "tenant_id": service_request["tenant_id"],
+            "tenant_id": invoice_recipient_id,  # 🔧 FIXED: Conditional assignment based on legal responsibility
             "property_id": service_request["property_id"],
             "contract_id": contract["id"],
             
             # Invoice details
             "amount": invoice.amount,
             "currency": "EUR",
-            "description": f"Service: {invoice.description}",
-            "invoice_type": "service",
+            "description": f"{invoice_description_prefix}: {invoice.description}",
+            "invoice_type": invoice_type,  # 🔧 FIXED: Dynamic invoice type based on legal responsibility
             "invoice_category": "contractor_service",
             
             # Service request linkage
@@ -761,7 +784,7 @@ async def _create_erp_invoice(service_request: dict, invoice: InvoiceSubmission,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
             "is_archived": False,
-            "notes": f"Contractor service invoice. {invoice.contractor_notes or ''}"
+            "notes": f"Contractor service invoice. Legal responsibility: {legal_responsibility or 'unknown'}. {invoice.contractor_notes or ''}"
         }
         
         # Insert invoice

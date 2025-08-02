@@ -338,3 +338,44 @@ async def get_portal_contracts(current_account=Depends(get_current_portal_user))
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve portal contracts: {str(e)}"
         )
+
+
+@router.get("/furnished-items/property/{property_id}")
+async def get_portal_furnished_items(
+    property_id: str,
+    current_account=Depends(get_current_portal_user)
+):
+    """
+    Get furnished items for a specific property (portal access)
+    Used for service request furnished item selection
+    """
+    from services.property_service import PropertyService
+    from services.account_service import AccountService
+    
+    property_service = PropertyService(db)
+    account_service = AccountService(db)
+    
+    try:
+        # Verify tenant has access to this property through active contracts
+        contracts = await account_service.get_active_contracts_for_account(current_account["id"])
+        
+        # Check if tenant has a contract for this property
+        has_access = any(contract.get("property_id") == property_id for contract in contracts)
+        
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to furnished items for this property"
+            )
+        
+        # Get furnished items for the property
+        items = await property_service.get_furnished_items_by_property(property_id)
+        return items
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve furnished items: {str(e)}"
+        )

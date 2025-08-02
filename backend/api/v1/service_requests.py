@@ -460,7 +460,10 @@ async def submit_portal_service_request(
             title=request.title,
             description=request.description,
             attachment_urls=[],
-            tenant_preferred_slots=request.tenant_preferred_slots
+            tenant_preferred_slots=request.tenant_preferred_slots,
+            # 🔧 FURNISHED ITEMS: Pass through furnished item fields from portal
+            related_furnished_item_id=request.related_furnished_item_id,
+            furnished_item_category=request.furnished_item_category
         )
         
         # Create the service request

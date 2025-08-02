@@ -25,6 +25,7 @@ from models.service_request import (
 )
 from services.contractor_email_service import ContractorEmailService, get_smtp_config
 from services.tenant_service import TenantService
+from services.german_legal_service import GermanLegalService
 
 
 class ServiceRequestService:
@@ -37,6 +38,7 @@ class ServiceRequestService:
         self.properties_collection = db.properties
         self.tasks_collection = db.tasks
         self.users_collection = db.users
+        self.furnished_items_collection = db.furnished_items
         
         # File upload configuration
         self.upload_dir = "uploads/service_requests"
@@ -57,6 +59,42 @@ class ServiceRequestService:
         # Validate tenant and property association
         await self.validate_tenant_property_association(request.tenant_id, request.property_id)
         
+        # 🔧 GERMAN LEGAL INTEGRATION: Use frontend-provided furnished item or auto-detect
+        if request.related_furnished_item_id:
+            # Frontend provided furnished item - get item and determine legal responsibility
+            print(f"🔗 Frontend provided furnished item: {request.related_furnished_item_id}")
+            
+            # 🔒 SECURITY: Validate furnished item belongs to the correct property
+            furnished_item = await self.furnished_items_collection.find_one({
+                "id": request.related_furnished_item_id,
+                "property_id": request.property_id  # 🔧 SECURITY FIX: Ensure item belongs to this property
+            })
+            
+            if furnished_item:
+                # Determine legal responsibility using German Legal Service
+                legal_analysis = GermanLegalService.determine_furnished_item_responsibility(
+                    item_ownership=furnished_item.get("ownership", "unknown"),
+                    item_category=furnished_item.get("category", "unknown"),
+                    is_essential=furnished_item.get("is_essential", False),
+                    issue_type=request.request_type,
+                    item_condition=furnished_item.get("condition", "unknown")
+                )
+                legal_responsibility = legal_analysis.get("responsibility")
+                print(f"🏛️ German Legal Analysis (Frontend Item): {legal_responsibility}")
+            else:
+                print(f"⚠️ Frontend furnished item not found: {request.related_furnished_item_id}")
+                legal_responsibility = None
+            
+            related_furnished_item_id = request.related_furnished_item_id
+            furnished_item_category = request.furnished_item_category
+        else:
+            # Auto-detect furnished items and determine legal responsibility
+            print(f"🔍 Auto-detecting furnished items for: {request.title}")
+            related_furnished_item_id, legal_responsibility = await self._determine_legal_responsibility(
+                request.property_id, request.request_type, request.title, request.description
+            )
+            furnished_item_category = None
+        
         # Create service request document
         print(f"🔍 DEBUG SERVICE - Creating request with preferred_slots: {request.tenant_preferred_slots}")
         service_request = ServiceRequest(
@@ -68,7 +106,10 @@ class ServiceRequestService:
             description=request.description,
             attachment_urls=request.attachment_urls,
             tenant_preferred_slots=request.tenant_preferred_slots,  # 🔧 FIX: Add missing preferred slots
-            approval_status=ServiceRequestApprovalStatus.PENDING_APPROVAL  # 🔧 FIX: Explicitly set approval status
+            approval_status=ServiceRequestApprovalStatus.PENDING_APPROVAL,  # 🔧 FIX: Explicitly set approval status
+            related_furnished_item_id=related_furnished_item_id,  # 🔧 GERMAN LEGAL: Link to furnished item
+            furnished_item_category=furnished_item_category,  # 🔧 GERMAN LEGAL: Store item category
+            legal_responsibility=legal_responsibility  # 🔧 GERMAN LEGAL: Set legal responsibility
         )
         print(f"🔍 DEBUG SERVICE - ServiceRequest object preferred_slots: {service_request.tenant_preferred_slots}")
         
@@ -1070,5 +1111,100 @@ class ServiceRequestService:
         except Exception as e:
             print(f"❌ Error marking service request complete (admin): {e}")
             return None
+    
+    async def _determine_legal_responsibility(
+        self, 
+        property_id: str, 
+        request_type: str, 
+        title: str, 
+        description: str
+    ) -> tuple[Optional[str], Optional[str]]:
+        """
+        🔧 GERMAN LEGAL INTEGRATION: Auto-detect furnished items and determine legal responsibility
+        
+        Args:
+            property_id: Property ID for the service request
+            request_type: Type of service request (appliance, plumbing, etc.)
+            title: Service request title
+            description: Service request description
+            
+        Returns:
+            Tuple of (related_furnished_item_id, legal_responsibility)
+        """
+        try:
+            # Get all furnished items for this property
+            furnished_items = await self.furnished_items_collection.find({
+                "property_id": property_id
+            }).to_list(length=None)
+            
+            if not furnished_items:
+                print(f"🔍 No furnished items found for property {property_id}")
+                return None, None
+            
+            # Auto-detect related furnished item based on keywords
+            related_item = None
+            search_text = f"{title} {description}".lower()
+            
+            # Define keyword mappings for different item types
+            item_keywords = {
+                "stove": ["stove", "hob", "cooktop", "cooking", "küche", "herd"],
+                "refrigerator": ["fridge", "refrigerator", "kühlschrank", "freezer"],
+                "oven": ["oven", "backofen", "baking"],
+                "dishwasher": ["dishwasher", "spülmaschine", "geschirrspüler"],
+                "washing_machine": ["washing machine", "waschmaschine", "washer"],
+                "heater": ["heater", "heating", "radiator", "heizung", "heat"],
+                "toilet": ["toilet", "wc", "toilette", "flush"],
+                "sink": ["sink", "faucet", "tap", "waschbecken", "spüle"],
+                "shower": ["shower", "dusche", "showerhead"],
+                "light": ["light", "lamp", "lighting", "licht", "lampe"],
+                "door": ["door", "lock", "tür", "schloss"],
+                "window": ["window", "fenster", "blind", "curtain"]
+            }
+            
+            # Search for matching furnished item
+            for item in furnished_items:
+                item_name = item.get("name", "").lower()
+                item_category = item.get("category", "").lower()
+                
+                # Check if any keywords match
+                for item_type, keywords in item_keywords.items():
+                    if any(keyword in search_text for keyword in keywords):
+                        # Check if this item type matches the furnished item
+                        if (item_type in item_name or 
+                            item_type in item_category or
+                            any(keyword in item_name for keyword in keywords)):
+                            related_item = item
+                            print(f"🎯 Matched furnished item: {item_name} (ID: {item.get('id')})")
+                            break
+                
+                if related_item:
+                    break
+            
+            if not related_item:
+                print(f"🔍 No matching furnished item found for: {search_text}")
+                return None, None
+            
+            # Determine legal responsibility using German Legal Service
+            legal_analysis = GermanLegalService.determine_furnished_item_responsibility(
+                item_ownership=related_item.get("ownership", "unknown"),
+                item_category=related_item.get("category", "unknown"),
+                is_essential=related_item.get("is_essential", False),
+                issue_type=request_type,
+                item_condition=related_item.get("condition", "unknown")
+            )
+            
+            responsibility = legal_analysis.get("responsibility")
+            reasoning = legal_analysis.get("reasoning", "")
+            
+            print(f"🏛️ German Legal Analysis:")
+            print(f"   Item: {related_item.get('name')} (Owner: {related_item.get('ownership')})")
+            print(f"   Responsibility: {responsibility}")
+            print(f"   Reasoning: {reasoning}")
+            
+            return related_item.get("id"), responsibility
+            
+        except Exception as e:
+            print(f"❌ Error in German legal analysis: {e}")
+            return None, None
 
 
