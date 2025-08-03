@@ -418,7 +418,7 @@ const InvoiceDetailPage = ({
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         invoice.invoice_type === 'credit' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                       }`}>
-                        {invoice.invoice_type === 'credit' ? '⬆️ Credit (Provider Receives)' : '⬇️ Debit (Customer Pays)'}
+                        {invoice.invoice_type === 'credit' ? '⬆️ Credit (Provider Receives)' : '⬇️ Invoice (Payer Owes Property Management)'}
                       </span>
                     </div>
                   )}

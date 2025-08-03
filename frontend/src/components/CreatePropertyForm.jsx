@@ -31,7 +31,8 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     parent_id: '',
     manager_id: '',
     furnishing_status: 'unfurnished',
-    furnished_items: []
+    furnished_items: [],
+    owned_by_firm: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -220,8 +221,11 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const { name, value, type, checked } = e.target;
+    setFormData({ 
+      ...formData, 
+      [name]: type === 'checkbox' ? checked : value 
+    });
   };
 
   return (
@@ -639,6 +643,26 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
               <option value="active">{t('forms.createProperty.active')}</option>
               <option value="cancel">{t('forms.createProperty.cancelled')}</option>
             </select>
+          </div>
+
+          {/* Property Ownership Section */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="owned_by_firm"
+                id="owned_by_firm"
+                checked={formData.owned_by_firm}
+                onChange={handleChange}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+              />
+              <label htmlFor="owned_by_firm" className="ml-3 text-sm font-medium text-gray-900">
+                🏢 Property owned by firm
+              </label>
+            </div>
+            <p className="text-xs text-amber-700 mt-2 ml-7">
+              Check this if the property management firm owns this property (affects invoice accounting)
+            </p>
           </div>
 
           <div>

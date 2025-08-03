@@ -723,25 +723,36 @@ async def _create_erp_invoice(service_request: dict, invoice: InvoiceSubmission,
         # 🔧 GERMAN LEGAL INTEGRATION: Check legal responsibility for proper invoice assignment
         legal_responsibility = service_request.get("legal_responsibility")
         
-        # Determine who should be invoiced based on German legal analysis
+        # Get property information for enhanced description logic
+        property_doc = await db.properties.find_one({"id": service_request["property_id"]})
+        is_firm_owned = property_doc.get("owned_by_firm", False) if property_doc else False
+        
+        # Determine who should be invoiced based on German legal analysis with enhanced descriptions
         if legal_responsibility == "landlord":
             # Landlord responsible: Invoice goes to property manager/owner, not tenant
             invoice_recipient_id = None  # No tenant_id = landlord invoice
-            invoice_description_prefix = "Landlord Responsibility Service"
-            invoice_type = "credit"  # 🔧 Landlord invoices are credits (Provider Receives)
-            print(f"🏛️ German Legal: Creating LANDLORD invoice (responsibility: {legal_responsibility})")
+            
+            # Enhanced description logic based on firm ownership
+            if is_firm_owned:
+                invoice_description_prefix = "Internal Property Expense"
+            else:
+                invoice_description_prefix = "Property Owner Invoice"
+                
+            print(f"🏛️ German Legal: Creating LANDLORD invoice (responsibility: {legal_responsibility}, firm_owned: {is_firm_owned})")
         elif legal_responsibility == "tenant":
             # Tenant responsible: Normal tenant invoice
             invoice_recipient_id = service_request["tenant_id"]
-            invoice_description_prefix = "Tenant Responsibility Service"
-            invoice_type = "service"  # 🔧 Tenant invoices are debits (Customer Pays)
+            invoice_description_prefix = "Tenant Invoice"
             print(f"🏛️ German Legal: Creating TENANT invoice (responsibility: {legal_responsibility})")
         else:
             # Unknown/shared responsibility: Default to landlord (conservative approach)
             invoice_recipient_id = None  # Default to landlord responsibility
-            invoice_description_prefix = "Service"
-            invoice_type = "credit"  # 🔧 Default to landlord (conservative approach)
+            invoice_description_prefix = "Property Owner Invoice"  # Clear default description
             print(f"⚠️ German Legal: Unknown responsibility ({legal_responsibility}), defaulting to LANDLORD")
+        
+        # 🔧 ERP SYSTEM AGNOSTIC: Always set invoice_type as "service" (debit)
+        # Property Management firm is always the service provider regardless of who pays
+        invoice_type = "service"  # ERP agnostic - always debit (Someone Pays Property Management)
         
         # Create invoice document following existing invoice model
         invoice_doc = {

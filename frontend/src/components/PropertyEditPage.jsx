@@ -37,7 +37,8 @@ const PropertyEditPage = () => {
     owner_name: '',
     owner_email: '',
     owner_phone: '',
-    furnishing_status: 'unfurnished'
+    furnishing_status: 'unfurnished',
+    owned_by_firm: false
   });
 
   // Load property data on mount
@@ -73,7 +74,8 @@ const PropertyEditPage = () => {
           owner_name: propertyData.owner_name || '',
           owner_email: propertyData.owner_email || '',
           owner_phone: propertyData.owner_phone || '',
-          furnishing_status: propertyData.furnishing_status || 'unfurnished'
+          furnishing_status: propertyData.furnishing_status || 'unfurnished',
+          owned_by_firm: propertyData.owned_by_firm || false
         });
         
         // Always try to fetch furnished items for the property
@@ -98,10 +100,10 @@ const PropertyEditPage = () => {
   }, [id]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
@@ -271,6 +273,26 @@ const PropertyEditPage = () => {
                 <option value="furnished">🛋️ Furnished</option>
                 <option value="partially_furnished">🏡 Partially Furnished</option>
               </select>
+            </div>
+
+            {/* Property Ownership Section */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="owned_by_firm"
+                  id="owned_by_firm"
+                  checked={formData.owned_by_firm}
+                  onChange={handleChange}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <label htmlFor="owned_by_firm" className="ml-3 text-sm font-medium text-gray-900">
+                  🏢 Property owned by firm
+                </label>
+              </div>
+              <p className="text-xs text-amber-700 mt-2 ml-7">
+                Check this if the property management firm owns this property (affects invoice accounting)
+              </p>
             </div>
           </div>
 
