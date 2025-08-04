@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import logging
 
@@ -25,7 +25,7 @@ class BaseService(ABC):
             if "id" not in doc_dict or not doc_dict["id"]:
                 doc_dict["id"] = str(uuid.uuid4())
             doc_dict["created_by"] = created_by
-            doc_dict["created_at"] = datetime.utcnow()
+            doc_dict["created_at"] = datetime.now(timezone.utc)
             
             # Add default archiving fields for most entities
             if "is_archived" not in doc_dict:
@@ -95,7 +95,7 @@ class BaseService(ABC):
                 return await self.get_by_id(doc_id)
             
             # Add updated_at timestamp
-            update_data["updated_at"] = datetime.utcnow()
+            update_data["updated_at"] = datetime.now(timezone.utc)
             
             result = await self.collection.update_one(
                 {"id": doc_id},
@@ -133,7 +133,7 @@ class BaseService(ABC):
         try:
             result = await self.collection.update_one(
                 {"id": doc_id},
-                {"$set": {"is_archived": True, "archived_at": datetime.utcnow()}}
+                {"$set": {"is_archived": True, "archived_at": datetime.now(timezone.utc)}}
             )
             
             success = result.matched_count > 0

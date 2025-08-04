@@ -6,7 +6,7 @@ import FurnishedItemsManager from './FurnishedItemsManager';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
+const CreatePropertyForm = ({ onBack, onSuccess }) => {
   const { t } = useLanguage();
   const [formData, setFormData] = useState({
     id: '',
@@ -23,7 +23,10 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     max_tenants: '',
     description: '',
     rent_per_sqm: '',
+    betriebskosten_per_sqm: '',  // German operating costs per m²
     cold_rent: '',
+    betriebskosten_total: '',  // Auto-calculated total Betriebskosten
+    warm_rent: '',  // Auto-calculated warm rent (Kaltmiete + Betriebskosten)
     status: 'empty',
     owner_name: '',
     owner_email: '',
@@ -32,7 +35,15 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     manager_id: '',
     furnishing_status: 'unfurnished',
     furnished_items: [],
-    owned_by_firm: false
+    owned_by_firm: false,
+    
+    // German Legal Compliance Fields - Property Characteristics Only
+    // Energy certificate
+    energieausweis_type: '',
+    energieausweis_class: '',
+    energieausweis_value: '',
+    energieausweis_expiry: '',
+    energieausweis_co2: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -41,6 +52,8 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [showFurnishedItemsModal, setShowFurnishedItemsModal] = useState(false);
+  const [parentProperties, setParentProperties] = useState([]);
+  const [loadingParents, setLoadingParents] = useState(false);
 
   // Fetch users for manager dropdown
   useEffect(() => {
@@ -62,12 +75,100 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
     fetchUsers();
   }, []);
 
+  // German Betriebskosten auto-calculation logic
   useEffect(() => {
     const surface = parseFloat(formData.surface_area) || 0;
-    const perSqm = parseFloat(formData.rent_per_sqm) || 0;
-    const calculatedColdRent = (surface * perSqm).toFixed(2);
-    setFormData(prev => ({ ...prev, cold_rent: calculatedColdRent }));
-  }, [formData.surface_area, formData.rent_per_sqm]);
+    const rentPerSqm = parseFloat(formData.rent_per_sqm) || 0;
+    const betriebskostenPerSqm = parseFloat(formData.betriebskosten_per_sqm) || 0;
+    
+    const calculatedColdRent = (surface * rentPerSqm).toFixed(2);
+    const calculatedBetriebskosten = (surface * betriebskostenPerSqm).toFixed(2);
+    const calculatedWarmRent = (parseFloat(calculatedColdRent) + parseFloat(calculatedBetriebskosten)).toFixed(2);
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      cold_rent: calculatedColdRent,
+      betriebskosten_total: calculatedBetriebskosten,
+      warm_rent: calculatedWarmRent
+    }));
+  }, [formData.surface_area, formData.rent_per_sqm, formData.betriebskosten_per_sqm]);
+
+  // Fetch valid parent properties when property type changes
+  useEffect(() => {
+    const fetchParentProperties = async () => {
+      // Complex cannot have parent
+      if (formData.property_type === 'complex') {
+        setParentProperties([]);
+        setFormData(prev => ({ ...prev, parent_id: '' }));
+        return;
+      }
+
+      setLoadingParents(true);
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API}/v1/properties/parent-options/${formData.property_type}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setParentProperties(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch parent properties:', error);
+        setParentProperties([]);
+      } finally {
+        setLoadingParents(false);
+      }
+    };
+
+    if (formData.property_type) {
+      fetchParentProperties();
+    }
+  }, [formData.property_type]);
+
+  // Inherit properties from parent when parent is selected
+  useEffect(() => {
+    const inheritFromParent = async () => {
+      if (!formData.parent_id) return;
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API}/v1/properties/${formData.parent_id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const parentProperty = response.data;
+        
+        if (formData.property_type === 'building') {
+          // Buildings inherit from parent Complex: owned_by_firm and manager_id
+          setFormData(prev => ({
+            ...prev,
+            owned_by_firm: parentProperty.owned_by_firm,
+            manager_id: parentProperty.manager_id
+          }));
+        } else if (formData.property_type === 'apartment' || formData.property_type === 'office') {
+          // Apartments/Offices inherit from parent Building: address, manager, ownership, furnished items, rent_per_sqm, and furnishing_status
+          const furnishedItemsResponse = await axios.get(`${API}/v1/furnished-items/property/${formData.parent_id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          setFormData(prev => ({
+            ...prev,
+            street: parentProperty.street || prev.street,
+            house_nr: parentProperty.house_nr || prev.house_nr,
+            postcode: parentProperty.postcode || prev.postcode,
+            city: parentProperty.city || prev.city,
+            manager_id: parentProperty.manager_id || prev.manager_id,
+            owned_by_firm: parentProperty.owned_by_firm || prev.owned_by_firm,
+            rent_per_sqm: parentProperty.rent_per_sqm || prev.rent_per_sqm,
+            betriebskosten_per_sqm: parentProperty.betriebskosten_per_sqm || prev.betriebskosten_per_sqm,
+            furnishing_status: parentProperty.furnishing_status || prev.furnishing_status,
+            furnished_items: furnishedItemsResponse.data || []
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch parent property:', error);
+      }
+    };
+
+    inheritFromParent();
+  }, [formData.parent_id, formData.property_type]);
 
   // Auto-generate property ID when name and type are filled
   useEffect(() => {
@@ -155,8 +256,17 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
         num_toilets: formData.num_toilets ? parseInt(formData.num_toilets) : null,
         max_tenants: formData.max_tenants ? parseInt(formData.max_tenants) : null,
         rent_per_sqm: formData.rent_per_sqm ? parseFloat(formData.rent_per_sqm) : null,
+        betriebskosten_per_sqm: formData.betriebskosten_per_sqm ? parseFloat(formData.betriebskosten_per_sqm) : null,
         cold_rent: formData.cold_rent ? parseFloat(formData.cold_rent) : null,
         parent_id: formData.parent_id || null,
+        
+        // German Legal Compliance Fields
+        energieausweis_type: formData.energieausweis_type || null,
+        energieausweis_class: formData.energieausweis_class || null,
+        energieausweis_value: formData.energieausweis_value ? parseFloat(formData.energieausweis_value) : null,
+        energieausweis_expiry: formData.energieausweis_expiry ? `${formData.energieausweis_expiry}T23:59:59.000Z` : null,
+        energieausweis_co2: formData.energieausweis_co2 ? parseFloat(formData.energieausweis_co2) : null,
+        
         furnished_items: [] // Start with empty list
       };
 
@@ -349,55 +459,92 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
+          {/* Parent Property Selection - Show right after property type */}
+          {formData.property_type !== 'complex' && (
+            <div className="mt-6">
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Furnishing Status *
+                {t('forms.createProperty.parentProperty')}
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                  </svg>
+              {loadingParents ? (
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500">
+                  Loading parent properties...
                 </div>
+              ) : (
                 <select
-                  name="furnishing_status"
-                  value={formData.furnishing_status}
+                  name="parent_id"
+                  value={formData.parent_id}
                   onChange={handleChange}
-                  className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 >
-                  <option value="unfurnished">🏠 Unfurnished</option>
-                  <option value="furnished">🛋️ Furnished</option>
-                  <option value="partially_furnished">🏡 Partially Furnished</option>
+                  <option value="">{t('forms.createProperty.none')}</option>
+                  {parentProperties.map(property => (
+                    <option key={property.id || property._id} value={property.id || property._id}>
+                      {property.name} ({property.property_type})
+                    </option>
+                  ))}
                 </select>
-              </div>
+              )}
               <p className="text-xs text-gray-500 mt-1">
-                Legal classification required for German property law compliance
+                {formData.property_type === 'building' && 'Buildings can only have Complex as parent'}
+                {(formData.property_type === 'apartment' || formData.property_type === 'office') && 'Apartments/Offices can only have Building as parent'}
+                {formData.property_type === 'house' && 'Houses can have Complex or Building as parent'}
+                {formData.property_type === 'commercial' && 'Commercial properties can only have Building as parent'}
               </p>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Furnished Items
-              </label>
-              <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                <span className="text-sm text-gray-600">
-                  {formData.furnished_items.length} items
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowFurnishedItemsModal(true)}
-                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-                  disabled={formData.furnishing_status === 'unfurnished'}
-                >
-                  Manage Items
-                </button>
+          )}
+
+          {/* Hide furnishing fields for Complex */}
+          {formData.property_type !== 'complex' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Furnishing Status *
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                  </div>
+                  <select
+                    name="furnishing_status"
+                    value={formData.furnishing_status}
+                    onChange={handleChange}
+                    className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    required
+                  >
+                    <option value="unfurnished">🏠 Unfurnished</option>
+                    <option value="furnished">🛋️ Furnished</option>
+                    <option value="partially_furnished">🏡 Partially Furnished</option>
+                  </select>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Legal classification required for German property law compliance
+                </p>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Add/remove furnished items (enabled for furnished properties)
-              </p>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Furnished Items
+                </label>
+                <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                  <span className="text-sm text-gray-600">
+                    {formData.furnished_items.length} items
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowFurnishedItemsModal(true)}
+                    className="px-3 py-1 bg-blue-500 text-white text-xs rounded-lg hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    disabled={formData.furnishing_status === 'unfurnished'}
+                  >
+                    Manage Items
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Add/remove furnished items (enabled for furnished properties)
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Address Information Section */}
           <div className="mt-8 mb-6">
@@ -427,19 +574,22 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {t('forms.createProperty.houseNumber')} *
-              </label>
-              <input
-                type="text"
-                name="house_nr"
-                value={formData.house_nr}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                required
-              />
-            </div>
+            {/* Hide house number for Complex */}
+            {formData.property_type !== 'complex' && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  {t('forms.createProperty.houseNumber')} *
+                </label>
+                <input
+                  type="text"
+                  name="house_nr"
+                  value={formData.house_nr}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  required
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -485,19 +635,41 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {t('forms.createProperty.floor')}
-              </label>
-              <input
-                type="text"
-                name="floor"
-                value={formData.floor}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                placeholder="e.g., 2nd, Ground"
-              />
-            </div>
+            {/* Floor field - hide for Complex and Building */}
+            {!['complex', 'building'].includes(formData.property_type) && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  {t('forms.createProperty.floor')}
+                </label>
+                <input
+                  type="text"
+                  name="floor"
+                  value={formData.floor}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  placeholder="e.g., 2nd, Ground"
+                />
+              </div>
+            )}
+
+            {/* Number of Floors for Building */}
+            {formData.property_type === 'building' && (
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Number of Floors *
+                </label>
+                <input
+                  type="number"
+                  name="floor"
+                  value={formData.floor}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  min="1"
+                  placeholder="Total floors in building"
+                  required
+                />
+              </div>
+            )}
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -517,7 +689,11 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                {t('forms.createProperty.numberOfRooms')} *
+                {formData.property_type === 'building' 
+                  ? 'Number of Apartments *' 
+                  : formData.property_type === 'complex'
+                  ? 'Number of Buildings *'
+                  : `${t('forms.createProperty.numberOfRooms')} *`}
               </label>
               <input
                 type="number"
@@ -531,76 +707,304 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             </div>
           </div>
 
-          {/* Rental Information Section */}
+          {/* Hide Rental Information Section for Complex */}
+          {formData.property_type !== 'complex' && (
+            <>
+              <div className="mt-8 mb-6">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.rentalInfo')}</h3>
+                </div>
+              </div>
+
+              {/* Different rental fields for Building vs other property types */}
+              {formData.property_type === 'building' ? (
+                // Buildings: Show only Rent per sqm
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      {t('forms.createProperty.rentPerSqm')} (€) *
+                    </label>
+                    <input
+                      type="number"
+                      name="rent_per_sqm"
+                      value={formData.rent_per_sqm}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      step="0.01"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Betriebskosten per m² (€)
+                    </label>
+                    <input
+                      type="number"
+                      name="betriebskosten_per_sqm"
+                      value={formData.betriebskosten_per_sqm}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      step="0.01"
+                      min="0"
+                      placeholder="e.g. 2.50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      {t('forms.createProperty.coldRent')} (Kaltmiete)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.cold_rent}
+                      disabled
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Betriebskosten Total (€)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.betriebskosten_total}
+                      disabled
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Warm Rent / Warmmiete (€)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.warm_rent}
+                      disabled
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100"
+                    />
+                  </div>
+                </div>
+              ) : (
+                // All other property types: Show full rental section
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      {t('forms.createProperty.numberOfToilets')}
+                    </label>
+                    <input
+                      type="number"
+                      name="num_toilets"
+                      value={formData.num_toilets}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      min="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      {t('forms.createProperty.maxTenants')}
+                    </label>
+                    <input
+                      type="number"
+                      name="max_tenants"
+                      value={formData.max_tenants}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      min="1"
+                      placeholder="Leave empty for no limit"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      {t('forms.createProperty.rentPerSqm')} (€) *
+                    </label>
+                    <input
+                      type="number"
+                      name="rent_per_sqm"
+                      value={formData.rent_per_sqm}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      step="0.01"
+                      min="0"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Betriebskosten per m² (€)
+                    </label>
+                    <input
+                      type="number"
+                      name="betriebskosten_per_sqm"
+                      value={formData.betriebskosten_per_sqm}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      step="0.01"
+                      min="0"
+                      placeholder="e.g. 2.50"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      {t('forms.createProperty.coldRent')} (Kaltmiete) (€)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.cold_rent}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Betriebskosten Total (€)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.betriebskosten_total}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                      Warm Rent / Warmmiete (€)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.warm_rent}
+                      disabled
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* German Legal Compliance Section */}
           <div className="mt-8 mb-6">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-yellow-500 rounded-lg flex items-center justify-center mr-3">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.rentalInfo')}</h3>
+              <h3 className="text-lg font-bold text-gray-900">🇩🇪 German Legal Compliance</h3>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {t('forms.createProperty.numberOfToilets')}
-              </label>
-              <input
-                type="number"
-                name="num_toilets"
-                value={formData.num_toilets}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                min="0"
-              />
+          {/* Energy Certificate Section (Mandatory for Marketing) */}
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+            <h4 className="text-md font-semibold text-gray-900 mb-4">
+              ⚡ Energy Certificate (Energieausweis) *
+              <span className="text-xs text-red-600 ml-2">Mandatory for property marketing - Fine up to €15,000</span>
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Certificate Type *
+                </label>
+                <select
+                  name="energieausweis_type"
+                  value={formData.energieausweis_type}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                  required
+                >
+                  <option value="">Select Type</option>
+                  <option value="verbrauchsausweis">Verbrauchsausweis (Consumption-based)</option>
+                  <option value="bedarfsausweis">Bedarfsausweis (Demand-based)</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Energy Class *
+                </label>
+                <select
+                  name="energieausweis_class"
+                  value={formData.energieausweis_class}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"  
+                  required
+                >
+                  <option value="">Select Class</option>
+                  <option value="A+">A+ (Best)</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="E">E</option>
+                  <option value="F">F</option>
+                  <option value="G">G</option>
+                  <option value="H">H (Worst)</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Energy Value (kWh/m²·a) *
+                </label>
+                <input
+                  type="number"
+                  name="energieausweis_value"
+                  value={formData.energieausweis_value}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                  step="0.1"
+                  min="0"
+                  placeholder="e.g. 150.0"
+                  required
+                />
+              </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {t('forms.createProperty.maxTenants')}
-              </label>
-              <input
-                type="number"
-                name="max_tenants"
-                value={formData.max_tenants}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                min="1"
-                placeholder="Leave empty for no limit"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {t('forms.createProperty.rentPerSqm')} (€) *
-              </label>
-              <input
-                type="number"
-                name="rent_per_sqm"
-                value={formData.rent_per_sqm}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                step="0.01"
-                min="0"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                {t('forms.createProperty.coldRent')}
-              </label>
-              <input
-                type="text"
-                value={formData.cold_rent}
-                disabled
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-              />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Certificate Expiry Date *
+                </label>
+                <input
+                  type="date"
+                  name="energieausweis_expiry"
+                  value={formData.energieausweis_expiry}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  CO₂ Emissions (kg CO₂/m²·a)
+                </label>
+                <input
+                  type="number"
+                  name="energieausweis_co2"
+                  value={formData.energieausweis_co2}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                  step="0.1"
+                  min="0"  
+                  placeholder="e.g. 35.0"
+                />
+              </div>
             </div>
           </div>
+
 
           {/* Additional Information Section */}
           <div className="mt-8 mb-6">
@@ -665,24 +1069,6 @@ const CreatePropertyForm = ({ onBack, onSuccess, properties = [] }) => {
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              {t('forms.createProperty.parentProperty')}
-            </label>
-            <select
-              name="parent_id"
-              value={formData.parent_id}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">{t('forms.createProperty.none')}</option>
-              {properties.map(property => (
-                <option key={property.id || property._id} value={property.id || property._id}>
-                  {property.name}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* Property Manager Selection */}
           <div className="mt-6">

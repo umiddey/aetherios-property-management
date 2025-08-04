@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional
-from datetime import datetime, date, timedelta
+from datetime import datetime, timezone, date, timedelta
 from dateutil.relativedelta import relativedelta
 import uuid
 import logging
@@ -77,8 +77,8 @@ class ContractInvoiceService:
             invoice_type=invoice_type,
             amount=amount,
             description=description,
-            invoice_date=datetime.utcnow(),
-            due_date=datetime.utcnow() + timedelta(days=30),  # Default 30 days
+            invoice_date=datetime.now(timezone.utc),
+            due_date=datetime.now(timezone.utc) + timedelta(days=30),  # Default 30 days
             tenant_id=contract.get("other_party_id"),  # Updated field name
             property_id=contract.get("property_id")
         )

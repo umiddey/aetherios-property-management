@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import uuid
 
@@ -59,7 +59,7 @@ class AnalyticsService(BaseService):
         log_dict["user_id"] = user_id
         log_dict["ip_address"] = ip_address
         log_dict["user_agent"] = user_agent
-        log_dict["timestamp"] = datetime.utcnow()
+        log_dict["timestamp"] = datetime.now(timezone.utc)
         log_dict["id"] = str(uuid.uuid4())
         
         # Insert directly since we have custom fields

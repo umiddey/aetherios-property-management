@@ -5,7 +5,7 @@ Handles invitation-based account activation and portal authentication
 
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends, status, Header
@@ -54,7 +54,7 @@ def get_password_hash(password: str) -> str:
 
 def create_portal_access_token(account_id: str, email: str) -> str:
     """Create JWT token for portal access"""
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode = {
         "sub": account_id,
         "email": email,
@@ -268,7 +268,7 @@ async def portal_login(login: PortalLogin):
     
     # Update last login using TenantService
     await tenant_service.update_tenant_profile(matching_tenant.id, {
-        "portal_last_login": datetime.utcnow()
+        "portal_last_login": datetime.now(timezone.utc)
     })
     
     # Create access token

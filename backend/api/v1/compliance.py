@@ -10,7 +10,7 @@ CRITICAL ENTERPRISE FEATURE:
 
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from services.contractor_service import ContractorService
@@ -436,7 +436,7 @@ async def update_license_verification(
         # Prepare update data with verification timestamp
         update_data = {
             "verification_status": verification_data.verification_status,
-            "verification_date": datetime.utcnow(),
+            "verification_date": datetime.now(timezone.utc),
             "verification_notes": verification_data.verification_notes
         }
         

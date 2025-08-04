@@ -5,7 +5,7 @@ Handles tenant confirmation emails and auto-triggering invoice workflow
 
 import uuid
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, List
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -199,7 +199,7 @@ class CompletionTrackingService:
                 logger.error(f"Service request not found for confirmation token: {confirmation_token}")
                 return False
             
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
             
             if completed:
                 # Tenant confirms completion - trigger invoice workflow
@@ -273,7 +273,7 @@ class CompletionTrackingService:
                 logger.info(f"Service request {service_request_id} already has tenant response")
                 return True
             
-            current_time = datetime.utcnow()
+            current_time = datetime.now(timezone.utc)
             
             # Auto-confirm completion
             await self.db.service_requests.update_one(
@@ -443,7 +443,7 @@ async def schedule_completion_confirmations(db: AsyncIOMotorDatabase,
     """
     try:
         # Find service requests that were completed recently but haven't had confirmation emails sent
-        two_days_ago = datetime.utcnow() - timedelta(days=2)
+        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
         
         # Query for requests that:
         # 1. Are marked as completed 
@@ -476,8 +476,8 @@ async def schedule_completion_confirmations(db: AsyncIOMotorDatabase,
                         "$set": {
                             "tenant_confirmation_email_sent": True,
                             "tenant_confirmation_token": confirmation_token,
-                            "confirmation_email_sent_at": datetime.utcnow(),
-                            "updated_at": datetime.utcnow()
+                            "confirmation_email_sent_at": datetime.now(timezone.utc),
+                            "updated_at": datetime.now(timezone.utc)
                         }
                     }
                 )
@@ -502,7 +502,7 @@ async def schedule_auto_confirmations(db: AsyncIOMotorDatabase,
         # 2. Tenant hasn't responded yet
         # 3. Not already auto-confirmed
         
-        forty_eight_hours_ago = datetime.utcnow() - timedelta(hours=48)
+        forty_eight_hours_ago = datetime.now(timezone.utc) - timedelta(hours=48)
         
         service_requests = await db.service_requests.find({
             "tenant_confirmation_email_sent": True,

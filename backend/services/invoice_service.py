@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import uuid
 
@@ -110,7 +110,7 @@ class InvoiceService(BaseService):
         invoice_dict["invoice_number"] = invoice_number
         invoice_dict["id"] = str(uuid.uuid4())  # Generate unique ID
         invoice_dict["created_by"] = created_by
-        invoice_dict["created_at"] = datetime.utcnow()
+        invoice_dict["created_at"] = datetime.now(timezone.utc)
         invoice_dict["is_archived"] = False
         
         # Insert into database
@@ -193,7 +193,7 @@ class InvoiceService(BaseService):
     
     async def generate_invoice_number(self) -> str:
         """Generate a unique invoice number."""
-        current_year = datetime.utcnow().year
+        current_year = datetime.now(timezone.utc).year
         
         # Find the highest invoice number for current year
         pattern = f"INV-{current_year}-%"
@@ -271,7 +271,7 @@ class InvoiceService(BaseService):
     
     async def get_overdue_invoices(self) -> List[Dict[str, Any]]:
         """Get all overdue invoices."""
-        current_date = datetime.utcnow()
+        current_date = datetime.now(timezone.utc)
         query = {
             "due_date": {"$lt": current_date},
             "status": {"$in": ["sent", "draft"]},
@@ -341,7 +341,7 @@ class InvoiceService(BaseService):
     async def update_overdue_invoices(self) -> int:
         """Update overdue invoice status and return count of updated invoices."""
         try:
-            current_date = datetime.utcnow()
+            current_date = datetime.now(timezone.utc)
             
             # Find invoices that are overdue but not marked as such
             overdue_query = {

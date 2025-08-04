@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import socketio
 
@@ -82,7 +82,7 @@ async def get_task_orders(
             if "status" not in task:
                 task["status"] = "pending"
             if "updated_at" not in task:
-                task["updated_at"] = task.get("created_at", datetime.utcnow())
+                task["updated_at"] = task.get("created_at", datetime.now(timezone.utc))
             if "is_archived" not in task:
                 task["is_archived"] = False
             if "is_active" not in task:

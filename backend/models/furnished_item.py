@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import uuid
 
@@ -46,8 +46,8 @@ class FurnishedItem(BaseModel):
     warranty_until: Optional[datetime] = None
     maintenance_notes: Optional[str] = None
     is_essential: bool = False  # Required for basic living (affects legal liability)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     is_active: bool = True
 
@@ -86,7 +86,7 @@ class FurnishedItemUpdate(BaseModel):
     maintenance_notes: Optional[str] = None
     is_essential: Optional[bool] = None
     is_active: Optional[bool] = None
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class FurnishedItemFilters(BaseModel):

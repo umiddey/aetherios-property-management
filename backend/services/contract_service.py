@@ -270,7 +270,7 @@ class ContractService(BaseService):
         """Update contract status with validation"""
         update_data = {
             "status": new_status.value,
-            "updated_at": datetime.utcnow()
+            "updated_at": datetime.now(timezone.utc)
         }
         
         result = await self.collection.update_one(
@@ -393,7 +393,7 @@ class ContractService(BaseService):
             if new_status and new_status != contract.get("status"):
                 await self.collection.update_one(
                     {"id": contract["id"]},
-                    {"$set": {"status": new_status, "updated_at": datetime.utcnow()}}
+                    {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc)}}
                 )
                 draft_updated += 1
         
@@ -407,7 +407,7 @@ class ContractService(BaseService):
             {
                 "$set": {
                     "status": ContractStatus.ACTIVE.value,
-                    "updated_at": datetime.utcnow()
+                    "updated_at": datetime.now(timezone.utc)
                 }
             }
         )
@@ -422,7 +422,7 @@ class ContractService(BaseService):
             {
                 "$set": {
                     "status": ContractStatus.EXPIRED.value,
-                    "updated_at": datetime.utcnow()
+                    "updated_at": datetime.now(timezone.utc)
                 }
             }
         )

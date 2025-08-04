@@ -8,7 +8,7 @@ This service integrates with the ContractorLicense model to validate contractor
 licenses before assignment and track license expiration.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -98,7 +98,7 @@ class LicenseVerificationService:
             List[ContractorLicense]: List of expired/expiring licenses
         """
         try:
-            cutoff_date = datetime.utcnow() + timedelta(days=days_ahead)
+            cutoff_date = datetime.now(timezone.utc) + timedelta(days=days_ahead)
             
             cursor = self.collection.find({
                 "expiration_date": {"$lte": cutoff_date}
@@ -202,8 +202,8 @@ class LicenseVerificationService:
         try:
             update_data = {
                 "verification_status": status,
-                "verification_date": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
+                "verification_date": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc)
             }
             
             if notes:

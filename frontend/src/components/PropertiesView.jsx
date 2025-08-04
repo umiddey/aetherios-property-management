@@ -75,6 +75,7 @@ const PropertiesView = ({
               <option value="office">🏢 Office</option>
               <option value="commercial">🏬 Commercial</option>
               <option value="complex">🏘️ Complex</option>
+              <option value="building">🏢 Building</option>
             </select>
             <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
               <svg className="w-6 h-6 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">

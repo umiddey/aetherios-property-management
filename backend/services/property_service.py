@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from services.base_service import BaseService
@@ -257,8 +257,8 @@ class PropertyService(BaseService):
             
             if rental_contracts:
                 # Check if any contract is currently active (within date range)
-                from datetime import datetime
-                current_date = datetime.utcnow()
+                from datetime import datetime, timezone
+                current_date = datetime.now(timezone.utc)
                 
                 for contract in rental_contracts:
                     start_date = contract.get("start_date")
@@ -391,8 +391,8 @@ class PropertyService(BaseService):
         # Create the item document
         item_dict = item_data.model_dump()
         item_dict["created_by"] = created_by
-        item_dict["created_at"] = datetime.utcnow()
-        item_dict["updated_at"] = datetime.utcnow()
+        item_dict["created_at"] = datetime.now(timezone.utc)
+        item_dict["updated_at"] = datetime.now(timezone.utc)
         
         # Generate unique ID if not provided
         if "id" not in item_dict or not item_dict["id"]:
@@ -427,7 +427,7 @@ class PropertyService(BaseService):
     async def update_furnished_item(self, item_id: str, update_data: FurnishedItemUpdate) -> Optional[Dict[str, Any]]:
         """Update a furnished item."""
         update_dict = update_data.model_dump(exclude_unset=True)
-        update_dict["updated_at"] = datetime.utcnow()
+        update_dict["updated_at"] = datetime.now(timezone.utc)
         
         result = await self.db.furnished_items.update_one(
             {"id": item_id},
@@ -443,7 +443,7 @@ class PropertyService(BaseService):
         # Soft delete the item
         result = await self.db.furnished_items.update_one(
             {"id": item_id},
-            {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+            {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc)}}
         )
         
         return result.modified_count > 0
@@ -483,3 +483,39 @@ class PropertyService(BaseService):
                 item["_id"] = str(item["_id"])
         
         return items
+    
+    async def get_valid_parent_properties(self, property_type: str) -> List[Dict[str, Any]]:
+        """Get valid parent properties for a given property type based on hierarchy rules."""
+        # Define valid parent-child relationships (same as in _validate_property_hierarchy)
+        valid_relationships = {
+            "complex": [],  # Complex can have no parent
+            "building": ["complex"],  # Building can only have Complex as parent
+            "apartment": ["building"],  # Apartment can only have Building as parent
+            "office": ["building"],  # Office can only have Building as parent
+            "house": ["complex", "building"],  # House can have Complex or Building as parent
+            "commercial": ["building"]  # Commercial can only have Building as parent
+        }
+        
+        if property_type not in valid_relationships:
+            raise HTTPException(status_code=400, detail=f"Invalid property type: {property_type}")
+        
+        valid_parent_types = valid_relationships[property_type]
+        
+        # If no valid parents are defined, return empty list
+        if not valid_parent_types:
+            return []
+        
+        # Query for properties that can be parents
+        query = {
+            "property_type": {"$in": valid_parent_types},
+            "is_archived": False
+        }
+        
+        parent_properties = await self.get_all(query)
+        
+        # Ensure all properties have required fields
+        for prop in parent_properties:
+            prop.setdefault("name", f"Property {prop.get('id', 'Unknown')}")
+            prop.setdefault("property_type", "apartment")
+        
+        return parent_properties

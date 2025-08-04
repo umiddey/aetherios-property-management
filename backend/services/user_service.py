@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import uuid
 
@@ -90,7 +90,7 @@ class UserService(BaseService):
         
         # Create user
         user_dict["id"] = str(uuid.uuid4())
-        user_dict["created_at"] = datetime.utcnow()
+        user_dict["created_at"] = datetime.now(timezone.utc)
         user_dict["is_active"] = True
         
         await self.collection.insert_one(user_dict)

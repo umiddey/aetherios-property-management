@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from pydantic import BaseModel, Field, validator
 from enum import Enum
@@ -41,8 +41,8 @@ class ContractorLicense(BaseModel):
     verification_status: VerificationStatus = Field(default=VerificationStatus.PENDING, description="Current verification status")
     verification_date: Optional[datetime] = Field(None, description="Last verification date")
     verification_notes: Optional[str] = Field(None, max_length=500, description="Verification details/notes")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     @validator('license_id', pre=True)
     def validate_license_id(cls, v):
@@ -68,7 +68,7 @@ class ContractorLicense(BaseModel):
     
     @validator('issue_date')
     def validate_issue_date(cls, v):
-        if v > datetime.utcnow():
+        if v > datetime.now(timezone.utc):
             raise ValueError('issue_date cannot be in the future')
         return v
     
@@ -87,12 +87,12 @@ class ContractorLicense(BaseModel):
     
     def is_expired(self) -> bool:
         """Check if license is currently expired"""
-        return datetime.utcnow() > self.expiration_date
+        return datetime.now(timezone.utc) > self.expiration_date
     
     def needs_renewal(self, days_ahead: int = 30) -> bool:
         """Check if license needs renewal within specified days"""
         from datetime import timedelta
-        return datetime.utcnow() + timedelta(days=days_ahead) >= self.expiration_date
+        return datetime.now(timezone.utc) + timedelta(days=days_ahead) >= self.expiration_date
     
     def is_valid_for_assignment(self) -> bool:
         """Check if license is valid for contractor assignment"""
@@ -103,7 +103,7 @@ class ContractorLicense(BaseModel):
     
     def days_until_expiration(self) -> int:
         """Get days until license expires (negative if expired)"""
-        delta = self.expiration_date - datetime.utcnow()
+        delta = self.expiration_date - datetime.now(timezone.utc)
         return delta.days
     
     class Config:

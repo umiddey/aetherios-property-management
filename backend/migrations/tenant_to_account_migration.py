@@ -5,7 +5,7 @@ Preserves all existing data while creating the new account structure
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from pymongo import MongoClient
 from bson import ObjectId
@@ -186,7 +186,7 @@ class TenantToAccountMigration:
             "email": tenant.get("email", ""),
             "phone": tenant.get("phone"),
             "address": tenant.get("address"),
-            "created_at": tenant.get("created_at", datetime.utcnow()),
+            "created_at": tenant.get("created_at", datetime.now(timezone.utc)),
             "created_by": tenant.get("created_by", "migration"),
             "updated_at": None,
             "updated_by": None,
@@ -201,7 +201,7 @@ class TenantToAccountMigration:
             },
             "metadata": {
                 "migrated_from_tenant_id": str(tenant.get("_id")),
-                "migration_date": datetime.utcnow()
+                "migration_date": datetime.now(timezone.utc)
             }
         }
         

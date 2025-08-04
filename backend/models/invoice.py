@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import uuid
 
@@ -42,7 +42,7 @@ class Invoice(BaseModel):
     status: InvoiceStatus = InvoiceStatus.DRAFT
     
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     is_archived: bool = False
 
@@ -93,7 +93,7 @@ class Payment(BaseModel):
     payment_date: datetime
     payment_method: PaymentMethod
     notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
 
 

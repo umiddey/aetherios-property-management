@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import FurnishedItemsManager from './FurnishedItemsManager';
+import TechnicalObjectsManager from './TechnicalObjectsManager';
 import cachedAxios from '../utils/cachedAxios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -457,6 +458,23 @@ const PropertyEditPage = () => {
         <FurnishedItemsManager
           items={furnishedItems}
           onItemsChange={setFurnishedItems}
+          propertyId={id}
+          isEditMode={true}
+        />
+      </div>
+
+      {/* Technical Objects Management */}
+      <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+        <div className="mb-6">
+          <h2 className="text-2xl font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
+            Technical Objects Management
+          </h2>
+          <p className="text-gray-500">
+            Manage technical equipment and systems for this property. Includes heating, elevators, and other building systems with German BetrKV compliance.
+          </p>
+        </div>
+        
+        <TechnicalObjectsManager
           propertyId={id}
           isEditMode={true}
         />

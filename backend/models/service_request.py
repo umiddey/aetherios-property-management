@@ -3,7 +3,7 @@ Service Request Models - Customer Portal Maintenance Request System
 Core models for tenant service requests that integrate with the main ERP system
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, List
 from pydantic import BaseModel, Field
@@ -75,7 +75,7 @@ class ServiceRequest(BaseModel):
     
     # Status and Workflow
     status: ServiceRequestStatus = ServiceRequestStatus.SUBMITTED
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     assigned_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
@@ -106,8 +106,8 @@ class ServiceRequest(BaseModel):
     estimated_completion: Optional[datetime] = None
     
     # System Fields
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_archived: bool = False
 
 

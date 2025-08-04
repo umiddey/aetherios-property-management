@@ -3,7 +3,7 @@ Contractor API - Token-based Endpoints for Contractor Workflow
 Handles scheduling responses (Link 1) and invoice submissions (Link 2)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Depends
 from pydantic import BaseModel
@@ -177,7 +177,7 @@ async def submit_scheduling_response(
         else:
             confirmed_datetime = response.proposed_datetime
         
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         
         # Update service request with confirmed appointment
         update_data = {
@@ -283,7 +283,7 @@ async def check_invoice_upload_availability(token: str):
             from datetime import timedelta
             appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
             
-            if datetime.utcnow() >= appointment_end_time:
+            if datetime.now(timezone.utc) >= appointment_end_time:
                 job_completed = True
                 if not completion_reason:
                     completion_reason = "appointment_time_passed"
@@ -401,7 +401,7 @@ async def get_invoice_details(token: str):
                 from datetime import timedelta
                 appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
                 
-                if datetime.utcnow() >= appointment_end_time:
+                if datetime.now(timezone.utc) >= appointment_end_time:
                     job_completed = True
                     if not completion_reason:
                         completion_reason = "appointment_time_passed"
@@ -508,7 +508,7 @@ async def upload_invoice_file(
             file_url=file_url,
             file_name=file.filename,
             file_size=len(file_content),
-            uploaded_at=datetime.utcnow()
+            uploaded_at=datetime.now(timezone.utc)
         )
         
     except HTTPException:
@@ -566,7 +566,7 @@ async def submit_invoice(
             from datetime import timedelta
             appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
             
-            if datetime.utcnow() >= appointment_end_time:
+            if datetime.now(timezone.utc) >= appointment_end_time:
                 job_completed = True
         
         if not job_completed:
@@ -589,7 +589,7 @@ async def submit_invoice(
         )
         
         auto_approved = invoice.amount <= threshold
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         
         # Update service request with invoice details
         update_data = {
@@ -680,8 +680,8 @@ async def _create_scheduled_task(service_request: dict, confirmed_datetime: date
             "tenant_id": service_request["tenant_id"],
             "service_request_id": service_request["_id"],
             "contractor_response": response.dict(),
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
             "is_archived": False
         }
         
@@ -757,7 +757,7 @@ async def _create_erp_invoice(service_request: dict, invoice: InvoiceSubmission,
         # Create invoice document following existing invoice model
         invoice_doc = {
             "id": invoice_id,
-            "invoice_number": f"SVC-{datetime.utcnow().strftime('%Y%m%d')}-{invoice_id[:8].upper()}",
+            "invoice_number": f"SVC-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{invoice_id[:8].upper()}",
             "tenant_id": invoice_recipient_id,  # 🔧 FIXED: Conditional assignment based on legal responsibility
             "property_id": service_request["property_id"],
             "contract_id": contract["id"],
@@ -783,17 +783,17 @@ async def _create_erp_invoice(service_request: dict, invoice: InvoiceSubmission,
             ),
             
             # Dates
-            "invoice_date": datetime.utcnow(),
-            "due_date": datetime.utcnow(),  # Immediate payment for contractor services
-            "issue_date": datetime.utcnow(),
+            "invoice_date": datetime.now(timezone.utc),
+            "due_date": datetime.now(timezone.utc),  # Immediate payment for contractor services
+            "issue_date": datetime.now(timezone.utc),
             "service_date": service_request.get("appointment_confirmed_datetime"),
             
             # File attachment
             "attachment_urls": [invoice.file_url],
             
             # Metadata
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
             "is_archived": False,
             "notes": f"Contractor service invoice. Legal responsibility: {legal_responsibility or 'unknown'}. {invoice.contractor_notes or ''}"
         }

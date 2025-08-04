@@ -5,7 +5,7 @@ Handles intelligent contractor assignment with geographic optimization, quality 
 
 import math
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Tuple
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from dataclasses import dataclass
@@ -489,7 +489,7 @@ class ContractorMatchingService:
                     "current_job_count": -1  # Reduce active job count
                 },
                 "$set": {
-                    "last_job_completed": datetime.utcnow()
+                    "last_job_completed": datetime.now(timezone.utc)
                 }
             }
             

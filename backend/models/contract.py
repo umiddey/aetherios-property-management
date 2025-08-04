@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from datetime import datetime, date
+from datetime import datetime, timezone, date
 from typing import Optional, List, Dict, Any
 from enum import Enum
 import uuid
@@ -78,8 +78,8 @@ class Contract(ContractBase):
     documents: Optional[List[Dict[str, str]]] = None  # [{"name": "contract.pdf", "url": "..."}]
     
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     is_archived: bool = False
 

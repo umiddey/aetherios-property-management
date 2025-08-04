@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from repositories.base_repository import BaseRepository
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class InvoiceRepository(BaseRepository):
     
     async def get_overdue_invoices(self) -> List[Dict[str, Any]]:
         """Get all overdue invoices."""
-        current_date = datetime.utcnow()
+        current_date = datetime.now(timezone.utc)
         query = {
             "due_date": {"$lt": current_date},
             "status": {"$in": ["sent", "draft"]},
@@ -132,7 +132,7 @@ class InvoiceRepository(BaseRepository):
     
     async def generate_invoice_number(self) -> str:
         """Generate a unique invoice number."""
-        current_year = datetime.utcnow().year
+        current_year = datetime.now(timezone.utc).year
         
         # Find the highest invoice number for current year
         pattern = f"INV-{current_year}-%"

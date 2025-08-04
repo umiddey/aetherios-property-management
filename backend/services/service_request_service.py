@@ -128,7 +128,7 @@ class ServiceRequestService:
         
         # Update service request with task ID but keep pending approval status
         update_data = {
-            "updated_at": datetime.utcnow()
+            "updated_at": datetime.now(timezone.utc)
         }
         
         if task_id:
@@ -284,7 +284,7 @@ class ServiceRequestService:
         
         # Build update document
         update_doc = {
-            "updated_at": datetime.utcnow()
+            "updated_at": datetime.now(timezone.utc)
         }
         
         # Handle status updates with timestamp tracking
@@ -293,11 +293,11 @@ class ServiceRequestService:
             
             # Set appropriate timestamps based on status
             if update.status == ServiceRequestStatus.ASSIGNED and not existing.get("assigned_at"):
-                update_doc["assigned_at"] = datetime.utcnow()
+                update_doc["assigned_at"] = datetime.now(timezone.utc)
             elif update.status == ServiceRequestStatus.COMPLETED and not existing.get("completed_at"):
-                update_doc["completed_at"] = datetime.utcnow()
+                update_doc["completed_at"] = datetime.now(timezone.utc)
             elif update.status == ServiceRequestStatus.CLOSED and not existing.get("closed_at"):
-                update_doc["closed_at"] = datetime.utcnow()
+                update_doc["closed_at"] = datetime.now(timezone.utc)
         
         # Handle other updates
         if update.assigned_user_id is not None:
@@ -334,9 +334,9 @@ class ServiceRequestService:
             {
                 "$set": {
                     "is_archived": True,
-                    "archived_at": datetime.utcnow(),
+                    "archived_at": datetime.now(timezone.utc),
                     "archived_by": archived_by,
-                    "updated_at": datetime.utcnow()
+                    "updated_at": datetime.now(timezone.utc)
                 }
             }
         )
@@ -380,9 +380,9 @@ class ServiceRequestService:
             approval_update = {
                 "approval_status": approval.approval_status.value,
                 "approved_by": approved_by,
-                "approved_at": datetime.utcnow(),
+                "approved_at": datetime.now(timezone.utc),
                 "approval_notes": approval.approval_notes,
-                "updated_at": datetime.utcnow()
+                "updated_at": datetime.now(timezone.utc)
             }
             
             # If approved, trigger contractor workflow and update status
@@ -400,7 +400,7 @@ class ServiceRequestService:
                 if contractor_updates:
                     approval_update.update({
                         "status": ServiceRequestStatus.ASSIGNED.value,
-                        "assigned_at": datetime.utcnow()
+                        "assigned_at": datetime.now(timezone.utc)
                     })
                     approval_update.update(contractor_updates)
                     print(f"✅ Contractor workflow triggered successfully for request {request_id}")
@@ -585,7 +585,7 @@ class ServiceRequestService:
             {"id": request_id},
             {
                 "$push": {"attachment_urls": file_url},
-                "$set": {"updated_at": datetime.utcnow()}
+                "$set": {"updated_at": datetime.now(timezone.utc)}
             }
         )
         
@@ -593,7 +593,7 @@ class ServiceRequestService:
             file_url=file_url,
             file_name=file.filename,
             file_size=len(content),
-            uploaded_at=datetime.utcnow()
+            uploaded_at=datetime.now(timezone.utc)
         )
     
     
@@ -602,7 +602,7 @@ class ServiceRequestService:
         Get service request statistics for dashboard
         """
         # Build query for date range
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
         query = {
             "is_archived": False,
             "submitted_at": {"$gte": start_date}
@@ -838,8 +838,8 @@ class ServiceRequestService:
                 "assigned_to": assigned_to,  # Assign to property manager
                 "service_request_id": service_request.id,  # Link back to service request
                 "created_by": created_by,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
                 "is_archived": False
             }
             
@@ -878,7 +878,7 @@ class ServiceRequestService:
                 {
                     "$set": {
                         "status": task_status,
-                        "updated_at": datetime.utcnow()
+                        "updated_at": datetime.now(timezone.utc)
                     }
                 }
             )
@@ -975,7 +975,7 @@ class ServiceRequestService:
                 "contractor_email": successful_assignments[0],  # Primary contractor
                 "contractor_response_token": contractor_tokens[successful_assignments[0]],  # Primary token
                 "invoice_upload_token": invoice_tokens[successful_assignments[0]],  # Primary invoice token
-                "contractor_email_sent_at": datetime.utcnow(),
+                "contractor_email_sent_at": datetime.now(timezone.utc),
                 "assignment_strategy": assignment_strategy,
                 "invoice_upload_enabled": False  # Disabled until job completion
             }
@@ -1022,8 +1022,8 @@ class ServiceRequestService:
                 "completion_status": "tenant_confirmed",
                 "completion_notes": completion_notes,
                 "completed_by_tenant": completed_by_tenant,
-                "completed_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
+                "completed_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
                 "invoice_upload_enabled": True  # Enable invoice upload when job is completed
             }
             
@@ -1080,8 +1080,8 @@ class ServiceRequestService:
                 "completion_status": "admin_confirmed",
                 "completion_notes": completion_notes,
                 "completed_by_admin": completed_by,
-                "completed_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
+                "completed_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
                 "invoice_upload_enabled": True  # Enable invoice upload when job is completed
             }
             

@@ -8,7 +8,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import jwt
 import bcrypt
 from enum import Enum
@@ -38,6 +38,7 @@ from api.v1.portal import router as portal_router
 from api.v1.contractor import router as contractor_router
 from api.v1.compliance import router as compliance_router
 from api.v1.furnished_items import router as furnished_items_router
+from api.v1.technical_objects import router as technical_objects_router
 from api.v2.accounts import router as accounts_v2_router
 from repositories.property_repository import PropertyRepository
 
@@ -136,7 +137,7 @@ class User(BaseModel):
     full_name: str
     hashed_password: str
     role: UserRole = UserRole.USER
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = True
 
 class UserCreate(BaseModel):
@@ -179,7 +180,7 @@ class Customer(BaseModel):
     email: str
     phone: Optional[str] = None
     address: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
 
 class CustomerCreate(BaseModel):
@@ -202,7 +203,7 @@ class Tenant(BaseModel):
     gender: Optional[str] = None  # male/female
     bank_account: Optional[str] = None  # Bank Konto
     notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     is_archived: bool = False
 
@@ -241,7 +242,7 @@ class Invoice(BaseModel):
     invoice_date: datetime
     due_date: datetime
     status: InvoiceStatus = InvoiceStatus.DRAFT
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     is_archived: bool = False
 
@@ -271,8 +272,8 @@ class TaskOrder(BaseModel):
     budget: Optional[float] = None
     due_date: Optional[datetime] = None
     property_id: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     assigned_to: Optional[str] = None
 
@@ -303,7 +304,7 @@ class Activity(BaseModel):
     description: str
     hours_spent: float
     activity_date: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
 
 class ActivityCreate(BaseModel):
@@ -325,7 +326,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+    expire = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
@@ -385,6 +386,7 @@ app.include_router(service_requests_router, prefix="/api/v1")
 app.include_router(contractor_router, prefix="/api/v1")
 app.include_router(compliance_router, prefix="/api/v1/compliance")
 app.include_router(furnished_items_router, prefix="/api/v1")
+app.include_router(technical_objects_router, prefix="/api/v1")
 
 # Test endpoint to verify no auth issues
 @app.get("/api/v1/test-public")

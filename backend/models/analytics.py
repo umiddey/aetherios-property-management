@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 
@@ -9,7 +9,7 @@ class AnalyticsLog(BaseModel):
     action: str = Field(..., min_length=1, max_length=100)
     details: Dict[str, Any] = Field(default_factory=dict)
     user_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
 

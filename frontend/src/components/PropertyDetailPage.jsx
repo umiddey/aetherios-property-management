@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import cachedAxios from '../utils/cachedAxios';
 import { useLanguage } from '../contexts/LanguageContext';
+import TechnicalObjectsList from './TechnicalObjectsList';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -23,6 +24,7 @@ const PropertyDetailPage = ({
   const [invoices, setInvoices] = useState([]);
   const [manager, setManager] = useState(null);
   const [furnishedItems, setFurnishedItems] = useState([]);
+  const [technicalObjects, setTechnicalObjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -30,15 +32,17 @@ const PropertyDetailPage = ({
     const fetchPropertyDetails = async () => {
       try {
         setLoading(true);
-        const [propertyRes, agreementsRes, invoicesRes] = await Promise.all([
+        const [propertyRes, agreementsRes, invoicesRes, technicalObjectsRes] = await Promise.all([
           cachedAxios.get(`${API}/v1/properties/${id}`),
           cachedAxios.get(`${API}/v1/contracts/by-entity/property/${id}`),
-          cachedAxios.get(`${API}/v1/invoices/?property_id=${id}`)
+          cachedAxios.get(`${API}/v1/invoices/?property_id=${id}`),
+          cachedAxios.get(`${API}/v1/technical-objects/property/${id}`)
         ]);
         
         setProperty(propertyRes.data);
         setAgreements(agreementsRes.data.filter(contract => contract.contract_type === 'rental'));
         setInvoices(invoicesRes.data);
+        setTechnicalObjects(technicalObjectsRes.data || []);
         
         // Fetch manager information if manager_id exists
         if (propertyRes.data.manager_id) {
@@ -653,6 +657,30 @@ const PropertyDetailPage = ({
             )}
           </div>
         )}
+
+        {/* Technical Objects Section */}
+        <div className="mt-8 bg-white shadow-lg rounded-xl p-6 border border-gray-200">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Technical Objects ({technicalObjects.length})
+            </h2>
+            <button
+              onClick={() => navigate(`/properties/${id}/edit#technical-objects`)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Technical Objects
+            </button>
+          </div>
+          
+          <TechnicalObjectsList objects={technicalObjects} loading={loading} />
+        </div>
 
         {/* Quick Actions */}
         <div className="mt-8 bg-white shadow-lg rounded-xl p-6 border border-gray-200">
