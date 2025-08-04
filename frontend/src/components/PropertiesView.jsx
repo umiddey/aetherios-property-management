@@ -35,7 +35,7 @@ const PropertiesView = ({
               <h3 className="text-3xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 {t('properties.filters')}
               </h3>
-              <p className="text-gray-500 text-sm mt-1">Smart property filtering • Real-time search</p>
+              <p className="text-gray-500 text-sm mt-1">{t('properties.smartFilteringText')}</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
@@ -70,12 +70,12 @@ const PropertiesView = ({
               className="appearance-none px-4 py-4 bg-white/70 backdrop-blur-sm border border-white/40 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all duration-300 w-full text-gray-900 shadow-lg hover:shadow-xl pr-12"
             >
               <option value="">{t('properties.allTypes')}</option>
-              <option value="apartment">🏠 Apartment</option>
-              <option value="house">🏡 House</option>
-              <option value="office">🏢 Office</option>
-              <option value="commercial">🏬 Commercial</option>
-              <option value="complex">🏘️ Complex</option>
-              <option value="building">🏢 Building</option>
+              <option value="apartment">🏠 {t('properties.apartment')}</option>
+              <option value="house">🏡 {t('properties.house')}</option>
+              <option value="office">🏢 {t('properties.office')}</option>
+              <option value="commercial">🏬 {t('properties.commercial')}</option>
+              <option value="complex">🏘️ {t('properties.complex')}</option>
+              <option value="building">🏢 {t('properties.building')}</option>
             </select>
             <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
               <svg className="w-6 h-6 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,7 +158,7 @@ const PropertiesView = ({
               <h2 className="text-4xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 {t('properties.title')}
               </h2>
-              <p className="text-gray-500 text-sm mt-1">Your property portfolio • {properties.length} properties</p>
+              <p className="text-gray-500 text-sm mt-1">{t('properties.portfolioText', { count: properties.length })}</p>
             </div>
           </div>
           <div className="flex space-x-4">
@@ -242,25 +242,52 @@ const PropertiesView = ({
                   </div>
                 </div>
                 
-                {/* Rent Display */}
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border border-gray-200/50">
-                  <div className="flex items-center">
-                    <svg className="w-6 h-6 text-gray-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Monthly Rent</p>
-                      <p className="text-2xl font-black text-gray-900">
-                        {property.cold_rent ? `€${property.cold_rent}` : 'N/A'}
+                {/* Rent Display with Betriebskosten Breakdown */}
+                <div className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border border-gray-200/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <svg className="w-6 h-6 text-gray-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402 2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        {property.betriebskosten_per_sqm ? (
+                          <>
+                            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Warm Rent (Total)</p>
+                            <p className="text-2xl font-black text-gray-900">
+                              €{((property.surface_area || 0) * ((property.rent_per_sqm || 0) + property.betriebskosten_per_sqm)).toFixed(2)}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Cold Rent</p>
+                            <p className="text-2xl font-black text-gray-900">
+                              {property.cold_rent ? `€${property.cold_rent}` : 'N/A'}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Surface</p>
+                      <p className="text-lg font-bold text-gray-700">
+                        {property.surface_area || 'N/A'} m²
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Surface</p>
-                    <p className="text-lg font-bold text-gray-700">
-                      {property.surface || 'N/A'} m²
-                    </p>  
-                  </div>
+                  
+                  {/* Betriebskosten Breakdown */}
+                  {property.betriebskosten_per_sqm && (
+                    <div className="mt-3 pt-3 border-t border-gray-200/50">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Cold Rent:</span>
+                        <span className="font-semibold">€{((property.surface_area || 0) * (property.rent_per_sqm || 0)).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="text-gray-600">Betriebskosten:</span>
+                        <span className="font-semibold">€{((property.surface_area || 0) * property.betriebskosten_per_sqm).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Property Stats */}
@@ -298,7 +325,7 @@ const PropertiesView = ({
                   </svg>
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-3">{t('properties.noPropertiesFound')}</h3>
-                <p className="text-gray-500 mb-8">Start building your property portfolio by adding your first property.</p>
+                <p className="text-gray-500 mb-8">{t('properties.noPropertiesMessage')}</p>
                 <button 
                   onClick={() => handleNav('create-property')}
                   className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 font-semibold"

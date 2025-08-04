@@ -30,12 +30,17 @@
     "filters": "Filter",
     "login": "Anmelden",
     "loggingIn": "Anmeldung...",
+    "username": "Benutzername",
+    "password": "Passwort",
     "creating": "Erstellen...",
     "updating": "Aktualisieren...",
     "adding": "Hinzufügen...",
+    "saving": "Speichern...",
     "select": "Auswählen",
     "view": "Ansehen",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "customer": "Kunde",
+    "selectCustomer": "Kunde auswählen"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -71,7 +76,18 @@
     "exportStatistics": "Statistiken exportieren",
     "activeAgreements": "Aktive Verträge",
     "unpaidInvoices": "Unbezahlte Rechnungen",
-    "assignedTasks": "Zugewiesene Aufgaben"
+    "assignedTasks": "Zugewiesene Aufgaben",
+    "welcomeBack": "Willkommen zurück, {{name}}",
+    "messages": {
+      "newTaskCreated": "Neue Aufgabe erstellt!",
+      "userDeletedSuccess": "Benutzer erfolgreich gelöscht",
+      "serviceRequestSuccess": "Serviceanfrage {{action}} erfolgreich",
+      "failedRefreshTaskData": "Fehler beim Aktualisieren der Aufgabendaten",
+      "failedLoadDashboardData": "Fehler beim Laden der Dashboard-Daten",
+      "failedLoadProperties": "Fehler beim Laden der Immobilien",
+      "failedDeleteUser": "Fehler beim Löschen des Benutzers",
+      "failedServiceRequest": "Fehler beim {{action}} der Serviceanfrage"
+    }
   },
   "pages": {
     "propertyDetails": "Immobilien-Details",
@@ -104,6 +120,7 @@
     "office": "Büro",
     "commercial": "Gewerblich",
     "building": "Gebäude",
+    "complex": "Komplex",
     "sqm": "m²",
     "perSqm": "pro m²",
     "filters": "Filter",
@@ -119,7 +136,33 @@
     "noPropertiesFound": "Keine Immobilien gefunden",
     "empty": "Verfügbar",
     "rentPerSqm": "Miete pro m²",
-    "coldRent": "Kaltmiete"
+    "coldRent": "Kaltmiete",
+    "smartFilteringText": "Intelligente Immobilienfilterung • Echtzeitsuche",
+    "portfolioText": "Ihr Immobilienportfolio • {{count}} Immobilien",
+    "noPropertiesMessage": "Beginnen Sie mit dem Aufbau Ihres Immobilienportfolios, indem Sie Ihre erste Immobilie hinzufügen.",
+    "propertyNotFound": "Immobilie nicht gefunden",
+    "propertyDetails": "Immobilien-Details",
+    "backToProperties": "Zurück zu Immobilien",
+    "editProperty": "Immobilie bearbeiten",
+    "createContract": "Vertrag erstellen",
+    "viewContract": "Vertrag anzeigen →",
+    "propertyInformation": "Immobilien-Informationen",
+    "address": "Adresse",
+    "surfaceArea": "Wohnfläche",
+    "warmRent": "Warmmiete (Gesamt)",
+    "betriebskosten": "Betriebskosten",
+    "ownerDetailsNotAvailable": "Eigentümer-Details sind für diese Immobilie nicht verfügbar.",
+    "furnishedItems": "Möblierung ({{count}})",
+    "noFurnishedItems": "Noch keine Möblierung registriert",
+    "manageFurnishedItems": "Verwenden Sie die Bearbeiten-Schaltfläche, um die Möblierung zu verwalten",
+    "technicalObjects": "Technische Objekte ({{count}})",
+    "addTechnicalObjects": "Technische Objekte hinzufügen",
+    "propertyNotFoundTitle": "Immobilie nicht gefunden",
+    "propertyNotFoundMessage": "Die Immobilie, die Sie bearbeiten möchten, konnte nicht gefunden werden.",
+    "propertyUpdatedSuccess": "Immobilie erfolgreich aktualisiert",
+    "errors": {
+      "loadPropertyDetails": "Fehler beim Laden der Immobilien-Details"
+    }
   },
   "tenants": {
     "title": "Mieter",
@@ -168,6 +211,8 @@
     "paid": "Bezahlt",
     "pending": "Ausstehend",
     "overdue": "Überfällig",
+    "draft": "Entwurf",
+    "sent": "Versendet",
     "paymentStatus": "Zahlungsstatus",
     "showArchived": "Archivierte anzeigen",
     "allStatuses": "Alle Status",
@@ -205,7 +250,10 @@
     "allAssignees": "Alle Zugewiesenen",
     "noTasksFound": "Keine Aufgaben gefunden",
     "activities": "Aktivitäten",
-    "noActivitiesRecorded": "Keine Aktivitäten aufgezeichnet"
+    "noActivitiesRecorded": "Keine Aktivitäten aufgezeichnet",
+    "unassigned": "Nicht zugewiesen",
+    "noTasksMessage": "Keine Aufgaben entsprechen Ihren aktuellen Filtern. Erstellen Sie Ihre erste Aufgabe, um zu beginnen.",
+    "backToTasks": "Zurück zu Aufgaben"
   },
   "accounts": {
     "title": "Konten",
@@ -229,7 +277,20 @@
     "tenant": "Mieter",
     "employee": "Mitarbeiter",
     "contractor": "Auftragnehmer",
-    "searchPlaceholder": "Nach Name oder E-Mail suchen..."
+    "searchPlaceholder": "Nach Name oder E-Mail suchen...",
+    "manageEfficiency": "Verwalten Sie alle Kontotypen mit einheitlicher Effizienz",
+    "licensesExpiringSoon": "⚠️ Lizenzen laufen bald ab",
+    "expiredLicenses": "❌ Abgelaufene Lizenzen",
+    "noAccountsMessage": "Keine Konten entsprechen Ihren aktuellen Filtern. Versuchen Sie, Ihre Suchkriterien anzupassen.",
+    "eligible": "✓ Berechtigt",
+    "notEligible": "✗ Nicht berechtigt",
+    "expiring": "Läuft ab",
+    "totalLicenses": "Lizenzen gesamt:",
+    "expired": "Abgelaufen:",
+    "expiringSoon": "Läuft bald ab:",
+    "eligibleAssignments": "✓ Für Aufträge berechtigt",
+    "notEligibleAssignments": "✗ Nicht für Aufträge berechtigt",
+    "manageLicenses": "📋 Lizenzen verwalten"
   },
   "forms": {
     "createProperty": {
@@ -276,7 +337,48 @@
       "cancelled": "Gekündigt",
       "parentProperty": "Übergeordnete Immobilie",
       "none": "Keine",
-      "additionalDetailsPlaceholder": "Zusätzliche Details zur Immobilie..."
+      "additionalDetailsPlaceholder": "Zusätzliche Details zur Immobilie...",
+      "generatingId": "ID wird generiert...",
+      "autoGenerated": "Automatisch generiert basierend auf Name und Typ",
+      "idFormat": "Automatisch generiert: [vorname]_[nachname]_[typ]_[JJJJQQ###] (z.B., jordan_smith_apartment_202503001)",
+      "furnishing": {
+        "unfurnished": "🏠 Unmöbliert",
+        "furnished": "🛋️ Möbliert",
+        "partiallyFurnished": "🏡 Teilmöbliert"
+      },
+      "furnishedItems": "Möblierung",
+      "itemsCount": "{{count}} Gegenstände",
+      "manageFurnishedItems": "Möblierung verwalten",
+      "addRemoveFurnishedItems": "Möblierte Gegenstände hinzufügen/entfernen (für möblierte Immobilien aktiviert)",
+      "energyCertificate": {
+        "title": "⚡ Energieausweis *",
+        "mandatoryNote": "Pflicht für Immobilienvermarktung - Bußgeld bis zu 15.000€",
+        "type": "Ausweistyp *",
+        "class": "Energieklasse *",
+        "value": "Energiewert (kWh/m²·a) *",
+        "expiry": "Gültig bis *",
+        "co2": "CO₂-Emissionen (kg CO₂/m²·a)",
+        "types": {
+          "verbrauchsausweis": "Verbrauchsausweis (Verbrauchsbasiert)",
+          "bedarfsausweis": "Bedarfsausweis (Bedarfsbasiert)"
+        },
+        "classes": {
+          "aPlus": "A+ (Beste)",
+          "h": "H (Schlechteste)"
+        }
+      },
+      "germanCompliance": "🇩🇪 Deutsche Rechtskonformität",
+      "placeholders": {
+        "floorExample": "z.B., 2. OG, Erdgeschoss",
+        "totalFloors": "Gesamtanzahl Etagen im Gebäude",
+        "priceExample": "z.B. 2,50",
+        "noLimit": "Leer lassen für unbegrenzt",
+        "energyExample": "z.B. 150,0",
+        "co2Example": "z.B. 35,0"
+      },
+      "errors": {
+        "loadPropertyManagers": "Fehler beim Laden der Immobilienverwalter"
+      }
     },
     "createTenant": {
       "title": "Neuen Mieter hinzufügen",
@@ -459,7 +561,8 @@
       "contractDeleted": "Vertrag erfolgreich gelöscht",
       "createError": "Fehler beim Erstellen des Vertrags",
       "updateError": "Fehler beim Aktualisieren des Vertrags",
-      "deleteError": "Fehler beim Löschen des Vertrags"
+      "deleteError": "Fehler beim Löschen des Vertrags",
+      "fetchError": "Fehler beim Laden der Verträge"
     },
     "errors": {
       "invalidEndDate": "Enddatum muss nach Startdatum liegen",

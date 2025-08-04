@@ -160,7 +160,7 @@ const AccountsView = ({
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                   👥 {t('accounts.title')}
                 </h1>
-                <p className="text-gray-600 mt-1">Manage all account types with unified efficiency</p>
+                <p className="text-gray-600 mt-1">{t('accounts.manageEfficiency')}</p>
               </div>
             </div>
             <div className="flex space-x-4">
@@ -170,9 +170,9 @@ const AccountsView = ({
                   const columns = [
                     { key: 'id', label: 'ID' },
                     { key: 'name', label: 'Name' },
-                    { key: 'company', label: 'Company' },
-                    { key: 'email', label: 'Email' },
-                    { key: 'phone', label: 'Phone' },
+                    { key: 'company', label: t('accounts.company') },
+                    { key: 'email', label: t('common.email') },
+                    { key: 'phone', label: t('common.phone') },
                     { key: 'address', label: 'Address' },
                     { key: 'created_at', label: 'Created Date' }
                   ];
@@ -277,8 +277,8 @@ const AccountsView = ({
                   <option value="">All Contractors</option>
                   <option value="eligible">✓ Eligible for Assignments</option>
                   <option value="not_eligible">✗ Not Eligible</option>
-                  <option value="expiring">⚠️ Licenses Expiring Soon</option>
-                  <option value="expired">❌ Expired Licenses</option>
+                  <option value="expiring">{t('accounts.licensesExpiringSoon')}</option>
+                  <option value="expired">{t('accounts.expiredLicenses')}</option>
                 </select>
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -310,7 +310,7 @@ const AccountsView = ({
               👥 {t('accounts.noAccountsFound')}
             </h3>
             <p className="text-gray-600 mb-8 text-lg max-w-md mx-auto">
-              No accounts match your current filters. Try adjusting your search criteria.
+              {t('accounts.noAccountsMessage')}
             </p>
             <button
               onClick={() => handleNav('create-account')}
@@ -420,11 +420,11 @@ const AccountsView = ({
                           ) : contractorLicenses[account.id] ? (
                             <>
                               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${contractorLicenses[account.id].is_eligible_for_assignment ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} shadow-sm`}>
-                                {contractorLicenses[account.id].is_eligible_for_assignment ? '✓ Eligible' : '✗ Not Eligible'}
+                                {contractorLicenses[account.id].is_eligible_for_assignment ? t('accounts.eligible') : t('accounts.notEligible')}
                               </span>
                               {contractorLicenses[account.id].expiring_soon > 0 && (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 shadow-sm animate-pulse">
-                                  ⚠️ {contractorLicenses[account.id].expiring_soon} Expiring
+                                  ⚠️ {contractorLicenses[account.id].expiring_soon} {t('accounts.expiring')}
                                 </span>
                               )}
                             </>
@@ -490,7 +490,7 @@ const AccountsView = ({
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-600">Total Licenses:</span>
+                            <span className="text-xs text-gray-600">{t('accounts.totalLicenses')}</span>
                             <span className="text-sm font-medium text-gray-800">{contractorLicenses[account.id].total_licenses}</span>
                           </div>
                           <div className="flex justify-between items-center">
@@ -499,7 +499,7 @@ const AccountsView = ({
                           </div>
                           {contractorLicenses[account.id].expired_licenses > 0 && (
                             <div className="flex justify-between items-center">
-                              <span className="text-xs text-gray-600">Expired:</span>
+                              <span className="text-xs text-gray-600">{t('accounts.expired')}</span>
                               <span className="text-sm font-medium text-red-600">{contractorLicenses[account.id].expired_licenses}</span>
                             </div>
                           )}
@@ -511,7 +511,7 @@ const AccountsView = ({
                           )}
                           <div className="mt-2 pt-2 border-t border-amber-200">
                             <div className={`text-xs font-semibold ${contractorLicenses[account.id].is_eligible_for_assignment ? 'text-green-700' : 'text-red-700'}`}>
-                              {contractorLicenses[account.id].is_eligible_for_assignment ? '✓ Eligible for Assignments' : '✗ Not Eligible for Assignments'}
+                              {contractorLicenses[account.id].is_eligible_for_assignment ? t('accounts.eligibleAssignments') : t('accounts.notEligibleAssignments')}
                             </div>
                           </div>
                         </div>
@@ -531,7 +531,7 @@ const AccountsView = ({
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                           </svg>
-                          <span>📋 Manage Licenses</span>
+                          <span>{t('accounts.manageLicenses')}</span>
                         </button>
                       </div>
                     )}

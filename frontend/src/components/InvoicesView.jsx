@@ -106,8 +106,8 @@ const InvoicesView = ({
                   className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-orange-500/20 focus:border-orange-500 transition-all duration-300 font-medium group-hover:shadow-lg"
                 >
                   <option value="">{t('invoices.allStatuses')}</option>
-                  <option value="draft">Entwurf</option>
-                  <option value="sent">Versendet</option>
+                  <option value="draft">{t('invoices.draft')}</option>
+                  <option value="sent">{t('invoices.sent')}</option>
                   <option value="paid">{t('invoices.paid')}</option>
                   <option value="overdue">{t('invoices.overdue')}</option>
                 </select>

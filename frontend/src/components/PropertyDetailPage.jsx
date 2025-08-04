@@ -64,7 +64,7 @@ const PropertyDetailPage = ({
         }
       } catch (error) {
         console.error('Error fetching property details:', error);
-        setError('Failed to load property details');
+        setError(t('properties.errors.loadPropertyDetails'));
       } finally {
         setLoading(false);
       }
@@ -90,12 +90,12 @@ const PropertyDetailPage = ({
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600">{error || 'Property not found'}</p>
+          <p className="text-red-600">{error || t('properties.propertyNotFound')}</p>
           <button 
             onClick={() => navigate('/properties')}
             className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
           >
-            Back to Properties
+            {t('properties.backToProperties')}
           </button>
         </div>
       </div>
@@ -114,13 +114,13 @@ const PropertyDetailPage = ({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Properties
+            {t('properties.backToProperties')}
           </button>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold text-gray-900 mb-2">{property.name}</h1>
               <div className="flex items-center gap-4">
-                <p className="text-lg text-gray-600">Property Details</p>
+                <p className="text-lg text-gray-600">{t('properties.propertyDetails')}</p>
                 <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(property.status)}`}>
                   {property.status}
                 </span>
@@ -150,7 +150,7 @@ const PropertyDetailPage = ({
               <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
-              Property Information
+              {t('properties.propertyInformation')}
             </h2>
             
             <div className="space-y-6">
@@ -161,7 +161,7 @@ const PropertyDetailPage = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  Address
+                  {t('properties.address')}
                 </h3>
                 <p className="text-gray-700">
                   {property.street} {property.house_nr}
@@ -173,7 +173,7 @@ const PropertyDetailPage = ({
               {/* Property Details Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 rounded-lg p-3">
-                  <div className="text-sm text-blue-600 font-medium">Surface Area</div>
+                  <div className="text-sm text-blue-600 font-medium">{t('properties.surfaceArea')}</div>
                   <div className="text-xl font-bold text-blue-900">{property.surface_area} m²</div>
                 </div>
                 <div className="bg-green-50 rounded-lg p-3">
@@ -195,15 +195,44 @@ const PropertyDetailPage = ({
               </div>
 
               {/* Financial Information */}
-              {property.cold_rent && (
+              {(property.cold_rent || property.betriebskosten_per_sqm) && (
                 <div className="bg-emerald-50 rounded-lg p-4">
-                  <h3 className="font-medium text-emerald-900 mb-2 flex items-center gap-2">
+                  <h3 className="font-medium text-emerald-900 mb-3 flex items-center gap-2">
                     <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                     </svg>
-                    {t('properties.coldRent')}
+                    Monthly Rent
                   </h3>
-                  <p className="text-2xl font-bold text-emerald-900">{formatCurrency(property.cold_rent)}</p>
+                  
+                  {property.betriebskosten_per_sqm ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-emerald-700">{t('properties.coldRent')}:</span>
+                        <span className="font-bold text-emerald-900">
+                          {formatCurrency((property.surface_area || 0) * (property.rent_per_sqm || 0))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-emerald-700">{t('properties.betriebskosten')}:</span>
+                        <span className="font-bold text-emerald-900">
+                          {formatCurrency((property.surface_area || 0) * property.betriebskosten_per_sqm)}
+                        </span>
+                      </div>
+                      <div className="border-t border-emerald-200 pt-2">
+                        <div className="flex justify-between">
+                          <span className="font-semibold text-emerald-800">{t('properties.warmRent')}:</span>
+                          <span className="text-2xl font-bold text-emerald-900">
+                            {formatCurrency((property.surface_area || 0) * ((property.rent_per_sqm || 0) + property.betriebskosten_per_sqm))}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : property.cold_rent ? (
+                    <div>
+                      <span className="text-emerald-700">Cold Rent:</span>
+                      <p className="text-2xl font-bold text-emerald-900">{formatCurrency(property.cold_rent)}</p>
+                    </div>
+                  ) : null}
                 </div>
               )}
               
@@ -306,7 +335,7 @@ const PropertyDetailPage = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   <h3 className="mt-2 text-sm font-medium text-gray-900">No owner information</h3>
-                  <p className="mt-1 text-sm text-gray-500">Owner details are not available for this property.</p>
+                  <p className="mt-1 text-sm text-gray-500">{t('properties.ownerDetailsNotAvailable')}</p>
                 </div>
               )}
             </div>
@@ -410,7 +439,7 @@ const PropertyDetailPage = ({
                           onClick={() => navigate(`/contracts/${contract.id}`)}
                           className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                         >
-                          View Contract →
+                          {t('properties.viewContract')}
                         </button>
                       </div>
                     </div>
@@ -599,7 +628,7 @@ const PropertyDetailPage = ({
                 <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                Furnished Items ({furnishedItems.length})
+                {t('properties.furnishedItems', { count: furnishedItems.length })}
               </h2>
               <span className={`px-3 py-1 text-xs font-bold rounded-lg ${
                 property.furnishing_status === 'furnished' ? 'bg-emerald-100 text-emerald-800' :
@@ -651,8 +680,8 @@ const PropertyDetailPage = ({
                 <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                <p>No furnished items registered yet</p>
-                <p className="text-sm">Use the edit button to manage furnished items</p>
+                <p>{t('properties.noFurnishedItems')}</p>
+                <p className="text-sm">{t('properties.manageFurnishedItems')}</p>
               </div>
             )}
           </div>
@@ -666,7 +695,7 @@ const PropertyDetailPage = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Technical Objects ({technicalObjects.length})
+              {t('properties.technicalObjects', { count: technicalObjects.length })}
             </h2>
             <button
               onClick={() => navigate(`/properties/${id}/edit#technical-objects`)}
@@ -675,7 +704,7 @@ const PropertyDetailPage = ({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Add Technical Objects
+              {t('properties.addTechnicalObjects')}
             </button>
           </div>
           
@@ -707,7 +736,7 @@ const PropertyDetailPage = ({
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              <span className="font-medium">Back to Properties</span>
+              <span className="font-medium">{t('properties.backToProperties')}</span>
             </button>
           </div>
         </div>

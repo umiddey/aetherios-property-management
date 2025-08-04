@@ -30,12 +30,17 @@
     "filters": "Filters",
     "login": "Login",
     "loggingIn": "Logging in...",
+    "username": "Username",
+    "password": "Password",
     "creating": "Creating...",
     "updating": "Updating...",
     "adding": "Adding...",
+    "saving": "Saving...",
     "select": "Select",
     "view": "View",
-    "remove": "Remove"
+    "remove": "Remove",
+    "customer": "Customer",
+    "selectCustomer": "Select customer"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -71,7 +76,18 @@
     "exportStatistics": "Export Statistics",
     "activeAgreements": "Active Agreements",
     "unpaidInvoices": "Unpaid Invoices",
-    "assignedTasks": "Assigned Tasks"
+    "assignedTasks": "Assigned Tasks",
+    "welcomeBack": "Welcome back, {{name}}",
+    "messages": {
+      "newTaskCreated": "New task created!",
+      "userDeletedSuccess": "User deleted successfully",
+      "serviceRequestSuccess": "Service request {{action}} successfully",
+      "failedRefreshTaskData": "Failed to refresh task data",
+      "failedLoadDashboardData": "Failed to load dashboard data",
+      "failedLoadProperties": "Failed to load properties",
+      "failedDeleteUser": "Failed to delete user",
+      "failedServiceRequest": "Failed to {{action}} service request"
+    }
   },
   "pages": {
     "propertyDetails": "Property Details",
@@ -103,6 +119,8 @@
     "house": "House",
     "office": "Office",
     "commercial": "Commercial",
+    "building": "Building",
+    "complex": "Complex",
     "sqm": "sqm",
     "perSqm": "per sqm",
     "filters": "Filters",
@@ -115,10 +133,35 @@
     "showArchived": "Show Archived",
     "details": "Details",
     "created": "Created",
-    "building": "Building",
     "empty": "Available",
     "rentPerSqm": "Rent per sqm",
-    "coldRent": "Cold Rent"
+    "coldRent": "Cold Rent",
+    "smartFilteringText": "Smart property filtering • Real-time search",
+    "portfolioText": "Your property portfolio • {{count}} properties",
+    "noPropertiesMessage": "Start building your property portfolio by adding your first property.",
+    "propertyNotFound": "Property not found",
+    "propertyDetails": "Property Details",
+    "backToProperties": "Back to Properties",
+    "editProperty": "Edit Property",
+    "createContract": "Create Contract", 
+    "viewContract": "View Contract →",
+    "propertyInformation": "Property Information",
+    "address": "Address",
+    "surfaceArea": "Surface Area",
+    "warmRent": "Warm Rent (Total)",
+    "betriebskosten": "Betriebskosten",
+    "ownerDetailsNotAvailable": "Owner details are not available for this property.",
+    "furnishedItems": "Furnished Items ({{count}})",
+    "noFurnishedItems": "No furnished items registered yet",
+    "manageFurnishedItems": "Use the edit button to manage furnished items",
+    "technicalObjects": "Technical Objects ({{count}})",
+    "addTechnicalObjects": "Add Technical Objects",
+    "propertyNotFoundTitle": "Property Not Found",
+    "propertyNotFoundMessage": "The property you're trying to edit could not be found.",
+    "propertyUpdatedSuccess": "Property successfully updated",
+    "errors": {
+      "loadPropertyDetails": "Failed to load property details"
+    }
   },
   "tenants": {
     "title": "Tenants",
@@ -165,6 +208,8 @@
     "paid": "Paid",
     "pending": "Pending",
     "overdue": "Overdue",
+    "draft": "Draft",
+    "sent": "Sent",
     "paymentStatus": "Payment Status",
     "showArchived": "Show Archived",
     "allStatuses": "All Statuses",
@@ -198,7 +243,10 @@
     "taskOrders": "Task Orders",
     "createTaskOrder": "Create Task Order",
     "subject": "Subject",
-    "budget": "Budget"
+    "budget": "Budget",
+    "unassigned": "Unassigned",
+    "noTasksMessage": "No tasks match your current filters. Create your first task to get started.",
+    "backToTasks": "Back to Tasks"
   },
   "accounts": {
     "title": "Accounts",
@@ -219,7 +267,20 @@
     "tenant": "Tenant",
     "employee": "Employee",
     "contractor": "Contractor",
-    "searchPlaceholder": "Search by name or email..."
+    "searchPlaceholder": "Search by name or email...",
+    "manageEfficiency": "Manage all account types with unified efficiency",
+    "licensesExpiringSoon": "⚠️ Licenses Expiring Soon",
+    "expiredLicenses": "❌ Expired Licenses",
+    "noAccountsMessage": "No accounts match your current filters. Try adjusting your search criteria.",
+    "eligible": "✓ Eligible",
+    "notEligible": "✗ Not Eligible",
+    "expiring": "Expiring",
+    "totalLicenses": "Total Licenses:",
+    "expired": "Expired:",
+    "expiringSoon": "Expiring Soon:",
+    "eligibleAssignments": "✓ Eligible for Assignments",
+    "notEligibleAssignments": "✗ Not Eligible for Assignments",
+    "manageLicenses": "📋 Manage Licenses"
   },
   "forms": {
     "createProperty": {
@@ -266,7 +327,48 @@
       "cancelled": "Cancelled",
       "parentProperty": "Parent Property",
       "none": "None",
-      "additionalDetailsPlaceholder": "Additional details about the property..."
+      "additionalDetailsPlaceholder": "Additional details about the property...",
+      "generatingId": "Generating ID...",
+      "autoGenerated": "Auto-generated based on name and type",
+      "idFormat": "Auto-generated: [first]_[last]_[type]_[YYYYQQ###] (e.g., jordan_smith_apartment_202503001)",
+      "furnishing": {
+        "unfurnished": "🏠 Unfurnished",
+        "furnished": "🛋️ Furnished",
+        "partiallyFurnished": "🏡 Partially Furnished"
+      },
+      "furnishedItems": "Furnished Items",
+      "itemsCount": "{{count}} items",
+      "manageFurnishedItems": "Manage Furnished Items",
+      "addRemoveFurnishedItems": "Add/remove furnished items (enabled for furnished properties)",
+      "energyCertificate": {
+        "title": "⚡ Energy Certificate (Energieausweis) *",
+        "mandatoryNote": "Mandatory for property marketing - Fine up to €15,000",
+        "type": "Certificate Type *",
+        "class": "Energy Class *",
+        "value": "Energy Value (kWh/m²·a) *",
+        "expiry": "Valid Until *",
+        "co2": "CO₂ Emissions (kg CO₂/m²·a)",
+        "types": {
+          "verbrauchsausweis": "Verbrauchsausweis (Consumption-based)",
+          "bedarfsausweis": "Bedarfsausweis (Demand-based)"
+        },
+        "classes": {
+          "aPlus": "A+ (Best)",
+          "h": "H (Worst)"
+        }
+      },
+      "germanCompliance": "🇩🇪 German Legal Compliance",
+      "placeholders": {
+        "floorExample": "e.g., 2nd, Ground",
+        "totalFloors": "Total floors in building",
+        "priceExample": "e.g. 2.50",
+        "noLimit": "Leave empty for no limit",
+        "energyExample": "e.g. 150.0",
+        "co2Example": "e.g. 35.0"
+      },
+      "errors": {
+        "loadPropertyManagers": "Failed to load property managers"
+      }
     },
     "createTenant": {
       "title": "Add New Tenant",
@@ -449,7 +551,8 @@
       "contractDeleted": "Contract deleted successfully",
       "createError": "Error creating contract",
       "updateError": "Error updating contract",
-      "deleteError": "Error deleting contract"
+      "deleteError": "Error deleting contract",
+      "fetchError": "Failed to fetch contracts"
     },
     "errors": {
       "invalidEndDate": "End date must be after start date",

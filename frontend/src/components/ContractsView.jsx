@@ -43,7 +43,7 @@ const ContractsView = () => {
       const response = await cachedAxios.get(`${API}/api/v1/contracts/?${params.toString()}`);
       setContracts(response.data);
     } catch (error) {
-      showError(error, 'Failed to fetch contracts');
+      showError(error, t('contracts.messages.fetchError'));
       console.error('Error fetching contracts:', error);
     } finally {
       setLoading(false);

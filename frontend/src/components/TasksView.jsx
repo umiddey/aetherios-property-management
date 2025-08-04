@@ -61,7 +61,7 @@ const TasksView = ({
 
   const getUserName = (userId) => {
     const user = usersList.find(u => u.id === userId);
-    return user ? user.full_name : 'Unassigned';
+    return user ? user.full_name : t('tasks.unassigned');
   };
 
   return (
@@ -127,7 +127,7 @@ const TasksView = ({
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">⚡</span>
-                Status
+                {t('common.status')}
               </label>
               <div className="relative">
                 <select
@@ -151,7 +151,7 @@ const TasksView = ({
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">🔥</span>
-                Priority
+                {t('tasks.priority')}
               </label>
               <div className="relative">
                 <select
@@ -175,7 +175,7 @@ const TasksView = ({
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">👥</span>
-                Assigned To
+                {t('tasks.assignedTo')}
               </label>
               <div className="relative">
                 <select
@@ -213,7 +213,7 @@ const TasksView = ({
               ✅ {t('tasks.noTasksFound')}
             </h3>
             <p className="text-gray-600 mb-8 text-lg max-w-md mx-auto">
-              No tasks match your current filters. Create your first task to get started.
+              {t('tasks.noTasksMessage')}
             </p>
             <button
               onClick={() => handleNav('create-task')}

@@ -60,11 +60,11 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
         onClick={onBack}
         className="mb-4 text-blue-500 hover:text-blue-700 text-sm font-medium"
       >
-        ← Back to Tasks
+        ← {t('tasks.backToTasks')}
       </button>
       
       <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Create Task Order</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('tasks.createTaskOrder')}</h2>
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -75,7 +75,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Subject *
+              {t('tasks.subject')} *
             </label>
             <input
               type="text"
@@ -89,7 +89,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description *
+              {t('common.description')} *
             </label>
             <textarea
               name="description"
@@ -104,7 +104,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Customer *
+                {t('common.customer')} *
               </label>
               <select
                 name="customer_id"
@@ -113,7 +113,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
-                <option value="">Select customer</option>
+                <option value="">{t('common.selectCustomer')}</option>
                 {customers.map(customer => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name} - {customer.company}
@@ -124,7 +124,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Priority *
+                {t('tasks.priority')} *
               </label>
               <select
                 name="priority"
@@ -133,9 +133,9 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                <option value="low">{t('tasks.low')}</option>
+                <option value="medium">{t('tasks.medium')}</option>
+                <option value="high">{t('tasks.high')}</option>
               </select>
             </div>
           </div>
@@ -143,7 +143,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Budget ($)
+                {t('tasks.budget')} ($)
               </label>
               <input
                 type="number"

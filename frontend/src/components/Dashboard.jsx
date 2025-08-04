@@ -110,7 +110,7 @@ const Dashboard = () => {
       });
 
       socket.on('new_task', async (task) => {
-        showSuccess('New task created!');
+        showSuccess(t('dashboard.messages.newTaskCreated'));
         try {
           // Only invalidate task-related caches instead of fetching all data
           invalidateCache('/api/v1/tasks');
@@ -128,7 +128,7 @@ const Dashboard = () => {
           setAssignedTasks(Array.isArray(assignedTasksRes.data) ? assignedTasksRes.data : []);
         } catch (error) {
           console.error('Error refreshing tasks after socket event:', error);
-          showError(error, 'Failed to refresh task data');
+          showError(error, t('dashboard.messages.failedRefreshTaskData'));
         }
       });
 
@@ -333,7 +333,7 @@ const Dashboard = () => {
       setPendingApprovals(Array.isArray(pendingApprovalsRes.data) ? pendingApprovalsRes.data : []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      showError(error, 'Failed to load dashboard data');
+      showError(error, t('dashboard.messages.failedLoadDashboardData'));
       // Reset arrays to safe defaults on error
       setStats({});
       setTaskOrders([]);
@@ -366,7 +366,7 @@ const Dashboard = () => {
       setProperties(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching properties:', error);
-      showError(error, 'Failed to load properties');
+      showError(error, t('dashboard.messages.failedLoadProperties'));
     }
   };
 
@@ -570,10 +570,10 @@ const Dashboard = () => {
         await axios.delete(`${API}/v1/users/${userId}`);
         invalidateCache('/api/v1/users'); // Clear cache to force fresh data
         fetchUsers(); // Refetch with fresh data
-        showSuccess('User deleted successfully');
+        showSuccess(t('dashboard.messages.userDeletedSuccess'));
       } catch (error) {
         console.error('Error deleting user:', error);
-        showError(error, 'Failed to delete user');
+        showError(error, t('dashboard.messages.failedDeleteUser'));
       }
     }
   };
@@ -690,10 +690,10 @@ const Dashboard = () => {
       // Refresh data to update stats
       await fetchData();
       
-      showSuccess(`Service request ${action} successfully`);
+      showSuccess(t('dashboard.messages.serviceRequestSuccess', { action }));
     } catch (error) {
       console.error('Error approving service request:', error);
-      showError(error, `Failed to ${action} service request`);
+      showError(error, t('dashboard.messages.failedServiceRequest', { action }));
     }
   };
 
@@ -735,7 +735,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Property ERP</h1>
-                <p className="text-sm text-gray-600">Welcome back, <span className="font-medium text-gray-900">{user?.full_name}</span></p>
+                <p className="text-sm text-gray-600">{t('dashboard.welcomeBack', { name: user?.full_name })}</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center space-x-4 space-y-2 md:space-y-0">
