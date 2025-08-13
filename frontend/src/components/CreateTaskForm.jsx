@@ -21,7 +21,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
 
   useEffect(() => {
     if (context?.propertyName) {
-      setFormData(prev => ({ ...prev, subject: `Task for property ${context.propertyName}` }));
+      setFormData(prev => ({ ...prev, subject: `${t('tasks.taskForProperty')} ${context.propertyName}` }));
     }
   }, [context]);
 
@@ -44,7 +44,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
       await axios.post(`${API}/v1/tasks/`, submitData);
       onSuccess();
     } catch (error) {
-      setError(error.response?.data?.detail || 'Failed to create task');
+      setError(error.response?.data?.detail || t('tasks.failedToCreateTask'));
     } finally {
       setLoading(false);
     }
@@ -158,7 +158,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Due Date
+                {t('tasks.dueDate')}
               </label>
               <input
                 type="date"
@@ -172,7 +172,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Assigned To
+              {t('tasks.assignedTo')}
             </label>
             <select
               name="assigned_to"
@@ -180,7 +180,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">None</option>
+              <option value="">{t('tasks.none')}</option>
               {users.map(user => (
                 <option key={user.id} value={user.id}>
                   {user.full_name}
@@ -195,7 +195,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
               onClick={onBack}
               className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
             >
-              Cancel
+              {t('tasks.cancel')}
             </button>
             <button
               type="submit"

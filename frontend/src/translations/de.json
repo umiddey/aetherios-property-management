@@ -222,7 +222,14 @@
     "createFromContractInstructions": "Um Rechnungen zu erstellen, navigieren Sie zu einem Vertrag und verwenden Sie die Schaltfläche 'Rechnung erstellen'.",
     "allTenants": "Alle Mieter",
     "allProperties": "Alle Immobilien",
-    "noInvoicesFound": "Keine Rechnungen gefunden"
+    "professionalInvoiceManagement": "Professionelles Rechnungsmanagement-System",
+    "noInvoicesFound": "Keine Rechnungen gefunden",
+    "noInvoicesMessage": "Keine Rechnungen entsprechen Ihren aktuellen Filtern. Erstellen Sie Ihre erste Rechnung, um zu beginnen.",
+    "archive": "Archiv",
+    "contractBasedInvoice": "Vertragsbasierte Rechnung",
+    "credit": "Haben",
+    "debit": "Soll",
+    "viewInvoice": "Rechnung anzeigen"
   },
   "tasks": {
     "title": "Aufgaben",
@@ -253,7 +260,14 @@
     "noActivitiesRecorded": "Keine Aktivitäten aufgezeichnet",
     "unassigned": "Nicht zugewiesen",
     "noTasksMessage": "Keine Aufgaben entsprechen Ihren aktuellen Filtern. Erstellen Sie Ihre erste Aufgabe, um zu beginnen.",
-    "backToTasks": "Zurück zu Aufgaben"
+    "backToTasks": "Zurück zu Aufgaben",
+    "efficientTaskManagement": "Effizientes Aufgabenmanagement und Tracking-System",
+    "taskForProperty": "Aufgabe für Immobilie",
+    "failedToCreateTask": "Fehler beim Erstellen der Aufgabe",
+    "dueDate": "Fälligkeitsdatum",
+    "assignedTo": "Zugewiesen an",
+    "none": "Keine",
+    "cancel": "Abbrechen"
   },
   "accounts": {
     "title": "Konten",
@@ -290,7 +304,20 @@
     "expiringSoon": "Läuft bald ab:",
     "eligibleAssignments": "✓ Für Aufträge berechtigt",
     "notEligibleAssignments": "✗ Nicht für Aufträge berechtigt",
-    "manageLicenses": "📋 Lizenzen verwalten"
+    "manageLicenses": "📋 Lizenzen verwalten",
+    "smartFilters": "Smart Filter",
+    "licenseCompliance": "Lizenz-Compliance",
+    "allContractors": "Alle Auftragnehmer",
+    "eligibleForAssignments": "✓ Für Aufträge berechtigt",
+    "notEligibleText": "✗ Nicht berechtigt",
+    "availableOnlyForContractors": "Nur für Auftragnehmer verfügbar",
+    "loading": "Laden...",
+    "noLicenseData": "Keine Lizenzdaten",
+    "valid": "Gültig",
+    "expiringSoonText": "Läuft bald ab",
+    "viewDetails": "Details anzeigen",
+    "view": "Anzeigen",
+    "manageContractsEfficiency": "Verwalten Sie Ihre Verträge mit moderner Effizienz"
   },
   "forms": {
     "createProperty": {
@@ -569,6 +596,202 @@
       "minimumParties": "Mindestens 2 Parteien sind erforderlich",
       "invalidValue": "Wert muss eine positive Zahl sein"
     }
+  },
+  "technicalObjects": {
+    "title": "Technische Objekte",
+    "noObjectsTitle": "Keine technischen Objekte",
+    "noObjectsDescription": "Fügen Sie technische Geräte und Systeme hinzu, um Wartung und Compliance zu verfolgen",
+    "type": "Typ",
+    "manufacturer": "Hersteller",
+    "model": "Modell",
+    "heating": "Heizung",
+    "fuel": "Brennstoff",
+    "distribution": "Verteilung",
+    "installed": "Installiert",
+    "addedBy": "Hinzugefügt von",
+    "status": {
+      "active": "✅ Aktiv",
+      "maintenance": "🔧 Wartung",
+      "inactive": "❌ Inaktiv"
+    },
+    "types": {
+      "heating_system": "Heizungsanlage",
+      "elevator": "Aufzug",
+      "intercom": "Gegensprechanlage",
+      "security_system": "Sicherheitssystem",
+      "fire_safety": "Brandschutz",
+      "ventilation": "Lüftung",
+      "plumbing": "Sanitär",
+      "electrical": "Elektrik",
+      "other": "Sonstiges",
+      "technical_object": "Technisches Objekt"
+    },
+    "heatingTypes": {
+      "zentralheizung": "Zentralheizung",
+      "etagenheizung": "Etagenheizung",
+      "einzelheizung": "Einzelheizung"
+    },
+    "distributionTypes": {
+      "surface_area": "Wohnfläche",
+      "apartment_count": "Gleichverteilung",
+      "consumption": "Verbrauchsbasiert"
+    },
+    "managementTitle": "Verwaltung technischer Objekte",
+    "managementSubtitle": "Verwalten Sie technische Ausrüstung und Systeme für diese Immobilie. Umfasst Heizung, Aufzüge und andere Gebäudesysteme mit deutscher BetrKV-Konformität.",
+    "manager": {
+      "title": "Technische Objekte",
+      "subtitle": "Immobilienausstattung und -systeme verwalten",
+      "addButton": "Technisches Objekt hinzufügen",
+      "loadingMessage": "Technische Objekte werden geladen...",
+      "noObjectsMessage": "Keine technischen Objekte für diese Immobilie konfiguriert",
+      "addFirstButton": "Erstes technisches Objekt hinzufügen",
+      "editTitle": "Technisches Objekt bearbeiten",
+      "addTitle": "Neues technisches Objekt hinzufügen",
+      "deleteConfirm": "Sind Sie sicher, dass Sie dieses technische Objekt löschen möchten?",
+      "errors": {
+        "loadFailed": "Fehler beim Laden der technischen Objekte",
+        "saveFailed": "Fehler beim Speichern des technischen Objekts",
+        "deleteFailed": "Fehler beim Löschen des technischen Objekts"
+      },
+      "form": {
+        "objectName": "Objektname",
+        "objectNamePlaceholder": "z.B., Zentralheizung",
+        "objectType": "Objekttyp",
+        "manufacturer": "Hersteller",
+        "manufacturerPlaceholder": "z.B., Viessmann",
+        "model": "Modell",
+        "modelPlaceholder": "z.B., Vitocrossal 300",
+        "status": "Status",
+        "installationDate": "Installationsdatum",
+        "heatingSystemDetails": "🔥 Heizungsdetails",
+        "heatingType": "Heizungstyp",
+        "selectType": "Typ auswählen",
+        "costDistributionMethod": "Kostenumlage-Methode",
+        "selectMethod": "Methode auswählen",
+        "costPerSqm": "Kosten pro m² (€)",
+        "costPerSqmPlaceholder": "z.B., 2,50",
+        "powerOutput": "Leistung (kW)",
+        "powerOutputPlaceholder": "z.B., 150,0",
+        "notes": "Notizen",
+        "notesPlaceholder": "Zusätzliche Notizen, Wartungshistorie, etc.",
+        "saving": "Speichern...",
+        "updateButton": "Objekt aktualisieren",
+        "addButton": "Objekt hinzufügen",
+        "cancelButton": "Abbrechen"
+      },
+      "objectTypes": {
+        "heating_system": "🔥 Heizungsanlage",
+        "elevator": "🛗 Aufzug",
+        "intercom": "📞 Gegensprechanlage",
+        "building_management": "🏢 Gebäudeverwaltung",
+        "security_system": "🔒 Sicherheitssystem",
+        "ventilation": "💨 Lüftung",
+        "solar_panels": "☀️ Solaranlagen",
+        "fire_safety": "🚨 Brandschutz",
+        "water_system": "💧 Wassersystem",
+        "electrical_system": "⚡ Elektroanlage"
+      },
+      "statuses": {
+        "active": "✅ Aktiv",
+        "maintenance": "🔧 In Wartung",
+        "broken": "❌ Defekt",
+        "decommissioned": "🔐 Stillgelegt",
+        "planned": "📅 Geplant"
+      },
+      "heatingTypes": {
+        "zentralheizung": "Zentralheizung",
+        "gasheizung": "Gasheizung",
+        "fernwaerme": "Fernwärme",
+        "waermepumpe": "Wärmepumpe",
+        "elektroheizung": "Elektroheizung"
+      },
+      "distributionMethods": {
+        "surface_area": "Wohnfläche (m²)",
+        "consumption": "Verbrauchsbasiert (BetrKV)",
+        "apartment_count": "Gleichverteilung"
+      }
+    }
+  },
+  "furnishedItems": {
+    "title": "Möblierte Gegenstände",
+    "subtitle": "{{count}} Gegenstände • Deutsche Rechtslage",
+    "addButton": "Gegenstand hinzufügen",
+    "noItemsTitle": "Noch keine möblierten Gegenstände",
+    "noItemsDescription": "Fügen Sie Möbel und Geräte hinzu, um Eigentumsrechte und Haftung zu verfolgen",
+    "editTitle": "Möblierten Gegenstand bearbeiten",
+    "addTitle": "Möblierten Gegenstand hinzufügen",
+    "essential": "Wesentlich",
+    "deleteConfirm": "Sind Sie sicher, dass Sie diesen Gegenstand entfernen möchten?",
+    "errors": {
+      "saveFailed": "Fehler beim Speichern des möblierten Gegenstands. Bitte versuchen Sie es erneut.",
+      "deleteFailed": "Fehler beim Löschen des möblierten Gegenstands. Bitte versuchen Sie es erneut."
+    },
+    "categories": {
+      "furniture": "🪑 Möbel",
+      "appliance": "🔌 Haushaltsgeräte",
+      "electronics": "📺 Elektronik",
+      "kitchen": "🍳 Küche",
+      "bathroom": "🚿 Bad",
+      "decoration": "🖼️ Dekoration",
+      "lighting": "💡 Beleuchtung",
+      "other": "📦 Sonstiges"
+    },
+    "conditions": {
+      "new": "✨ Neu",
+      "excellent": "⭐ Ausgezeichnet",
+      "good": "👍 Gut",
+      "fair": "👌 Akzeptabel",
+      "poor": "⚠️ Schlecht"
+    },
+    "ownership": {
+      "landlord": "🏠 Vom Vermieter bereitgestellt",
+      "tenant": "👤 Vom Mieter bereitgestellt"
+    },
+    "form": {
+      "itemName": "Gegenstandsname",
+      "itemNamePlaceholder": "z.B., Wohnzimmersofa",
+      "category": "Kategorie",
+      "brand": "Marke",
+      "brandPlaceholder": "z.B., IKEA",
+      "model": "Modell",
+      "modelPlaceholder": "z.B., EKTORP",
+      "condition": "Zustand",
+      "ownership": "Eigentümerschaft",
+      "purchasePrice": "Kaufpreis (€)",
+      "currentValue": "Aktueller Wert (€)",
+      "description": "Beschreibung",
+      "descriptionPlaceholder": "Zusätzliche Details, Eigenschaften oder Notizen...",
+      "essential": "Wesentlicher Gegenstand",
+      "essentialDescription": "Erforderlich für das grundlegende Wohnen (beeinflusst rechtliche Verantwortung)",
+      "save": "Gegenstand speichern",
+      "cancel": "Abbrechen",
+      "saving": "Speichern..."
+    }
+  },
+  "customers": {
+    "title": "Kunden",
+    "addCustomer": "Kunde hinzufügen", 
+    "backToCustomers": "← Zurück zu Kunden",
+    "createCustomerFailed": "Fehler beim Erstellen des Kunden",
+    "form": {
+      "name": "Name",
+      "company": "Unternehmen", 
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "address": "Adresse",
+      "cancel": "Abbrechen",
+      "creating": "Erstellen...",
+      "createCustomer": "Kunde erstellen"
+    }
+  },
+  "errors": {
+    "somethingWentWrong": "Etwas ist schief gelaufen",
+    "unexpectedError": "Die Anwendung ist auf einen unerwarteten Fehler gestoßen. Bitte aktualisieren Sie die Seite, um es erneut zu versuchen.",
+    "refreshPage": "Seite aktualisieren"
+  },
+  "pagination": {
+    "previous": "Zurück",
+    "next": "Weiter"
   },
   "language": {
     "switchLanguage": "Sprache wechseln",

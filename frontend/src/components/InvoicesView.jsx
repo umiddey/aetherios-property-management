@@ -51,7 +51,7 @@ const InvoicesView = ({
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                   📊 {t('invoices.title')}
                 </h1>
-                <p className="text-gray-600 mt-1">Professional invoice management system</p>
+                <p className="text-gray-600 mt-1">{t('invoices.professionalInvoiceManagement')}</p>
               </div>
             </div>
             <div className="flex space-x-4">
@@ -91,13 +91,13 @@ const InvoicesView = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800">🔍 Smart Filters</h2>
+            <h2 className="text-2xl font-bold text-gray-800">🔍 {t('accounts.smartFilters')}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">⚡</span>
-                Status
+                {t('common.status')}
               </label>
               <div className="relative">
                 <select
@@ -122,7 +122,7 @@ const InvoicesView = ({
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">👥</span>
-                Tenant
+                {t('invoices.tenant')}
               </label>
               <div className="relative">
                 <select
@@ -146,7 +146,7 @@ const InvoicesView = ({
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">🏠</span>
-                Property
+                {t('invoices.property')}
               </label>
               <div className="relative">
                 <select
@@ -170,7 +170,7 @@ const InvoicesView = ({
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">🗃️</span>
-                Archive
+                {t('invoices.archive')}
               </label>
               <label className="flex items-center bg-white/80 backdrop-blur-sm px-4 py-3 rounded-xl border-2 border-gray-200 hover:bg-white/90 transition-all duration-300 cursor-pointer group-hover:shadow-lg">
                 <input
@@ -200,7 +200,7 @@ const InvoicesView = ({
               📊 {t('invoices.noInvoicesFound')}
             </h3>
             <p className="text-gray-600 mb-8 text-lg max-w-md mx-auto">
-              No invoices match your current filters. Create your first invoice to get started.
+              {t('invoices.noInvoicesMessage')}
             </p>
             <button
               onClick={() => handleNav('create-invoice')}
@@ -293,7 +293,7 @@ const InvoicesView = ({
                       <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4">
                         <div className="text-xs font-semibold text-green-700 mb-2 flex items-center">
                           <span className="mr-2">📄</span>
-                          Contract-Based Invoice
+                          {t('invoices.contractBasedInvoice')}
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="text-sm font-medium text-gray-800">
@@ -304,7 +304,7 @@ const InvoicesView = ({
                               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                 invoice.invoice_type === 'credit' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
                               }`}>
-                                {invoice.invoice_type === 'credit' ? '⬆️ Credit' : '⬇️ Debit'}
+                                {invoice.invoice_type === 'credit' ? `⬆️ ${t('invoices.credit')}` : `⬇️ ${t('invoices.debit')}`}
                               </span>
                             )}
                           </div>
@@ -353,7 +353,7 @@ const InvoicesView = ({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                        <span>👁️ View Invoice</span>
+                        <span>👁️ {t('invoices.viewInvoice')}</span>
                       </button>
                     </div>
                   </div>

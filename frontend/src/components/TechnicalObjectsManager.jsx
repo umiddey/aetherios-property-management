@@ -5,39 +5,39 @@ import cachedAxios from '../utils/cachedAxios';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const TECHNICAL_OBJECT_TYPES = [
-  { value: 'heating_system', label: '🔥 Heating System', icon: '🔥' },
-  { value: 'elevator', label: '🛗 Elevator', icon: '🛗' },
-  { value: 'intercom', label: '📞 Intercom', icon: '📞' },
-  { value: 'building_management', label: '🏢 Building Management', icon: '🏢' },
-  { value: 'security_system', label: '🔒 Security System', icon: '🔒' },
-  { value: 'ventilation', label: '💨 Ventilation', icon: '💨' },
-  { value: 'solar_panels', label: '☀️ Solar Panels', icon: '☀️' },
-  { value: 'fire_safety', label: '🚨 Fire Safety', icon: '🚨' },
-  { value: 'water_system', label: '💧 Water System', icon: '💧' },
-  { value: 'electrical_system', label: '⚡ Electrical System', icon: '⚡' }
+const getTechnicalObjectTypes = (t) => [
+  { value: 'heating_system', label: t('technicalObjects.manager.objectTypes.heating_system'), icon: '🔥' },
+  { value: 'elevator', label: t('technicalObjects.manager.objectTypes.elevator'), icon: '🛗' },
+  { value: 'intercom', label: t('technicalObjects.manager.objectTypes.intercom'), icon: '📞' },
+  { value: 'building_management', label: t('technicalObjects.manager.objectTypes.building_management'), icon: '🏢' },
+  { value: 'security_system', label: t('technicalObjects.manager.objectTypes.security_system'), icon: '🔒' },
+  { value: 'ventilation', label: t('technicalObjects.manager.objectTypes.ventilation'), icon: '💨' },
+  { value: 'solar_panels', label: t('technicalObjects.manager.objectTypes.solar_panels'), icon: '☀️' },
+  { value: 'fire_safety', label: t('technicalObjects.manager.objectTypes.fire_safety'), icon: '🚨' },
+  { value: 'water_system', label: t('technicalObjects.manager.objectTypes.water_system'), icon: '💧' },
+  { value: 'electrical_system', label: t('technicalObjects.manager.objectTypes.electrical_system'), icon: '⚡' }
 ];
 
-const OBJECT_STATUS = [
-  { value: 'active', label: '✅ Active', color: 'bg-green-100 text-green-800' },
-  { value: 'maintenance', label: '🔧 Under Maintenance', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'broken', label: '❌ Broken', color: 'bg-red-100 text-red-800' },
-  { value: 'decommissioned', label: '🔐 Decommissioned', color: 'bg-gray-100 text-gray-800' },
-  { value: 'planned', label: '📅 Planned', color: 'bg-blue-100 text-blue-800' }
+const getObjectStatus = (t) => [
+  { value: 'active', label: t('technicalObjects.manager.statuses.active'), color: 'bg-green-100 text-green-800' },
+  { value: 'maintenance', label: t('technicalObjects.manager.statuses.maintenance'), color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'broken', label: t('technicalObjects.manager.statuses.broken'), color: 'bg-red-100 text-red-800' },
+  { value: 'decommissioned', label: t('technicalObjects.manager.statuses.decommissioned'), color: 'bg-gray-100 text-gray-800' },
+  { value: 'planned', label: t('technicalObjects.manager.statuses.planned'), color: 'bg-blue-100 text-blue-800' }
 ];
 
-const HEATING_TYPES = [
-  { value: 'zentralheizung', label: 'Zentralheizung (Central)' },
-  { value: 'gasheizung', label: 'Gasheizung (Gas)' },
-  { value: 'fernwaerme', label: 'Fernwärme (District)' },
-  { value: 'waermepumpe', label: 'Wärmepumpe (Heat Pump)' },
-  { value: 'elektroheizung', label: 'Elektroheizung (Electric)' }
+const getHeatingTypes = (t) => [
+  { value: 'zentralheizung', label: t('technicalObjects.manager.heatingTypes.zentralheizung') },
+  { value: 'gasheizung', label: t('technicalObjects.manager.heatingTypes.gasheizung') },
+  { value: 'fernwaerme', label: t('technicalObjects.manager.heatingTypes.fernwaerme') },
+  { value: 'waermepumpe', label: t('technicalObjects.manager.heatingTypes.waermepumpe') },
+  { value: 'elektroheizung', label: t('technicalObjects.manager.heatingTypes.elektroheizung') }
 ];
 
-const DISTRIBUTION_METHODS = [
-  { value: 'surface_area', label: 'Surface Area (m²)' },
-  { value: 'consumption', label: 'Consumption Based (BetrKV)' },
-  { value: 'apartment_count', label: 'Equal Distribution' }
+const getDistributionMethods = (t) => [
+  { value: 'surface_area', label: t('technicalObjects.manager.distributionMethods.surface_area') },
+  { value: 'consumption', label: t('technicalObjects.manager.distributionMethods.consumption') },
+  { value: 'apartment_count', label: t('technicalObjects.manager.distributionMethods.apartment_count') }
 ];
 
 const TechnicalObjectsManager = ({ 
@@ -93,7 +93,7 @@ const TechnicalObjectsManager = ({
       setTechnicalObjects(response.data || []);
     } catch (error) {
       console.error('Error fetching technical objects:', error);
-      setError('Failed to load technical objects');
+      setError(t('technicalObjects.manager.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -202,7 +202,7 @@ const TechnicalObjectsManager = ({
       } else if (typeof errorDetail === 'string') {
         setError(errorDetail);
       } else {
-        setError('Failed to save technical object');
+        setError(t('technicalObjects.manager.errors.saveFailed'));
       }
     } finally {
       setLoading(false);
@@ -237,7 +237,7 @@ const TechnicalObjectsManager = ({
   };
 
   const handleDelete = async (objectId) => {
-    if (!window.confirm('Are you sure you want to delete this technical object?')) {
+    if (!window.confirm(t('technicalObjects.manager.deleteConfirm'))) {
       return;
     }
 
@@ -252,18 +252,20 @@ const TechnicalObjectsManager = ({
       
     } catch (error) {
       console.error('Error deleting technical object:', error);
-      setError('Failed to delete technical object');
+      setError(t('technicalObjects.manager.errors.deleteFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const getObjectTypeInfo = (type) => {
-    return TECHNICAL_OBJECT_TYPES.find(t => t.value === type) || TECHNICAL_OBJECT_TYPES[0];
+    const types = getTechnicalObjectTypes(t);
+    return types.find(obj => obj.value === type) || types[0];
   };
 
   const getStatusInfo = (status) => {
-    return OBJECT_STATUS.find(s => s.value === status) || OBJECT_STATUS[0];
+    const statuses = getObjectStatus(t);
+    return statuses.find(s => s.value === status) || statuses[0];
   };
 
   return (
@@ -277,8 +279,8 @@ const TechnicalObjectsManager = ({
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Technical Objects</h3>
-              <p className="text-orange-100 text-sm">Manage property equipment and systems</p>
+              <h3 className="text-lg font-bold text-white">{t('technicalObjects.manager.title')}</h3>
+              <p className="text-orange-100 text-sm">{t('technicalObjects.manager.subtitle')}</p>
             </div>
           </div>
           
@@ -290,7 +292,7 @@ const TechnicalObjectsManager = ({
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Add Technical Object
+              {t('technicalObjects.manager.addButton')}
             </button>
           )}
         </div>
@@ -306,7 +308,7 @@ const TechnicalObjectsManager = ({
         {loading && (
           <div className="text-center py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-            <p className="mt-2 text-gray-600">Loading technical objects...</p>
+            <p className="mt-2 text-gray-600">{t('technicalObjects.manager.loadingMessage')}</p>
           </div>
         )}
 
@@ -336,7 +338,7 @@ const TechnicalObjectsManager = ({
                         </div>
                         {object.object_type === 'heating_system' && object.heating_type && (
                           <div className="text-sm text-orange-600 mt-1">
-                            🔥 {HEATING_TYPES.find(h => h.value === object.heating_type)?.label || object.heating_type}
+                            🔥 {getHeatingTypes(t).find(h => h.value === object.heating_type)?.label || object.heating_type}
                             {object.cost_per_sqm && <span className="ml-2">• €{object.cost_per_sqm}/m²</span>}
                           </div>
                         )}
@@ -375,13 +377,13 @@ const TechnicalObjectsManager = ({
             <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5l-1-1z" />
             </svg>
-            <p>No technical objects configured for this property</p>
+            <p>{t('technicalObjects.manager.noObjectsMessage')}</p>
             {isEditMode && (
               <button
                 onClick={() => setShowAddForm(true)}
                 className="mt-3 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors"
               >
-                Add First Technical Object
+                {t('technicalObjects.manager.addFirstButton')}
               </button>
             )}
           </div>
@@ -391,14 +393,14 @@ const TechnicalObjectsManager = ({
         {showAddForm && (
           <div className="border-t border-gray-200 pt-6">
             <h4 className="text-lg font-semibold text-gray-900 mb-4">
-              {editingObject ? 'Edit Technical Object' : 'Add New Technical Object'}
+              {editingObject ? t('technicalObjects.manager.editTitle') : t('technicalObjects.manager.addTitle')}
             </h4>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Object Name *
+                    {t('technicalObjects.manager.form.objectName')} *
                   </label>
                   <input
                     type="text"
@@ -407,13 +409,13 @@ const TechnicalObjectsManager = ({
                     onChange={handleFormChange}
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    placeholder="e.g., Central Heating System"
+                    placeholder={t('technicalObjects.manager.form.objectNamePlaceholder')}
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Object Type *
+                    {t('technicalObjects.manager.form.objectType')} *
                   </label>
                   <select
                     name="object_type"
@@ -422,7 +424,7 @@ const TechnicalObjectsManager = ({
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
-                    {TECHNICAL_OBJECT_TYPES.map(type => (
+                    {getTechnicalObjectTypes(t).map(type => (
                       <option key={type.value} value={type.value}>
                         {type.label}
                       </option>
@@ -432,7 +434,7 @@ const TechnicalObjectsManager = ({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Manufacturer
+                    {t('technicalObjects.manager.form.manufacturer')}
                   </label>
                   <input
                     type="text"
@@ -440,13 +442,13 @@ const TechnicalObjectsManager = ({
                     value={formData.manufacturer}
                     onChange={handleFormChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    placeholder="e.g., Viessmann"
+                    placeholder={t('technicalObjects.manager.form.manufacturerPlaceholder')}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Model
+                    {t('technicalObjects.manager.form.model')}
                   </label>
                   <input
                     type="text"
@@ -454,13 +456,13 @@ const TechnicalObjectsManager = ({
                     value={formData.model}
                     onChange={handleFormChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    placeholder="e.g., Vitocrossal 300"
+                    placeholder={t('technicalObjects.manager.form.modelPlaceholder')}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
+                    {t('technicalObjects.manager.form.status')}
                   </label>
                   <select
                     name="status"
@@ -468,7 +470,7 @@ const TechnicalObjectsManager = ({
                     onChange={handleFormChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   >
-                    {OBJECT_STATUS.map(status => (
+                    {getObjectStatus(t).map(status => (
                       <option key={status.value} value={status.value}>
                         {status.label}
                       </option>
@@ -478,7 +480,7 @@ const TechnicalObjectsManager = ({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Installation Date
+                    {t('technicalObjects.manager.form.installationDate')}
                   </label>
                   <input
                     type="date"
@@ -493,11 +495,11 @@ const TechnicalObjectsManager = ({
               {/* Heating System Specific Fields */}
               {formData.object_type === 'heating_system' && (
                 <div className="border-t border-gray-200 pt-4">
-                  <h5 className="text-md font-medium text-gray-900 mb-3">🔥 Heating System Details</h5>
+                  <h5 className="text-md font-medium text-gray-900 mb-3">{t('technicalObjects.manager.form.heatingSystemDetails')}</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Heating Type
+                        {t('technicalObjects.manager.form.heatingType')}
                       </label>
                       <select
                         name="heating_type"
@@ -505,8 +507,8 @@ const TechnicalObjectsManager = ({
                         onChange={handleFormChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       >
-                        <option value="">Select Type</option>
-                        {HEATING_TYPES.map(type => (
+                        <option value="">{t('technicalObjects.manager.form.selectType')}</option>
+                        {getHeatingTypes(t).map(type => (
                           <option key={type.value} value={type.value}>
                             {type.label}
                           </option>
@@ -516,7 +518,7 @@ const TechnicalObjectsManager = ({
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Cost Distribution Method
+                        {t('technicalObjects.manager.form.costDistributionMethod')}
                       </label>
                       <select
                         name="distribution_method"
@@ -524,8 +526,8 @@ const TechnicalObjectsManager = ({
                         onChange={handleFormChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       >
-                        <option value="">Select Method</option>
-                        {DISTRIBUTION_METHODS.map(method => (
+                        <option value="">{t('technicalObjects.manager.form.selectMethod')}</option>
+                        {getDistributionMethods(t).map(method => (
                           <option key={method.value} value={method.value}>
                             {method.label}
                           </option>
@@ -535,7 +537,7 @@ const TechnicalObjectsManager = ({
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Cost per m² (€)
+                        {t('technicalObjects.manager.form.costPerSqm')}
                       </label>
                       <input
                         type="number"
@@ -545,13 +547,13 @@ const TechnicalObjectsManager = ({
                         step="0.01"
                         min="0"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        placeholder="e.g., 2.50"
+                        placeholder={t('technicalObjects.manager.form.costPerSqmPlaceholder')}
                       />
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Power Output (kW)
+                        {t('technicalObjects.manager.form.powerOutput')}
                       </label>
                       <input
                         type="number"
@@ -561,7 +563,7 @@ const TechnicalObjectsManager = ({
                         step="0.1"
                         min="0"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        placeholder="e.g., 150.0"
+                        placeholder={t('technicalObjects.manager.form.powerOutputPlaceholder')}
                       />
                     </div>
                   </div>
@@ -570,7 +572,7 @@ const TechnicalObjectsManager = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
+                  {t('technicalObjects.manager.form.notes')}
                 </label>
                 <textarea
                   name="notes"
@@ -578,7 +580,7 @@ const TechnicalObjectsManager = ({
                   onChange={handleFormChange}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                  placeholder="Additional notes, maintenance history, etc."
+                  placeholder={t('technicalObjects.manager.form.notesPlaceholder')}
                 />
               </div>
 
@@ -588,14 +590,14 @@ const TechnicalObjectsManager = ({
                   disabled={loading}
                   className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
                 >
-                  {loading ? 'Saving...' : (editingObject ? 'Update Object' : 'Add Object')}
+                  {loading ? t('technicalObjects.manager.form.saving') : (editingObject ? t('technicalObjects.manager.form.updateButton') : t('technicalObjects.manager.form.addButton'))}
                 </button>
                 <button
                   type="button"
                   onClick={resetForm}
                   className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors"
                 >
-                  Cancel
+                  {t('technicalObjects.manager.form.cancelButton')}
                 </button>
               </div>
             </form>

@@ -669,10 +669,10 @@ const PropertyEditPage = () => {
       <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
         <div className="mb-6">
           <h2 className="text-2xl font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
-            Technical Objects Management
+            {t('technicalObjects.managementTitle')}
           </h2>
           <p className="text-gray-500">
-            Manage technical equipment and systems for this property. Includes heating, elevators, and other building systems with German BetrKV compliance.
+            {t('technicalObjects.managementSubtitle')}
           </p>
         </div>
         

@@ -5,28 +5,28 @@ import cachedAxios from '../utils/cachedAxios';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const ITEM_CATEGORIES = [
-  { value: 'furniture', label: '🪑 Furniture', icon: '🪑' },
-  { value: 'appliance', label: '🔌 Appliances', icon: '🔌' },
-  { value: 'electronics', label: '📺 Electronics', icon: '📺' },
-  { value: 'kitchen', label: '🍳 Kitchen', icon: '🍳' },
-  { value: 'bathroom', label: '🚿 Bathroom', icon: '🚿' },
-  { value: 'decoration', label: '🖼️ Decoration', icon: '🖼️' },
-  { value: 'lighting', label: '💡 Lighting', icon: '💡' },
-  { value: 'other', label: '📦 Other', icon: '📦' }
+const getItemCategories = (t) => [
+  { value: 'furniture', label: t('furnishedItems.categories.furniture'), icon: '🪑' },
+  { value: 'appliance', label: t('furnishedItems.categories.appliance'), icon: '🔌' },
+  { value: 'electronics', label: t('furnishedItems.categories.electronics'), icon: '📺' },
+  { value: 'kitchen', label: t('furnishedItems.categories.kitchen'), icon: '🍳' },
+  { value: 'bathroom', label: t('furnishedItems.categories.bathroom'), icon: '🚿' },
+  { value: 'decoration', label: t('furnishedItems.categories.decoration'), icon: '🖼️' },
+  { value: 'lighting', label: t('furnishedItems.categories.lighting'), icon: '💡' },
+  { value: 'other', label: t('furnishedItems.categories.other'), icon: '📦' }
 ];
 
-const ITEM_CONDITIONS = [
-  { value: 'new', label: '✨ New', color: 'bg-green-100 text-green-800' },
-  { value: 'excellent', label: '⭐ Excellent', color: 'bg-blue-100 text-blue-800' },
-  { value: 'good', label: '👍 Good', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'fair', label: '👌 Fair', color: 'bg-orange-100 text-orange-800' },
-  { value: 'poor', label: '⚠️ Poor', color: 'bg-red-100 text-red-800' }
+const getItemConditions = (t) => [
+  { value: 'new', label: t('furnishedItems.conditions.new'), color: 'bg-green-100 text-green-800' },
+  { value: 'excellent', label: t('furnishedItems.conditions.excellent'), color: 'bg-blue-100 text-blue-800' },
+  { value: 'good', label: t('furnishedItems.conditions.good'), color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'fair', label: t('furnishedItems.conditions.fair'), color: 'bg-orange-100 text-orange-800' },
+  { value: 'poor', label: t('furnishedItems.conditions.poor'), color: 'bg-red-100 text-red-800' }
 ];
 
-const OWNERSHIP_TYPES = [
-  { value: 'landlord', label: '🏠 Landlord Provided', color: 'bg-blue-100 text-blue-800' },
-  { value: 'tenant', label: '👤 Tenant Provided', color: 'bg-purple-100 text-purple-800' }
+const getOwnershipTypes = (t) => [
+  { value: 'landlord', label: t('furnishedItems.ownership.landlord'), color: 'bg-blue-100 text-blue-800' },
+  { value: 'tenant', label: t('furnishedItems.ownership.tenant'), color: 'bg-purple-100 text-purple-800' }
 ];
 
 const FurnishedItemsManager = ({ 
@@ -114,7 +114,7 @@ const FurnishedItemsManager = ({
         }
       } catch (error) {
         console.error('Error saving furnished item:', error);
-        alert('Failed to save furnished item. Please try again.');
+        alert(t('furnishedItems.errors.saveFailed'));
         return;
       }
     } else {
@@ -158,7 +158,7 @@ const FurnishedItemsManager = ({
   };
 
   const handleDelete = async (itemId) => {
-    if (window.confirm('Are you sure you want to remove this item?')) {
+    if (window.confirm(t('furnishedItems.deleteConfirm'))) {
       if (isEditMode && propertyId) {
         // API mode - delete from database
         try {
@@ -174,7 +174,7 @@ const FurnishedItemsManager = ({
           onItemsChange(updatedItems);
         } catch (error) {
           console.error('Error deleting furnished item:', error);
-          alert('Failed to delete furnished item. Please try again.');
+          alert(t('furnishedItems.errors.deleteFailed'));
         }
       } else {
         // Local state mode
@@ -185,17 +185,17 @@ const FurnishedItemsManager = ({
   };
 
   const getCategoryIcon = (category) => {
-    const cat = ITEM_CATEGORIES.find(c => c.value === category);
+    const cat = getItemCategories(t).find(c => c.value === category);
     return cat ? cat.icon : '📦';
   };
 
   const getConditionStyle = (condition) => {
-    const cond = ITEM_CONDITIONS.find(c => c.value === condition);
+    const cond = getItemConditions(t).find(c => c.value === condition);
     return cond ? cond.color : 'bg-gray-100 text-gray-800';
   };
 
   const getOwnershipStyle = (ownership) => {
-    const own = OWNERSHIP_TYPES.find(o => o.value === ownership);
+    const own = getOwnershipTypes(t).find(o => o.value === ownership);
     return own ? own.color : 'bg-gray-100 text-gray-800';
   };
 
@@ -210,8 +210,8 @@ const FurnishedItemsManager = ({
             </svg>
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900">Furnished Items</h3>
-            <p className="text-sm text-gray-500">{items.length} items • German legal compliance</p>
+            <h3 className="text-xl font-bold text-gray-900">{t('furnishedItems.title')}</h3>
+            <p className="text-sm text-gray-500">{t('furnishedItems.subtitle', { count: items.length })}</p>
           </div>
         </div>
         
@@ -223,7 +223,7 @@ const FurnishedItemsManager = ({
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
-          Add Item
+          {t('furnishedItems.addButton')}
         </button>
       </div>
 
@@ -263,14 +263,14 @@ const FurnishedItemsManager = ({
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-1">
                   <span className={`px-2 py-1 text-xs rounded-full ${getConditionStyle(item.condition)}`}>
-                    {ITEM_CONDITIONS.find(c => c.value === item.condition)?.label || item.condition}
+                    {getItemConditions(t).find(c => c.value === item.condition)?.label || item.condition}
                   </span>
                   <span className={`px-2 py-1 text-xs rounded-full ${getOwnershipStyle(item.ownership)}`}>
-                    {OWNERSHIP_TYPES.find(o => o.value === item.ownership)?.label || item.ownership}
+                    {getOwnershipTypes(t).find(o => o.value === item.ownership)?.label || item.ownership}
                   </span>
                   {item.is_essential && (
                     <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                      ⚡ Essential
+                      ⚡ {t('furnishedItems.essential')}
                     </span>
                   )}
                 </div>
@@ -295,8 +295,8 @@ const FurnishedItemsManager = ({
           <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
           </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No furnished items yet</h3>
-          <p className="text-gray-500 mb-4">Add furniture and appliances to track ownership and liability</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('furnishedItems.noItemsTitle')}</h3>
+          <p className="text-gray-500 mb-4">{t('furnishedItems.noItemsDescription')}</p>
           <button
             onClick={() => setShowAddForm(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -304,7 +304,7 @@ const FurnishedItemsManager = ({
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Add Your First Item
+            {t('furnishedItems.addButton')}
           </button>
         </div>
       )}
@@ -316,7 +316,7 @@ const FurnishedItemsManager = ({
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-900">
-                  {editingItem ? 'Edit Item' : 'Add Furnished Item'}
+                  {editingItem ? t('furnishedItems.editTitle') : t('furnishedItems.addTitle')}
                 </h3>
                 <button
                   onClick={resetForm}
@@ -332,21 +332,21 @@ const FurnishedItemsManager = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Item Name *
+                      {t('furnishedItems.form.itemName')} *
                     </label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="e.g., Leather Sofa, Washing Machine"
+                      placeholder={t('furnishedItems.form.itemNamePlaceholder')}
                       required
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Category *
+                      {t('furnishedItems.form.category')} *
                     </label>
                     <select
                       value={formData.category}
@@ -354,7 +354,7 @@ const FurnishedItemsManager = ({
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       required
                     >
-                      {ITEM_CATEGORIES.map(cat => (
+                      {getItemCategories(t).map(cat => (
                         <option key={cat.value} value={cat.value}>{cat.label}</option>
                       ))}
                     </select>
@@ -362,7 +362,7 @@ const FurnishedItemsManager = ({
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Condition *
+                      {t('furnishedItems.form.condition')} *
                     </label>
                     <select
                       value={formData.condition}
@@ -370,7 +370,7 @@ const FurnishedItemsManager = ({
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       required
                     >
-                      {ITEM_CONDITIONS.map(cond => (
+                      {getItemConditions(t).map(cond => (
                         <option key={cond.value} value={cond.value}>{cond.label}</option>
                       ))}
                     </select>
@@ -378,33 +378,33 @@ const FurnishedItemsManager = ({
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Brand
+                      {t('furnishedItems.form.brand')}
                     </label>
                     <input
                       type="text"
                       value={formData.brand}
                       onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="e.g., IKEA, Samsung"
+                      placeholder={t('furnishedItems.form.brandPlaceholder')}
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Model
+                      {t('furnishedItems.form.model')}
                     </label>
                     <input
                       type="text"
                       value={formData.model}
                       onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="e.g., EKTORP, WF45K6500AW"
+                      placeholder={t('furnishedItems.form.modelPlaceholder')}
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Ownership *
+                      {t('furnishedItems.form.ownership')} *
                     </label>
                     <select
                       value={formData.ownership}
@@ -412,7 +412,7 @@ const FurnishedItemsManager = ({
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       required
                     >
-                      {OWNERSHIP_TYPES.map(own => (
+                      {getOwnershipTypes(t).map(own => (
                         <option key={own.value} value={own.value}>{own.label}</option>
                       ))}
                     </select>
@@ -420,7 +420,7 @@ const FurnishedItemsManager = ({
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Purchase Price (€)
+                      {t('furnishedItems.form.purchasePrice')}
                     </label>
                     <input
                       type="number"
@@ -435,7 +435,7 @@ const FurnishedItemsManager = ({
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Current Value (€)
+                      {t('furnishedItems.form.currentValue')}
                     </label>
                     <input
                       type="number"
@@ -450,14 +450,14 @@ const FurnishedItemsManager = ({
 
                   <div className="md:col-span-2">
                     <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Description
+                      {t('furnishedItems.form.description')}
                     </label>
                     <textarea
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       rows="3"
-                      placeholder="Additional details about the item..."
+                      placeholder={t('furnishedItems.form.descriptionPlaceholder')}
                     />
                   </div>
 
@@ -470,7 +470,7 @@ const FurnishedItemsManager = ({
                         className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <span className="text-sm font-bold text-gray-700">
-                        Essential for basic living (affects legal liability)
+                        {t('furnishedItems.form.essentialDescription')}
                       </span>
                     </label>
                   </div>
@@ -482,13 +482,13 @@ const FurnishedItemsManager = ({
                     onClick={resetForm}
                     className="px-6 py-3 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
                   >
-                    Cancel
+                    {t('furnishedItems.form.cancel')}
                   </button>
                   <button
                     type="submit"
                     className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl"
                   >
-                    {editingItem ? 'Update Item' : 'Add Item'}
+                    {editingItem ? t('furnishedItems.form.save') : t('furnishedItems.form.save')}
                   </button>
                 </div>
               </form>

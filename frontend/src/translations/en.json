@@ -218,7 +218,17 @@
     "createFromContractNote": "Invoices can only be created from contracts. Visit a contract detail page to create an invoice.",
     "createFromContractInstructions": "To create invoices, navigate to a contract and use the 'Create Invoice' button.",
     "allTenants": "All Tenants",
-    "allProperties": "All Properties"
+    "allProperties": "All Properties",
+    "professionalInvoiceManagement": "Professional invoice management system",
+    "noInvoicesFound": "No Invoices Found",
+    "noInvoicesMessage": "No invoices match your current filters. Create your first invoice to get started.",
+    "tenant": "Tenant",
+    "property": "Property",
+    "archive": "Archive",
+    "contractBasedInvoice": "Contract-Based Invoice",
+    "credit": "Credit",
+    "debit": "Debit",
+    "viewInvoice": "View Invoice"
   },
   "tasks": {
     "title": "Tasks",
@@ -246,7 +256,14 @@
     "budget": "Budget",
     "unassigned": "Unassigned",
     "noTasksMessage": "No tasks match your current filters. Create your first task to get started.",
-    "backToTasks": "Back to Tasks"
+    "backToTasks": "Back to Tasks",
+    "efficientTaskManagement": "Efficient task management and tracking system",
+    "taskForProperty": "Task for property",
+    "failedToCreateTask": "Failed to create task",
+    "dueDate": "Due Date",
+    "assignedTo": "Assigned To",
+    "none": "None",
+    "cancel": "Cancel"
   },
   "accounts": {
     "title": "Accounts",
@@ -272,6 +289,7 @@
     "licensesExpiringSoon": "⚠️ Licenses Expiring Soon",
     "expiredLicenses": "❌ Expired Licenses",
     "noAccountsMessage": "No accounts match your current filters. Try adjusting your search criteria.",
+    "noAccountsFound": "No Accounts Found",
     "eligible": "✓ Eligible",
     "notEligible": "✗ Not Eligible",
     "expiring": "Expiring",
@@ -280,7 +298,22 @@
     "expiringSoon": "Expiring Soon:",
     "eligibleAssignments": "✓ Eligible for Assignments",
     "notEligibleAssignments": "✗ Not Eligible for Assignments",
-    "manageLicenses": "📋 Manage Licenses"
+    "manageLicenses": "📋 Manage Licenses",
+    "smartFilters": "Smart Filters",
+    "licenseCompliance": "License Compliance",
+    "allContractors": "All Contractors",
+    "eligibleForAssignments": "✓ Eligible for Assignments",
+    "notEligibleText": "✗ Not Eligible",
+    "availableOnlyForContractors": "Available only for contractors",
+    "loading": "Loading...",
+    "noLicenseData": "No License Data",
+    "valid": "Valid",
+    "expiringSoonText": "Expiring Soon",
+    "viewDetails": "View Details",
+    "view": "View",
+    "associatedTasks": "Associated Tasks",
+    "noTasksAssociated": "No tasks associated with this account",
+    "manageContractsEfficiency": "Manage your contracts with modern efficiency"
   },
   "forms": {
     "createProperty": {
@@ -559,6 +592,202 @@
       "minimumParties": "At least 2 parties are required",
       "invalidValue": "Value must be a positive number"
     }
+  },
+  "technicalObjects": {
+    "title": "Technical Objects",
+    "noObjectsTitle": "No Technical Objects",
+    "noObjectsDescription": "Add technical equipment and systems to track maintenance and compliance",
+    "type": "Type",
+    "manufacturer": "Manufacturer",
+    "model": "Model",
+    "heating": "Heating",
+    "fuel": "Fuel",
+    "distribution": "Distribution",
+    "installed": "Installed",
+    "addedBy": "Added by",
+    "status": {
+      "active": "✅ Active",
+      "maintenance": "🔧 Maintenance",
+      "inactive": "❌ Inactive"
+    },
+    "types": {
+      "heating_system": "Heating System",
+      "elevator": "Elevator",
+      "intercom": "Intercom",
+      "security_system": "Security System",
+      "fire_safety": "Fire Safety",
+      "ventilation": "Ventilation",
+      "plumbing": "Plumbing",
+      "electrical": "Electrical",
+      "other": "Other",
+      "technical_object": "Technical Object"
+    },
+    "heatingTypes": {
+      "zentralheizung": "Central",
+      "etagenheizung": "Floor",
+      "einzelheizung": "Individual"
+    },
+    "distributionTypes": {
+      "surface_area": "Surface Area",
+      "apartment_count": "Equal",
+      "consumption": "Consumption"
+    },
+    "managementTitle": "Technical Objects Management",
+    "managementSubtitle": "Manage technical equipment and systems for this property. Includes heating, elevators, and other building systems with German BetrKV compliance.",
+    "manager": {
+      "title": "Technical Objects",
+      "subtitle": "Manage property equipment and systems",
+      "addButton": "Add Technical Object",
+      "loadingMessage": "Loading technical objects...",
+      "noObjectsMessage": "No technical objects configured for this property",
+      "addFirstButton": "Add First Technical Object",
+      "editTitle": "Edit Technical Object",
+      "addTitle": "Add New Technical Object",
+      "deleteConfirm": "Are you sure you want to delete this technical object?",
+      "errors": {
+        "loadFailed": "Failed to load technical objects",
+        "saveFailed": "Failed to save technical object",
+        "deleteFailed": "Failed to delete technical object"
+      },
+      "form": {
+        "objectName": "Object Name",
+        "objectNamePlaceholder": "e.g., Central Heating System",
+        "objectType": "Object Type",
+        "manufacturer": "Manufacturer",
+        "manufacturerPlaceholder": "e.g., Viessmann",
+        "model": "Model",
+        "modelPlaceholder": "e.g., Vitocrossal 300",
+        "status": "Status",
+        "installationDate": "Installation Date",
+        "heatingSystemDetails": "🔥 Heating System Details",
+        "heatingType": "Heating Type",
+        "selectType": "Select Type",
+        "costDistributionMethod": "Cost Distribution Method",
+        "selectMethod": "Select Method",
+        "costPerSqm": "Cost per m² (€)",
+        "costPerSqmPlaceholder": "e.g., 2.50",
+        "powerOutput": "Power Output (kW)",
+        "powerOutputPlaceholder": "e.g., 150.0",
+        "notes": "Notes",
+        "notesPlaceholder": "Additional notes, maintenance history, etc.",
+        "saving": "Saving...",
+        "updateButton": "Update Object",
+        "addButton": "Add Object",
+        "cancelButton": "Cancel"
+      },
+      "objectTypes": {
+        "heating_system": "🔥 Heating System",
+        "elevator": "🛗 Elevator",
+        "intercom": "📞 Intercom",
+        "building_management": "🏢 Building Management",
+        "security_system": "🔒 Security System",
+        "ventilation": "💨 Ventilation",
+        "solar_panels": "☀️ Solar Panels",
+        "fire_safety": "🚨 Fire Safety",
+        "water_system": "💧 Water System",
+        "electrical_system": "⚡ Electrical System"
+      },
+      "statuses": {
+        "active": "✅ Active",
+        "maintenance": "🔧 Under Maintenance",
+        "broken": "❌ Broken",
+        "decommissioned": "🔐 Decommissioned",
+        "planned": "📅 Planned"
+      },
+      "heatingTypes": {
+        "zentralheizung": "Zentralheizung (Central)",
+        "gasheizung": "Gasheizung (Gas)",
+        "fernwaerme": "Fernwärme (District)",
+        "waermepumpe": "Wärmepumpe (Heat Pump)",
+        "elektroheizung": "Elektroheizung (Electric)"
+      },
+      "distributionMethods": {
+        "surface_area": "Surface Area (m²)",
+        "consumption": "Consumption Based (BetrKV)",
+        "apartment_count": "Equal Distribution"
+      }
+    }
+  },
+  "furnishedItems": {
+    "title": "Furnished Items",
+    "subtitle": "{{count}} items • German legal compliance",
+    "addButton": "Add Item",
+    "noItemsTitle": "No furnished items yet",
+    "noItemsDescription": "Add furniture and appliances to track ownership and liability",
+    "editTitle": "Edit Furnished Item",
+    "addTitle": "Add Furnished Item",
+    "essential": "Essential",
+    "deleteConfirm": "Are you sure you want to remove this item?",
+    "errors": {
+      "saveFailed": "Failed to save furnished item. Please try again.",
+      "deleteFailed": "Failed to delete furnished item. Please try again."
+    },
+    "categories": {
+      "furniture": "🪑 Furniture",
+      "appliance": "🔌 Appliances",
+      "electronics": "📺 Electronics",
+      "kitchen": "🍳 Kitchen",
+      "bathroom": "🚿 Bathroom",
+      "decoration": "🖼️ Decoration",
+      "lighting": "💡 Lighting",
+      "other": "📦 Other"
+    },
+    "conditions": {
+      "new": "✨ New",
+      "excellent": "⭐ Excellent",
+      "good": "👍 Good",
+      "fair": "👌 Fair",
+      "poor": "⚠️ Poor"
+    },
+    "ownership": {
+      "landlord": "🏠 Landlord Provided",
+      "tenant": "👤 Tenant Provided"
+    },
+    "form": {
+      "itemName": "Item Name",
+      "itemNamePlaceholder": "e.g., Living Room Sofa",
+      "category": "Category",
+      "brand": "Brand",
+      "brandPlaceholder": "e.g., IKEA",
+      "model": "Model",
+      "modelPlaceholder": "e.g., EKTORP",
+      "condition": "Condition",
+      "ownership": "Ownership",
+      "purchasePrice": "Purchase Price (€)",
+      "currentValue": "Current Value (€)",
+      "description": "Description",
+      "descriptionPlaceholder": "Additional details, features, or notes...",
+      "essential": "Essential Item",
+      "essentialDescription": "Required for basic living (affects legal responsibility)",
+      "save": "Save Item",
+      "cancel": "Cancel",
+      "saving": "Saving..."
+    }
+  },
+  "customers": {
+    "title": "Customers",
+    "addCustomer": "Add Customer", 
+    "backToCustomers": "← Back to Customers",
+    "createCustomerFailed": "Failed to create customer",
+    "form": {
+      "name": "Name",
+      "company": "Company", 
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "cancel": "Cancel",
+      "creating": "Creating...",
+      "createCustomer": "Create Customer"
+    }
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong",
+    "unexpectedError": "The application encountered an unexpected error. Please refresh the page to try again.",
+    "refreshPage": "Refresh Page"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next"
   },
   "language": {
     "switchLanguage": "Switch Language",

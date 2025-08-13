@@ -212,7 +212,7 @@ const AccountsView = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800">🔍 Smart Filters</h2>
+            <h2 className="text-2xl font-bold text-gray-800">🔍 {t('accounts.smartFilters')}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="group">
@@ -265,7 +265,7 @@ const AccountsView = ({
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <span className="mr-2">📋</span>
-                License Compliance
+                {t('accounts.licenseCompliance')}
               </label>
               <div className="relative">
                 <select
@@ -274,9 +274,9 @@ const AccountsView = ({
                   className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 transition-all duration-300 font-medium group-hover:shadow-lg"
                   disabled={accountTypeFilter !== 'contractor' && accountTypeFilter !== null}
                 >
-                  <option value="">All Contractors</option>
-                  <option value="eligible">✓ Eligible for Assignments</option>
-                  <option value="not_eligible">✗ Not Eligible</option>
+                  <option value="">{t('accounts.allContractors')}</option>
+                  <option value="eligible">{t('accounts.eligibleForAssignments')}</option>
+                  <option value="not_eligible">{t('accounts.notEligibleText')}</option>
                   <option value="expiring">{t('accounts.licensesExpiringSoon')}</option>
                   <option value="expired">{t('accounts.expiredLicenses')}</option>
                 </select>
@@ -288,7 +288,7 @@ const AccountsView = ({
               </div>
               {(accountTypeFilter !== 'contractor' && accountTypeFilter !== null) && (
                 <p className="text-xs text-gray-500 mt-2">
-                  Available only for contractors
+                  {t('accounts.availableOnlyForContractors')}
                 </p>
               )}
             </div>
@@ -415,7 +415,7 @@ const AccountsView = ({
                         <div className="flex flex-col space-y-1">
                           {loadingLicenses ? (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 animate-pulse">
-                              Loading...
+                              {t('accounts.loading')}
                             </span>
                           ) : contractorLicenses[account.id] ? (
                             <>
@@ -430,7 +430,7 @@ const AccountsView = ({
                             </>
                           ) : (
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
-                              No License Data
+                              {t('accounts.noLicenseData')}
                             </span>
                           )}
                         </div>
@@ -486,7 +486,7 @@ const AccountsView = ({
                       <div className="bg-amber-50/50 rounded-xl p-4">
                         <div className="text-xs font-semibold text-amber-700 mb-2 flex items-center">
                           <span className="mr-2">📋</span>
-                          License Compliance
+                          {t('accounts.licenseCompliance')}
                         </div>
                         <div className="space-y-2">
                           <div className="flex justify-between items-center">
@@ -494,7 +494,7 @@ const AccountsView = ({
                             <span className="text-sm font-medium text-gray-800">{contractorLicenses[account.id].total_licenses}</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-600">Valid:</span>
+                            <span className="text-xs text-gray-600">{t('accounts.valid')}:</span>
                             <span className="text-sm font-medium text-green-600">{contractorLicenses[account.id].valid_licenses}</span>
                           </div>
                           {contractorLicenses[account.id].expired_licenses > 0 && (
@@ -505,7 +505,7 @@ const AccountsView = ({
                           )}
                           {contractorLicenses[account.id].expiring_soon > 0 && (
                             <div className="flex justify-between items-center">
-                              <span className="text-xs text-gray-600">Expiring Soon:</span>
+                              <span className="text-xs text-gray-600">{t('accounts.expiringSoonText')}:</span>
                               <span className="text-sm font-medium text-yellow-600">{contractorLicenses[account.id].expiring_soon}</span>
                             </div>
                           )}
@@ -549,7 +549,7 @@ const AccountsView = ({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                        <span>👁️ {account.account_type === 'contractor' ? 'View' : 'View Details'}</span>
+                        <span>👁️ {account.account_type === 'contractor' ? t('accounts.view') : t('accounts.viewDetails')}</span>
                       </button>
                     </div>
                   </div>

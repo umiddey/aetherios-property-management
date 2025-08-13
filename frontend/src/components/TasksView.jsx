@@ -81,7 +81,7 @@ const TasksView = ({
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                   ✅ {t('tasks.taskOrders')}
                 </h1>
-                <p className="text-gray-600 mt-1">Efficient task management and tracking system</p>
+                <p className="text-gray-600 mt-1">{t('tasks.efficientTaskManagement')}</p>
               </div>
             </div>
             <div className="flex space-x-4">
@@ -121,7 +121,7 @@ const TasksView = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-800">🔍 Smart Filters</h2>
+            <h2 className="text-2xl font-bold text-gray-800">🔍 {t('accounts.smartFilters')}</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="group">

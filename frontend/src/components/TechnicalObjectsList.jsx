@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const getObjectTypeIcon = (objectType) => {
   const iconMap = {
@@ -15,19 +16,8 @@ const getObjectTypeIcon = (objectType) => {
   return iconMap[objectType] || '🔧';
 };
 
-const getObjectTypeLabel = (objectType) => {
-  const labelMap = {
-    'heating_system': 'Heating System',
-    'elevator': 'Elevator',
-    'intercom': 'Intercom',
-    'security_system': 'Security System',
-    'fire_safety': 'Fire Safety',
-    'ventilation': 'Ventilation',
-    'plumbing': 'Plumbing',
-    'electrical': 'Electrical',
-    'other': 'Other'
-  };
-  return labelMap[objectType] || 'Technical Object';
+const getObjectTypeLabel = (objectType, t) => {
+  return t(`technicalObjects.types.${objectType}`) || t('technicalObjects.types.technical_object');
 };
 
 const getStatusColor = (status) => {
@@ -43,20 +33,13 @@ const getStatusColor = (status) => {
   }
 };
 
-const getStatusLabel = (status) => {
-  switch (status) {
-    case 'active':
-      return '✅ Active';
-    case 'maintenance':
-      return '🔧 Maintenance';
-    case 'inactive':
-      return '❌ Inactive';
-    default:
-      return status;
-  }
+const getStatusLabel = (status, t) => {
+  const statusKey = `technicalObjects.status.${status}`;
+  return t(statusKey) || status;
 };
 
 const TechnicalObjectsList = ({ objects = [], loading = false }) => {
+  const { t } = useLanguage();
   if (loading) {
     return (
       <div className="space-y-4">
@@ -80,8 +63,8 @@ const TechnicalObjectsList = ({ objects = [], loading = false }) => {
     return (
       <div className="text-center py-8 text-gray-500">
         <div className="text-4xl mb-3">🔧</div>
-        <p className="text-lg font-medium mb-1">No Technical Objects</p>
-        <p className="text-sm">Add technical equipment and systems to track maintenance and compliance</p>
+        <p className="text-lg font-medium mb-1">{t('technicalObjects.noObjectsTitle')}</p>
+        <p className="text-sm">{t('technicalObjects.noObjectsDescription')}</p>
       </div>
     );
   }
@@ -99,26 +82,26 @@ const TechnicalObjectsList = ({ objects = [], loading = false }) => {
               <h3 className="font-medium text-gray-900 truncate">{object.name}</h3>
             </div>
             <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(object.status)}`}>
-              {getStatusLabel(object.status)}
+              {getStatusLabel(object.status, t)}
             </span>
           </div>
 
           <div className="space-y-2 text-sm text-gray-600">
             <div className="flex items-center justify-between">
-              <span className="font-medium">Type:</span>
-              <span>{getObjectTypeLabel(object.object_type)}</span>
+              <span className="font-medium">{t('technicalObjects.type')}:</span>
+              <span>{getObjectTypeLabel(object.object_type, t)}</span>
             </div>
 
             {object.manufacturer && (
               <div className="flex items-center justify-between">
-                <span className="font-medium">Manufacturer:</span>
+                <span className="font-medium">{t('technicalObjects.manufacturer')}:</span>
                 <span className="truncate ml-2">{object.manufacturer}</span>
               </div>
             )}
 
             {object.model && (
               <div className="flex items-center justify-between">
-                <span className="font-medium">Model:</span>
+                <span className="font-medium">{t('technicalObjects.model')}:</span>
                 <span className="truncate ml-2">{object.model}</span>
               </div>
             )}
@@ -128,31 +111,25 @@ const TechnicalObjectsList = ({ objects = [], loading = false }) => {
               <div className="border-t pt-2 mt-2">
                 {object.heating_type && (
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">Heating:</span>
+                    <span className="font-medium">{t('technicalObjects.heating')}:</span>
                     <span className="text-xs">
-                      {object.heating_type === 'zentralheizung' ? 'Central' :
-                       object.heating_type === 'etagenheizung' ? 'Floor' :
-                       object.heating_type === 'einzelheizung' ? 'Individual' :
-                       object.heating_type}
+                      {t(`technicalObjects.heatingTypes.${object.heating_type}`) || object.heating_type}
                     </span>
                   </div>
                 )}
                 
                 {object.fuel_type && (
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">Fuel:</span>
+                    <span className="font-medium">{t('technicalObjects.fuel')}:</span>
                     <span className="text-xs capitalize">{object.fuel_type}</span>
                   </div>
                 )}
 
                 {object.heating_distribution_key && (
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">Distribution:</span>
+                    <span className="font-medium">{t('technicalObjects.distribution')}:</span>
                     <span className="text-xs">
-                      {object.heating_distribution_key === 'surface_area' ? 'Surface Area' :
-                       object.heating_distribution_key === 'apartment_count' ? 'Equal' :
-                       object.heating_distribution_key === 'consumption' ? 'Consumption' :
-                       object.heating_distribution_key}
+                      {t(`technicalObjects.distributionTypes.${object.heating_distribution_key}`) || object.heating_distribution_key}
                     </span>
                   </div>
                 )}
@@ -162,7 +139,7 @@ const TechnicalObjectsList = ({ objects = [], loading = false }) => {
             {/* Installation Date */}
             {object.installation_date && (
               <div className="flex items-center justify-between text-xs pt-1 border-t">
-                <span className="font-medium">Installed:</span>
+                <span className="font-medium">{t('technicalObjects.installed')}:</span>
                 <span>{new Date(object.installation_date).toLocaleDateString()}</span>
               </div>
             )}
@@ -170,7 +147,7 @@ const TechnicalObjectsList = ({ objects = [], loading = false }) => {
             {/* Created Info */}
             {object.created_by && (
               <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>Added by:</span>
+                <span>{t('technicalObjects.addedBy')}:</span>
                 <span>{object.created_by}</span>
               </div>
             )}
