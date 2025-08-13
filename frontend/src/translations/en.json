@@ -30,12 +30,17 @@
     "filters": "Filters",
     "login": "Login",
     "loggingIn": "Logging in...",
+    "username": "Username",
+    "password": "Password",
     "creating": "Creating...",
     "updating": "Updating...",
     "adding": "Adding...",
+    "saving": "Saving...",
     "select": "Select",
     "view": "View",
-    "remove": "Remove"
+    "remove": "Remove",
+    "customer": "Customer",
+    "selectCustomer": "Select customer"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -71,7 +76,18 @@
     "exportStatistics": "Export Statistics",
     "activeAgreements": "Active Agreements",
     "unpaidInvoices": "Unpaid Invoices",
-    "assignedTasks": "Assigned Tasks"
+    "assignedTasks": "Assigned Tasks",
+    "welcomeBack": "Welcome back, {{name}}",
+    "messages": {
+      "newTaskCreated": "New task created!",
+      "userDeletedSuccess": "User deleted successfully",
+      "serviceRequestSuccess": "Service request {{action}} successfully",
+      "failedRefreshTaskData": "Failed to refresh task data",
+      "failedLoadDashboardData": "Failed to load dashboard data",
+      "failedLoadProperties": "Failed to load properties",
+      "failedDeleteUser": "Failed to delete user",
+      "failedServiceRequest": "Failed to {{action}} service request"
+    }
   },
   "pages": {
     "propertyDetails": "Property Details",
@@ -103,6 +119,8 @@
     "house": "House",
     "office": "Office",
     "commercial": "Commercial",
+    "building": "Building",
+    "complex": "Complex",
     "sqm": "sqm",
     "perSqm": "per sqm",
     "filters": "Filters",
@@ -115,8 +133,35 @@
     "showArchived": "Show Archived",
     "details": "Details",
     "created": "Created",
-    "building": "Building",
-    "empty": "Available"
+    "empty": "Available",
+    "rentPerSqm": "Rent per sqm",
+    "coldRent": "Cold Rent",
+    "smartFilteringText": "Smart property filtering • Real-time search",
+    "portfolioText": "Your property portfolio • {{count}} properties",
+    "noPropertiesMessage": "Start building your property portfolio by adding your first property.",
+    "propertyNotFound": "Property not found",
+    "propertyDetails": "Property Details",
+    "backToProperties": "Back to Properties",
+    "editProperty": "Edit Property",
+    "createContract": "Create Contract", 
+    "viewContract": "View Contract →",
+    "propertyInformation": "Property Information",
+    "address": "Address",
+    "surfaceArea": "Surface Area",
+    "warmRent": "Warm Rent (Total)",
+    "betriebskosten": "Betriebskosten",
+    "ownerDetailsNotAvailable": "Owner details are not available for this property.",
+    "furnishedItems": "Furnished Items ({{count}})",
+    "noFurnishedItems": "No furnished items registered yet",
+    "manageFurnishedItems": "Use the edit button to manage furnished items",
+    "technicalObjects": "Technical Objects ({{count}})",
+    "addTechnicalObjects": "Add Technical Objects",
+    "propertyNotFoundTitle": "Property Not Found",
+    "propertyNotFoundMessage": "The property you're trying to edit could not be found.",
+    "propertyUpdatedSuccess": "Property successfully updated",
+    "errors": {
+      "loadPropertyDetails": "Failed to load property details"
+    }
   },
   "tenants": {
     "title": "Tenants",
@@ -148,6 +193,7 @@
   "invoices": {
     "title": "Invoices",
     "createInvoice": "Create Invoice",
+    "createFirstInvoice": "Create First Invoice",
     "invoiceList": "Invoice List",
     "invoiceDetails": "Invoice Details",
     "invoiceId": "Invoice ID",
@@ -162,11 +208,27 @@
     "paid": "Paid",
     "pending": "Pending",
     "overdue": "Overdue",
+    "draft": "Draft",
+    "sent": "Sent",
     "paymentStatus": "Payment Status",
     "showArchived": "Show Archived",
     "allStatuses": "All Statuses",
+    "contractRequired": "Invoice creation requires a contract. Please create invoices from contract detail pages.",
+    "createFromContract": "Create Invoice from Contract",
+    "createFromContractNote": "Invoices can only be created from contracts. Visit a contract detail page to create an invoice.",
+    "createFromContractInstructions": "To create invoices, navigate to a contract and use the 'Create Invoice' button.",
     "allTenants": "All Tenants",
-    "allProperties": "All Properties"
+    "allProperties": "All Properties",
+    "professionalInvoiceManagement": "Professional invoice management system",
+    "noInvoicesFound": "No Invoices Found",
+    "noInvoicesMessage": "No invoices match your current filters. Create your first invoice to get started.",
+    "tenant": "Tenant",
+    "property": "Property",
+    "archive": "Archive",
+    "contractBasedInvoice": "Contract-Based Invoice",
+    "credit": "Credit",
+    "debit": "Debit",
+    "viewInvoice": "View Invoice"
   },
   "tasks": {
     "title": "Tasks",
@@ -191,7 +253,17 @@
     "taskOrders": "Task Orders",
     "createTaskOrder": "Create Task Order",
     "subject": "Subject",
-    "budget": "Budget"
+    "budget": "Budget",
+    "unassigned": "Unassigned",
+    "noTasksMessage": "No tasks match your current filters. Create your first task to get started.",
+    "backToTasks": "Back to Tasks",
+    "efficientTaskManagement": "Efficient task management and tracking system",
+    "taskForProperty": "Task for property",
+    "failedToCreateTask": "Failed to create task",
+    "dueDate": "Due Date",
+    "assignedTo": "Assigned To",
+    "none": "None",
+    "cancel": "Cancel"
   },
   "accounts": {
     "title": "Accounts",
@@ -206,7 +278,42 @@
     "phone": "Phone",
     "address": "Address",
     "industry": "Industry",
-    "website": "Website"
+    "website": "Website",
+    "accountType": "Account Type",
+    "allTypes": "All Types",
+    "tenant": "Tenant",
+    "employee": "Employee",
+    "contractor": "Contractor",
+    "searchPlaceholder": "Search by name or email...",
+    "manageEfficiency": "Manage all account types with unified efficiency",
+    "licensesExpiringSoon": "⚠️ Licenses Expiring Soon",
+    "expiredLicenses": "❌ Expired Licenses",
+    "noAccountsMessage": "No accounts match your current filters. Try adjusting your search criteria.",
+    "noAccountsFound": "No Accounts Found",
+    "eligible": "✓ Eligible",
+    "notEligible": "✗ Not Eligible",
+    "expiring": "Expiring",
+    "totalLicenses": "Total Licenses:",
+    "expired": "Expired:",
+    "expiringSoon": "Expiring Soon:",
+    "eligibleAssignments": "✓ Eligible for Assignments",
+    "notEligibleAssignments": "✗ Not Eligible for Assignments",
+    "manageLicenses": "📋 Manage Licenses",
+    "smartFilters": "Smart Filters",
+    "licenseCompliance": "License Compliance",
+    "allContractors": "All Contractors",
+    "eligibleForAssignments": "✓ Eligible for Assignments",
+    "notEligibleText": "✗ Not Eligible",
+    "availableOnlyForContractors": "Available only for contractors",
+    "loading": "Loading...",
+    "noLicenseData": "No License Data",
+    "valid": "Valid",
+    "expiringSoonText": "Expiring Soon",
+    "viewDetails": "View Details",
+    "view": "View",
+    "associatedTasks": "Associated Tasks",
+    "noTasksAssociated": "No tasks associated with this account",
+    "manageContractsEfficiency": "Manage your contracts with modern efficiency"
   },
   "forms": {
     "createProperty": {
@@ -253,7 +360,48 @@
       "cancelled": "Cancelled",
       "parentProperty": "Parent Property",
       "none": "None",
-      "additionalDetailsPlaceholder": "Additional details about the property..."
+      "additionalDetailsPlaceholder": "Additional details about the property...",
+      "generatingId": "Generating ID...",
+      "autoGenerated": "Auto-generated based on name and type",
+      "idFormat": "Auto-generated: [first]_[last]_[type]_[YYYYQQ###] (e.g., jordan_smith_apartment_202503001)",
+      "furnishing": {
+        "unfurnished": "🏠 Unfurnished",
+        "furnished": "🛋️ Furnished",
+        "partiallyFurnished": "🏡 Partially Furnished"
+      },
+      "furnishedItems": "Furnished Items",
+      "itemsCount": "{{count}} items",
+      "manageFurnishedItems": "Manage Furnished Items",
+      "addRemoveFurnishedItems": "Add/remove furnished items (enabled for furnished properties)",
+      "energyCertificate": {
+        "title": "⚡ Energy Certificate (Energieausweis) *",
+        "mandatoryNote": "Mandatory for property marketing - Fine up to €15,000",
+        "type": "Certificate Type *",
+        "class": "Energy Class *",
+        "value": "Energy Value (kWh/m²·a) *",
+        "expiry": "Valid Until *",
+        "co2": "CO₂ Emissions (kg CO₂/m²·a)",
+        "types": {
+          "verbrauchsausweis": "Verbrauchsausweis (Consumption-based)",
+          "bedarfsausweis": "Bedarfsausweis (Demand-based)"
+        },
+        "classes": {
+          "aPlus": "A+ (Best)",
+          "h": "H (Worst)"
+        }
+      },
+      "germanCompliance": "🇩🇪 German Legal Compliance",
+      "placeholders": {
+        "floorExample": "e.g., 2nd, Ground",
+        "totalFloors": "Total floors in building",
+        "priceExample": "e.g. 2.50",
+        "noLimit": "Leave empty for no limit",
+        "energyExample": "e.g. 150.0",
+        "co2Example": "e.g. 35.0"
+      },
+      "errors": {
+        "loadPropertyManagers": "Failed to load property managers"
+      }
     },
     "createTenant": {
       "title": "Add New Tenant",
@@ -280,6 +428,8 @@
       "invoiceRecipients": "Invoice Recipients",
       "invoiceDetails": "Invoice Details",
       "invoiceDates": "Invoice Dates",
+      "contract": "Contract",
+      "selectContract": "Select a contract (optional)",
       "tenant": "Tenant",
       "selectTenant": "Select tenant",
       "property": "Property",
@@ -347,6 +497,7 @@
     "editContract": "Edit Contract",
     "downloadContract": "Download Contract",
     "terminateContract": "Terminate Contract",
+    "confirmTerminate": "Are you sure you want to terminate this contract?",
     "backToContracts": "Back to Contracts",
     "notFound": "Contract not found",
     "createContractDescription": "Create a new contract by filling out the form below.",
@@ -359,6 +510,8 @@
     "noContractsFound": "No contracts found",
     "noContractsDescription": "Get started by creating your first contract.",
     "createFirstContract": "Create First Contract",
+    "createFirstRentalContract": "Create First Rental Contract",
+    "ongoing": "Ongoing",
     "more": "more",
     "types": {
       "rental": "Rental Agreement",
@@ -431,13 +584,210 @@
       "contractDeleted": "Contract deleted successfully",
       "createError": "Error creating contract",
       "updateError": "Error updating contract",
-      "deleteError": "Error deleting contract"
+      "deleteError": "Error deleting contract",
+      "fetchError": "Failed to fetch contracts"
     },
     "errors": {
       "invalidEndDate": "End date must be after start date",
       "minimumParties": "At least 2 parties are required",
       "invalidValue": "Value must be a positive number"
     }
+  },
+  "technicalObjects": {
+    "title": "Technical Objects",
+    "noObjectsTitle": "No Technical Objects",
+    "noObjectsDescription": "Add technical equipment and systems to track maintenance and compliance",
+    "type": "Type",
+    "manufacturer": "Manufacturer",
+    "model": "Model",
+    "heating": "Heating",
+    "fuel": "Fuel",
+    "distribution": "Distribution",
+    "installed": "Installed",
+    "addedBy": "Added by",
+    "status": {
+      "active": "✅ Active",
+      "maintenance": "🔧 Maintenance",
+      "inactive": "❌ Inactive"
+    },
+    "types": {
+      "heating_system": "Heating System",
+      "elevator": "Elevator",
+      "intercom": "Intercom",
+      "security_system": "Security System",
+      "fire_safety": "Fire Safety",
+      "ventilation": "Ventilation",
+      "plumbing": "Plumbing",
+      "electrical": "Electrical",
+      "other": "Other",
+      "technical_object": "Technical Object"
+    },
+    "heatingTypes": {
+      "zentralheizung": "Central",
+      "etagenheizung": "Floor",
+      "einzelheizung": "Individual"
+    },
+    "distributionTypes": {
+      "surface_area": "Surface Area",
+      "apartment_count": "Equal",
+      "consumption": "Consumption"
+    },
+    "managementTitle": "Technical Objects Management",
+    "managementSubtitle": "Manage technical equipment and systems for this property. Includes heating, elevators, and other building systems with German BetrKV compliance.",
+    "manager": {
+      "title": "Technical Objects",
+      "subtitle": "Manage property equipment and systems",
+      "addButton": "Add Technical Object",
+      "loadingMessage": "Loading technical objects...",
+      "noObjectsMessage": "No technical objects configured for this property",
+      "addFirstButton": "Add First Technical Object",
+      "editTitle": "Edit Technical Object",
+      "addTitle": "Add New Technical Object",
+      "deleteConfirm": "Are you sure you want to delete this technical object?",
+      "errors": {
+        "loadFailed": "Failed to load technical objects",
+        "saveFailed": "Failed to save technical object",
+        "deleteFailed": "Failed to delete technical object"
+      },
+      "form": {
+        "objectName": "Object Name",
+        "objectNamePlaceholder": "e.g., Central Heating System",
+        "objectType": "Object Type",
+        "manufacturer": "Manufacturer",
+        "manufacturerPlaceholder": "e.g., Viessmann",
+        "model": "Model",
+        "modelPlaceholder": "e.g., Vitocrossal 300",
+        "status": "Status",
+        "installationDate": "Installation Date",
+        "heatingSystemDetails": "🔥 Heating System Details",
+        "heatingType": "Heating Type",
+        "selectType": "Select Type",
+        "costDistributionMethod": "Cost Distribution Method",
+        "selectMethod": "Select Method",
+        "costPerSqm": "Cost per m² (€)",
+        "costPerSqmPlaceholder": "e.g., 2.50",
+        "powerOutput": "Power Output (kW)",
+        "powerOutputPlaceholder": "e.g., 150.0",
+        "notes": "Notes",
+        "notesPlaceholder": "Additional notes, maintenance history, etc.",
+        "saving": "Saving...",
+        "updateButton": "Update Object",
+        "addButton": "Add Object",
+        "cancelButton": "Cancel"
+      },
+      "objectTypes": {
+        "heating_system": "🔥 Heating System",
+        "elevator": "🛗 Elevator",
+        "intercom": "📞 Intercom",
+        "building_management": "🏢 Building Management",
+        "security_system": "🔒 Security System",
+        "ventilation": "💨 Ventilation",
+        "solar_panels": "☀️ Solar Panels",
+        "fire_safety": "🚨 Fire Safety",
+        "water_system": "💧 Water System",
+        "electrical_system": "⚡ Electrical System"
+      },
+      "statuses": {
+        "active": "✅ Active",
+        "maintenance": "🔧 Under Maintenance",
+        "broken": "❌ Broken",
+        "decommissioned": "🔐 Decommissioned",
+        "planned": "📅 Planned"
+      },
+      "heatingTypes": {
+        "zentralheizung": "Zentralheizung (Central)",
+        "gasheizung": "Gasheizung (Gas)",
+        "fernwaerme": "Fernwärme (District)",
+        "waermepumpe": "Wärmepumpe (Heat Pump)",
+        "elektroheizung": "Elektroheizung (Electric)"
+      },
+      "distributionMethods": {
+        "surface_area": "Surface Area (m²)",
+        "consumption": "Consumption Based (BetrKV)",
+        "apartment_count": "Equal Distribution"
+      }
+    }
+  },
+  "furnishedItems": {
+    "title": "Furnished Items",
+    "subtitle": "{{count}} items • German legal compliance",
+    "addButton": "Add Item",
+    "noItemsTitle": "No furnished items yet",
+    "noItemsDescription": "Add furniture and appliances to track ownership and liability",
+    "editTitle": "Edit Furnished Item",
+    "addTitle": "Add Furnished Item",
+    "essential": "Essential",
+    "deleteConfirm": "Are you sure you want to remove this item?",
+    "errors": {
+      "saveFailed": "Failed to save furnished item. Please try again.",
+      "deleteFailed": "Failed to delete furnished item. Please try again."
+    },
+    "categories": {
+      "furniture": "🪑 Furniture",
+      "appliance": "🔌 Appliances",
+      "electronics": "📺 Electronics",
+      "kitchen": "🍳 Kitchen",
+      "bathroom": "🚿 Bathroom",
+      "decoration": "🖼️ Decoration",
+      "lighting": "💡 Lighting",
+      "other": "📦 Other"
+    },
+    "conditions": {
+      "new": "✨ New",
+      "excellent": "⭐ Excellent",
+      "good": "👍 Good",
+      "fair": "👌 Fair",
+      "poor": "⚠️ Poor"
+    },
+    "ownership": {
+      "landlord": "🏠 Landlord Provided",
+      "tenant": "👤 Tenant Provided"
+    },
+    "form": {
+      "itemName": "Item Name",
+      "itemNamePlaceholder": "e.g., Living Room Sofa",
+      "category": "Category",
+      "brand": "Brand",
+      "brandPlaceholder": "e.g., IKEA",
+      "model": "Model",
+      "modelPlaceholder": "e.g., EKTORP",
+      "condition": "Condition",
+      "ownership": "Ownership",
+      "purchasePrice": "Purchase Price (€)",
+      "currentValue": "Current Value (€)",
+      "description": "Description",
+      "descriptionPlaceholder": "Additional details, features, or notes...",
+      "essential": "Essential Item",
+      "essentialDescription": "Required for basic living (affects legal responsibility)",
+      "save": "Save Item",
+      "cancel": "Cancel",
+      "saving": "Saving..."
+    }
+  },
+  "customers": {
+    "title": "Customers",
+    "addCustomer": "Add Customer", 
+    "backToCustomers": "← Back to Customers",
+    "createCustomerFailed": "Failed to create customer",
+    "form": {
+      "name": "Name",
+      "company": "Company", 
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "cancel": "Cancel",
+      "creating": "Creating...",
+      "createCustomer": "Create Customer"
+    }
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong",
+    "unexpectedError": "The application encountered an unexpected error. Please refresh the page to try again.",
+    "refreshPage": "Refresh Page"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next"
   },
   "language": {
     "switchLanguage": "Switch Language",

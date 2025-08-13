@@ -2,10 +2,12 @@ from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException
 from bson import ObjectId
+from datetime import datetime, timezone
 import logging
 
 from services.base_service import BaseService
 from models.property import Property, PropertyCreate, PropertyUpdate, PropertyFilters
+from models.furnished_item import FurnishedItem, FurnishedItemCreate, FurnishedItemUpdate, FurnishedItemFilters
 
 logger = logging.getLogger(__name__)
 
@@ -243,23 +245,24 @@ class PropertyService(BaseService):
             raise
     
     async def _compute_property_availability(self, property_id: str) -> str:
-        """Compute property availability based on active rental agreements."""
+        """Compute property availability based on active rental contracts."""
         try:
-            # Check if property has active rental agreements
-            rental_agreements = await self.db.rental_agreements.find({
+            # Check if property has active rental contracts
+            rental_contracts = await self.db.contracts.find({
                 "property_id": property_id,
-                "is_active": True,
+                "contract_type": "rental",
+                "status": "active",
                 "is_archived": False
             }).to_list(length=None)
             
-            if rental_agreements:
-                # Check if any agreement is currently active (within date range)
-                from datetime import datetime
-                current_date = datetime.utcnow()
+            if rental_contracts:
+                # Check if any contract is currently active (within date range)
+                from datetime import datetime, timezone
+                current_date = datetime.now(timezone.utc)
                 
-                for agreement in rental_agreements:
-                    start_date = agreement.get("start_date")
-                    end_date = agreement.get("end_date")
+                for contract in rental_contracts:
+                    start_date = contract.get("start_date")
+                    end_date = contract.get("end_date")
                     
                     # If start_date is in the past (or today) and end_date is in the future (or None)
                     if start_date and start_date <= current_date:
@@ -373,3 +376,146 @@ class PropertyService(BaseService):
                 status_code=400, 
                 detail=f"Property can accommodate maximum {max_tenants} tenants, but {tenant_count} tenants specified"
             )
+    
+    # ================================================================================
+    # FURNISHED ITEMS MANAGEMENT METHODS
+    # ================================================================================
+    
+    async def create_furnished_item(self, item_data: FurnishedItemCreate, created_by: str) -> Dict[str, Any]:
+        """Create a new furnished item for a property."""
+        # Validate that the property exists
+        property_exists = await self.exists(item_data.property_id)
+        if not property_exists:
+            raise HTTPException(status_code=404, detail="Property not found")
+        
+        # Create the item document
+        item_dict = item_data.model_dump()
+        item_dict["created_by"] = created_by
+        item_dict["created_at"] = datetime.now(timezone.utc)
+        item_dict["updated_at"] = datetime.now(timezone.utc)
+        
+        # Generate unique ID if not provided
+        if "id" not in item_dict or not item_dict["id"]:
+            import uuid
+            item_dict["id"] = str(uuid.uuid4())
+        
+        # Insert into furnished_items collection
+        result = await self.db.furnished_items.insert_one(item_dict)
+        item_dict["_id"] = str(result.inserted_id)
+        
+        return item_dict
+    
+    async def get_furnished_items_by_property(self, property_id: str) -> List[Dict[str, Any]]:
+        """Get all furnished items for a specific property."""
+        items = await self.db.furnished_items.find({
+            "property_id": property_id
+        }).to_list(length=None)
+        
+        # Convert ObjectId to string
+        for item in items:
+            item.pop("_id", None)
+
+        return items
+    
+    async def get_furnished_item_by_id(self, item_id: str) -> Optional[Dict[str, Any]]:
+        """Get a furnished item by ID."""
+        item = await self.db.furnished_items.find_one({"id": item_id})
+        if item and "_id" in item:
+            item["_id"] = str(item["_id"])
+        return item
+    
+    async def update_furnished_item(self, item_id: str, update_data: FurnishedItemUpdate) -> Optional[Dict[str, Any]]:
+        """Update a furnished item."""
+        update_dict = update_data.model_dump(exclude_unset=True)
+        update_dict["updated_at"] = datetime.now(timezone.utc)
+        
+        result = await self.db.furnished_items.update_one(
+            {"id": item_id},
+            {"$set": update_dict}
+        )
+        
+        if result.modified_count > 0:
+            return await self.get_furnished_item_by_id(item_id)
+        return None
+    
+    async def delete_furnished_item(self, item_id: str, property_id: str) -> bool:
+        """Soft delete a furnished item."""
+        # Soft delete the item
+        result = await self.db.furnished_items.update_one(
+            {"id": item_id},
+            {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc)}}
+        )
+        
+        return result.modified_count > 0
+    
+    async def get_furnished_items_with_filters(self, filters: FurnishedItemFilters) -> List[Dict[str, Any]]:
+        """Get furnished items with filtering."""
+        query = {"is_active": True}
+        
+        if filters.property_id:
+            query["property_id"] = filters.property_id
+        
+        if filters.category:
+            query["category"] = filters.category
+        
+        if filters.condition:
+            query["condition"] = filters.condition
+        
+        if filters.ownership:
+            query["ownership"] = filters.ownership
+        
+        if filters.is_essential is not None:
+            query["is_essential"] = filters.is_essential
+        
+        if filters.search:
+            query["$or"] = [
+                {"name": {"$regex": filters.search, "$options": "i"}},
+                {"description": {"$regex": filters.search, "$options": "i"}},
+                {"brand": {"$regex": filters.search, "$options": "i"}},
+                {"model": {"$regex": filters.search, "$options": "i"}}
+            ]
+        
+        items = await self.db.furnished_items.find(query).to_list(length=None)
+        
+        # Convert ObjectId to string
+        for item in items:
+            if "_id" in item:
+                item["_id"] = str(item["_id"])
+        
+        return items
+    
+    async def get_valid_parent_properties(self, property_type: str) -> List[Dict[str, Any]]:
+        """Get valid parent properties for a given property type based on hierarchy rules."""
+        # Define valid parent-child relationships (same as in _validate_property_hierarchy)
+        valid_relationships = {
+            "complex": [],  # Complex can have no parent
+            "building": ["complex"],  # Building can only have Complex as parent
+            "apartment": ["building"],  # Apartment can only have Building as parent
+            "office": ["building"],  # Office can only have Building as parent
+            "house": ["complex", "building"],  # House can have Complex or Building as parent
+            "commercial": ["building"]  # Commercial can only have Building as parent
+        }
+        
+        if property_type not in valid_relationships:
+            raise HTTPException(status_code=400, detail=f"Invalid property type: {property_type}")
+        
+        valid_parent_types = valid_relationships[property_type]
+        
+        # If no valid parents are defined, return empty list
+        if not valid_parent_types:
+            return []
+        
+        # Query for properties that can be parents
+        query = {
+            "property_type": {"$in": valid_parent_types},
+            "is_archived": False
+        }
+        
+        parent_properties = await self.get_all(query)
+        
+        # Ensure all properties have required fields
+        for prop in parent_properties:
+            prop.setdefault("name", f"Property {prop.get('id', 'Unknown')}")
+            prop.setdefault("property_type", "apartment")
+        
+        return parent_properties

@@ -1,7 +1,9 @@
 // src/components/Pagination.js
 import React from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+  const { t } = useLanguage();
   if (totalPages <= 1) return null;
 
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -13,7 +15,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         disabled={currentPage === 1}
         className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50"
       >
-        Previous
+        {t('pagination.previous')}
       </button>
       {pages.map(page => (
         <button
@@ -29,7 +31,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         disabled={currentPage === totalPages}
         className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50"
       >
-        Next
+        {t('pagination.next')}
       </button>
     </div>
   );

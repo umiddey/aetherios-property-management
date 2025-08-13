@@ -14,6 +14,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 from services.property_service import PropertyService
 from repositories.property_repository import PropertyRepository
+from services.tenant_service import TenantService
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 # Database connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/erp_db')
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'test_database')]
 
@@ -68,6 +69,69 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         email=user_doc["email"],
         role=user_doc["role"]
     )
+
+
+async def get_portal_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """
+    Validate portal JWT tokens for tenant service request submissions.
+    
+    Portal tokens are separate from admin tokens and only allow service request creation.
+    Maintains security isolation between tenant portal and admin ERP system.
+    """
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Verify this is a portal token (not admin token)
+        token_type = payload.get("type")
+        if token_type != "portal":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type - portal access required"
+            )
+        
+        # Extract portal user information
+        account_id = payload.get("sub")
+        if account_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid portal authentication credentials"
+            )
+        
+        # Verify account exists and has active portal access using TenantService
+        tenant_service = TenantService(db)
+        tenant_account = await tenant_service.get_tenant_by_id(account_id)
+        
+        if tenant_account is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Portal account not found or inactive"
+            )
+        
+        # Check portal access in tenant profile data
+        portal_active = False
+        if tenant_account.profile_data:
+            portal_active = tenant_account.profile_data.get("portal_active", False)
+        
+        if not portal_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Portal access is not active for this account"
+            )
+        
+        # Return portal user context for service request creation
+        return {
+            "account_id": account_id,
+            "email": payload.get("email"),
+            "type": "portal",
+            "account_type": tenant_account.account_type,
+            "company_id": None  # AccountResponse doesn't have metadata field
+        }
+        
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid portal authentication credentials"
+        )
 
 
 async def get_super_admin(current_user: User = Depends(get_current_user)) -> User:

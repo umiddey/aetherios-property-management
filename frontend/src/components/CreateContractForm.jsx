@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import { useNavigate, useLocation } from 'react-router-dom';
-import cachedAxios from '../utils/cachedAxios';
+import cachedAxios, { invalidateCache } from '../utils/cachedAxios';
 
-const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const API = `${BACKEND_URL}/api`;
 
 const CreateContractForm = () => {
   const { t } = useLanguage();
@@ -14,6 +15,7 @@ const CreateContractForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [contractTypes, setContractTypes] = useState([]);
+  const [billingTypes, setBillingTypes] = useState([]);
   const [properties, setProperties] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [users, setUsers] = useState([]);
@@ -29,8 +31,14 @@ const CreateContractForm = () => {
     end_date: '',
     value: '',
     currency: 'EUR',
-    related_property_id: '',
-    related_tenant_id: '',
+    
+    // NEW: Invoice generation settings
+    billing_type: '',
+    billing_frequency: 'monthly',
+    next_billing_date: '',
+    
+    property_id: '',
+    other_party_id: '',
     related_user_id: '',
     description: '',
     terms: '',
@@ -45,7 +53,6 @@ const CreateContractForm = () => {
     fetchMetadata();
   }, []);
 
-  // Handle prefilled data from navigation state
   useEffect(() => {
     if (location.state?.prefilledData) {
       const prefilledData = location.state.prefilledData;
@@ -54,14 +61,11 @@ const CreateContractForm = () => {
         ...prefilledData
       }));
       
-      // Lock property field if it's pre-selected
-      if (prefilledData.related_property_id) {
+      if (prefilledData.property_id) {
         setIsPropertyLocked(true);
       }
       
-      // Lock party roles when coming from property detail page
-      if (prefilledData.contract_type === 'rental' && prefilledData.related_property_id) {
-        // For rental contracts from property detail, lock landlord and tenant roles
+      if (prefilledData.contract_type === 'rental' && prefilledData.property_id) {
         setPartyRolesLocked([true, true]);
         setFormData(prev => ({
           ...prev,
@@ -76,14 +80,16 @@ const CreateContractForm = () => {
 
   const fetchMetadata = async () => {
     try {
-      const [typesResponse, propertiesResponse, tenantsResponse, usersResponse] = await Promise.all([
-        cachedAxios.get(`${API}/api/v1/contracts/types/list`),
-        cachedAxios.get(`${API}/api/v1/properties/`),
-        cachedAxios.get(`${API}/api/v1/tenants/`),
-        cachedAxios.get(`${API}/api/v1/users/`)
+      const [typesResponse, billingTypesResponse, propertiesResponse, tenantsResponse, usersResponse] = await Promise.all([
+        cachedAxios.get(`${API}/v1/contracts/types/list`),
+        cachedAxios.get(`${API}/v1/contracts/billing-types/list`),
+        cachedAxios.get(`${API}/v1/properties/`),
+        cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
+        cachedAxios.get(`${API}/v1/users/`)
       ]);
       
       setContractTypes(typesResponse.data);
+      setBillingTypes(billingTypesResponse.data);
       setProperties(propertiesResponse.data);
       setTenants(tenantsResponse.data);
       setUsers(usersResponse.data);
@@ -138,7 +144,6 @@ const CreateContractForm = () => {
       newErrors.end_date = t('contracts.errors.invalidEndDate');
     }
 
-    // Validate parties
     formData.parties.forEach((party, index) => {
       if (!party.name?.trim()) {
         newErrors[`party_${index}_name`] = t('errors.requiredField');
@@ -172,16 +177,43 @@ const CreateContractForm = () => {
         start_date: new Date(formData.start_date).toISOString(),
         end_date: formData.end_date ? new Date(formData.end_date).toISOString() : null,
         value: formData.value ? parseFloat(formData.value) : null,
-        related_property_id: formData.related_property_id || null,
-        related_tenant_id: formData.related_tenant_id || null,
+        
+        // Invoice generation settings
+        billing_type: formData.billing_type || null,
+        billing_frequency: formData.billing_type ? formData.billing_frequency : null,
+        next_billing_date: formData.next_billing_date ? new Date(formData.next_billing_date).toISOString() : null,
+
+        property_id: formData.property_id || null,
+        other_party_id: formData.other_party_id || null,
         related_user_id: formData.related_user_id || null
       };
 
-      const response = await cachedAxios.post(`${API}/api/v1/contracts/`, submitData);
+      const response = await cachedAxios.post(`${API}/v1/contracts/`, submitData);
+      
+      invalidateCache('/api/v1/contracts');
+      invalidateCache('/api/v2/accounts');
+      invalidateCache('/api/v1/dashboard/stats');
+      
+      if (submitData.property_id) {
+        invalidateCache(`/api/v1/contracts/?contract_type=rental&property_id=${submitData.property_id}`);
+      }
+      
+      if (submitData.other_party_id) {
+        invalidateCache(`/api/v1/contracts/?contract_type=rental&other_party_id=${submitData.other_party_id}`);
+      }
+      
+      window.dispatchEvent(new CustomEvent('contractCreated', { 
+        detail: { 
+          contractId: response.data.id,
+          relatedTenantId: submitData.other_party_id,
+          relatedPropertyId: submitData.property_id
+        }
+      }));
       
       showSuccess(t('contracts.messages.contractCreated'));
       navigate('/contracts');
     } catch (error) {
+      console.log("error: ", error)
       showError(error, t('contracts.messages.createError'));
     } finally {
       setLoading(false);
@@ -261,8 +293,8 @@ const CreateContractForm = () => {
                   </label>
                   <div className="relative">
                     <select
-                      value={formData.related_property_id}
-                      onChange={(e) => handleInputChange('related_property_id', e.target.value)}
+                      value={formData.property_id}
+                      onChange={(e) => handleInputChange('property_id', e.target.value)}
                       className={`w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isPropertyLocked ? 'bg-blue-50 cursor-not-allowed' : ''
                       }`}
@@ -304,8 +336,8 @@ const CreateContractForm = () => {
                     👤 Tenant * (Required)
                   </label>
                   <select
-                    value={formData.related_tenant_id}
-                    onChange={(e) => handleInputChange('related_tenant_id', e.target.value)}
+                    value={formData.other_party_id}
+                    onChange={(e) => handleInputChange('other_party_id', e.target.value)}
                     className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -417,8 +449,8 @@ const CreateContractForm = () => {
                     🏢 Related Property (Optional)
                   </label>
                   <select
-                    value={formData.related_property_id}
-                    onChange={(e) => handleInputChange('related_property_id', e.target.value)}
+                    value={formData.property_id}
+                    onChange={(e) => handleInputChange('property_id', e.target.value)}
                     className="w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                   >
                     <option value="">Select Property (if applicable)...</option>
@@ -959,6 +991,95 @@ const CreateContractForm = () => {
               {errors.value && <p className="text-red-500 text-sm mt-1">{errors.value}</p>}
             </div>
           </div>
+        </div>
+
+        {/* NEW: Invoice Generation Settings */}
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center mb-4">
+            <div className="flex-shrink-0">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-lg font-medium text-gray-900">💰 Invoice Generation Settings</h3>
+              <p className="text-sm text-gray-600">Configure automatic invoice generation from this contract</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📄 Billing Type
+                <span className="ml-1 text-xs text-gray-500">(Optional)</span>
+              </label>
+              <select
+                value={formData.billing_type}
+                onChange={(e) => handleInputChange('billing_type', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">Select billing type...</option>
+                {billingTypes.map(type => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Credit: Service provider receives payment | Debit: Customer pays
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📅 Billing Frequency
+              </label>
+              <select
+                value={formData.billing_frequency}
+                onChange={(e) => handleInputChange('billing_frequency', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={!formData.billing_type}
+              >
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="yearly">Yearly</option>
+                <option value="one_time">One Time</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                🗓️ Next Billing Date
+              </label>
+              <input
+                type="date"
+                value={formData.next_billing_date}
+                onChange={(e) => handleInputChange('next_billing_date', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={!formData.billing_type}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                When to generate the first invoice
+              </p>
+            </div>
+          </div>
+          
+          {formData.billing_type && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="flex items-center">
+                <svg className="w-4 h-4 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm text-blue-800 font-medium">
+                  Automatic Invoice Generation Enabled
+                </span>
+              </div>
+              <p className="text-xs text-blue-700 mt-1">
+                This contract will automatically generate {formData.billing_type} invoices {formData.billing_frequency} 
+                {formData.next_billing_date && ` starting from ${new Date(formData.next_billing_date).toLocaleDateString()}`}.
+              </p>
+            </div>
+          )}
         </div>
 
 

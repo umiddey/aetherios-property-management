@@ -81,11 +81,15 @@ async def get_dashboard_stats(
             unpaid_invoice_filter.update(date_filter)
         
         # Get counts for all collections in parallel
+        rental_contract_filter = {"contract_type": "rental", "status": "active", "is_archived": False}
+        if date_filter:
+            rental_contract_filter.update(date_filter)
+            
         counts = await asyncio.gather(
             db.properties.count_documents(property_filter),
             db.tenants.count_documents(tenant_filter),
             db.customers.count_documents(customer_filter),
-            db.rental_agreements.count_documents(agreement_filter),
+            db.contracts.count_documents(rental_contract_filter),
             db.invoices.count_documents(invoice_filter),
             db.invoices.count_documents(unpaid_invoice_filter)
         )

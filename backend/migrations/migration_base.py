@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class Migration(ABC):
         await self.db.migrations.insert_one({
             "version": self.version,
             "description": self.description,
-            "applied_at": datetime.utcnow(),
+            "applied_at": datetime.now(timezone.utc),
             "applied": True
         })
         logger.info(f"Migration {self.version} marked as applied")

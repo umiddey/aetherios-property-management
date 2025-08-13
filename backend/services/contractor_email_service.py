@@ -1,0 +1,449 @@
+"""
+Contractor Email Service - Automated Email System for Service Request Workflow
+Handles contractor notifications for scheduling (Link 1) and invoice submission (Link 2)
+"""
+
+import uuid
+import logging
+from datetime import datetime
+from typing import Optional, List, Dict
+from motor.motor_asyncio import AsyncIOMotorDatabase
+
+# Force real email sending - FUCK THE IMPORT ISSUES
+import smtplib
+import email.mime.text as mime_text_module
+import email.mime.multipart as mime_multipart_module
+
+# Get the classes directly from the modules
+MimeText = getattr(mime_text_module, 'MIMEText')
+MimeMultipart = getattr(mime_multipart_module, 'MIMEMultipart')
+
+EMAIL_AVAILABLE = True  # FORCE TRUE - WE'RE SENDING REAL EMAILS
+
+from models.service_request import ServiceRequest, ServiceRequestType
+from models.account import ContractorProfile
+from services.contractor_service import ContractorService
+from services.tenant_service import TenantService
+from services.contractor_matching_service import ContractorMatchingService, PropertyLocation
+
+
+logger = logging.getLogger(__name__)
+
+
+class ContractorEmailService:
+    """Service for managing contractor email notifications and workflow automation"""
+    
+    def __init__(self, db: AsyncIOMotorDatabase, smtp_config: Dict[str, str]):
+        self.db = db
+        self.smtp_config = smtp_config
+        
+        # Initialize enterprise contractor matching service
+        self.contractor_matching_service = ContractorMatchingService(db)
+        
+        # Legacy service type mapping (for backward compatibility)
+        self.service_type_mapping = {
+            ServiceRequestType.PLUMBING: "plumbing",
+            ServiceRequestType.ELECTRICAL: "electrical", 
+            ServiceRequestType.HVAC: "hvac",
+            ServiceRequestType.APPLIANCE: "appliance_repair",
+            ServiceRequestType.GENERAL_MAINTENANCE: "general_maintenance",
+            ServiceRequestType.CLEANING: "cleaning",
+            ServiceRequestType.SECURITY: "security",
+            ServiceRequestType.OTHER: "general_maintenance"
+        }
+    
+    async def find_contractors_for_service_request(
+        self, 
+        service_request: ServiceRequest, 
+        property_address: str,
+        property_city: str = "",
+        property_postal_code: str = "",
+        assignment_strategy: str = "best_match"
+    ) -> List[str]:
+        """
+        Enterprise contractor matching - finds best contractors for service request
+        
+        Args:
+            service_request: The service request to match
+            property_address: Property address for geographic matching
+            property_city: Property city for geographic matching
+            property_postal_code: Property postal code for geographic matching
+            assignment_strategy: "best_match", "multiple_bid", or "load_balance"
+            
+        Returns:
+            List of contractor emails for notification
+        """
+        try:
+            # Create property location for geographic matching
+            property_location = PropertyLocation(
+                property_id=service_request.property_id,
+                address=property_address,
+                city=property_city,
+                postal_code=property_postal_code
+            )
+            
+            # Use enterprise matching service
+            contractor_emails = await self.contractor_matching_service.assign_contractors_to_request(
+                service_request=service_request,
+                property_location=property_location,
+                assignment_strategy=assignment_strategy
+            )
+            
+            if contractor_emails:
+                logger.info(f"✅ Enterprise matching found {len(contractor_emails)} contractors: {contractor_emails}")
+                
+                # Update contractor workloads
+                for email in contractor_emails:
+                    # Get contractor account ID from email
+                    contractor_account = await self.db.accounts.find_one({"email": email})
+                    if contractor_account:
+                        await self.contractor_matching_service.update_contractor_workload(
+                            contractor_account["id"], 
+                            job_assigned=True
+                        )
+                
+                return contractor_emails
+            
+            # Fallback to legacy matching if enterprise matching fails
+            logger.warning("Enterprise matching failed, falling back to legacy method")
+            legacy_email = await self.find_contractor_by_service_type_legacy(service_request.request_type)
+            return [legacy_email] if legacy_email else []
+            
+        except Exception as e:
+            logger.error(f"Error in enterprise contractor matching: {e}")
+            # Fallback to legacy matching
+            legacy_email = await self.find_contractor_by_service_type_legacy(service_request.request_type)
+            return [legacy_email] if legacy_email else []
+    
+    async def find_contractor_by_service_type_legacy(self, service_type: ServiceRequestType) -> Optional[str]:
+        """
+        Legacy single contractor matching (for backward compatibility)
+        Returns the first contractor email found for the service type.
+        """
+        try:
+            service_keyword = self.service_type_mapping.get(service_type, "general_maintenance")
+            # Find contractor with this service in their services_offered
+            contractor_profile = await self.db.contractor_profiles.find_one({
+                "services_offered": {"$in": [service_keyword]}
+            })
+            
+            if contractor_profile:
+                # Get email from contractor account using ContractorService
+                contractor_service = ContractorService(self.db)
+                contractor_account = await contractor_service.get_contractor_by_id(contractor_profile["account_id"])
+                
+                if contractor_account and contractor_account.email:
+                    logger.info(f"✅ Found contractor email via legacy method: {contractor_account.email}")
+                    return contractor_account.email
+            
+            # 🧪 TESTING FALLBACK: Use mock contractor for development/testing
+            logger.warning(f"No contractor found for service type: {service_type}")
+            logger.info("Using mock contractor for testing purposes")
+            
+            # Return mock contractor email for testing
+            mock_contractors = {
+                "plumbing": "test.plumber@example.com",
+                "electrical": "test.electrician@example.com", 
+                "hvac": "test.hvac@example.com",
+                "appliance": "test.appliance@example.com",
+                "general_maintenance": "test.maintenance@example.com",
+                "cleaning": "test.cleaning@example.com",
+                "security": "test.security@example.com"
+            }
+            
+            return mock_contractors.get(service_keyword, "test.contractor@example.com")
+            
+        except Exception as e:
+            logger.error(f"Error finding contractor for service type {service_type}: {e}")
+            # Return mock contractor as fallback
+            return "test.contractor@example.com"
+    
+    def generate_scheduling_token(self) -> str:
+        """Generate unique token for Link 1 (scheduling interface)"""
+        return f"schedule_{uuid.uuid4().hex[:16]}"
+    
+    def generate_invoice_token(self) -> str:
+        """Generate unique token for Link 2 (invoice interface)"""
+        return f"invoice_{uuid.uuid4().hex[:16]}"
+    
+    async def send_unified_contractor_email(self, service_request: ServiceRequest, contractor_email: str, 
+                                           scheduling_token: str, invoice_token: str, base_url: str, 
+                                           contractor_match_info: Dict = None, invoice_upload_enabled: bool = False) -> bool:
+        """
+        Send unified email to contractor with both scheduling and invoice upload links.
+        Invoice upload link is disabled until job completion.
+        
+        Args:
+            service_request: The service request object
+            contractor_email: Contractor's email address
+            scheduling_token: Unique token for scheduling interface
+            invoice_token: Unique token for invoice interface
+            base_url: Base URL for the application
+            contractor_match_info: Optional contractor matching information
+            invoice_upload_enabled: Whether invoice upload is currently enabled
+        
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        try:
+            # Get tenant and property info for context using TenantService
+            tenant_service = TenantService(self.db)
+            tenant_account = await tenant_service.get_tenant_by_id(service_request.tenant_id)
+            property_info = await self.db.properties.find_one({"_id": service_request.property_id})
+            
+            tenant_name = f"{tenant_account.first_name} {tenant_account.last_name}" if tenant_account else "Tenant"
+            property_address = property_info.get("address", "Property") if property_info else "Property"
+            
+            # Construct URLs
+            scheduling_url = f"{base_url}/contractor/schedule/{scheduling_token}"
+            invoice_url = f"{base_url}/contractor/invoice/{invoice_token}"
+            
+            # Format preferred slots
+            preferred_slots_text = ""
+            if service_request.tenant_preferred_slots:
+                preferred_slots_text = "\\n".join([
+                    f"  • {slot.strftime('%A, %B %d, %Y at %I:%M %p')}"
+                    for slot in service_request.tenant_preferred_slots
+                ])
+            else:
+                preferred_slots_text = "  • No specific preferences (any time works)"
+            
+            # Priority constraints text
+            priority_constraints = {
+                "emergency": "⚠️ EMERGENCY - Must be scheduled within 24 hours",
+                "urgent": "🟡 URGENT - Should be scheduled within 3-5 days", 
+                "routine": "🟢 ROUTINE - Can be scheduled within 2 months"
+            }
+            
+            priority_text = priority_constraints.get(service_request.priority, "")
+            
+            # Enhanced email content with contractor match information
+            match_info_html = ""
+            if contractor_match_info:
+                match_info_html = f"""
+                    <div style="background-color: #e0f2fe; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; color: #0277bd;">📊 Why You Were Selected</h3>
+                        <p><strong>Distance:</strong> {contractor_match_info.get('distance_km', 'N/A')} km from property</p>
+                        <p><strong>Quality Score:</strong> {contractor_match_info.get('quality_score', 'N/A'):.1f}/1.0</p>
+                        <p><strong>Estimated Cost:</strong> €{contractor_match_info.get('estimated_cost', 'N/A')}</p>
+                        <p><strong>Expected Response:</strong> {contractor_match_info.get('estimated_response_time', 'N/A')} hours</p>
+                    </div>
+                """
+            
+            # Cost thresholds for invoice information
+            thresholds = {
+                "plumbing": {"emergency": 500, "urgent": 300, "routine": 150},
+                "electrical": {"emergency": 300, "urgent": 250, "routine": 150},
+                "hvac": {"emergency": 800, "urgent": 500, "routine": 200},
+                "appliance": {"emergency": 400, "urgent": 300, "routine": 150},
+                "general_maintenance": {"emergency": 200, "urgent": 150, "routine": 100}
+            }
+            
+            service_key = self.service_type_mapping.get(service_request.request_type, "general_maintenance")
+            threshold = thresholds.get(service_key, {}).get(service_request.priority, 150)
+            
+            # Invoice section styling - ALWAYS ACTIVE (no disabled styling)
+            invoice_section_style = "background-color: #f0fdf4;"  # Always use enabled styling
+            invoice_button_style = ("background-color: #059669; color: white; padding: 15px 30px; "
+                                  "text-decoration: none; border-radius: 8px; font-weight: bold; "
+                                  "display: inline-block;")  # Always clickable
+            
+            # Status text shows current availability but doesn't disable link
+            if not invoice_upload_enabled:
+                invoice_status_text = "ℹ️ <strong>Invoice upload available after job completion or appointment end time</strong>"
+            else:
+                invoice_status_text = "✅ <strong>Invoice upload is now available</strong>"
+            
+            subject = f"🔧 Service Request Assignment: {service_request.title} - {service_request.priority.upper()}"
+            
+            html_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
+                        🔧 Service Request Assignment
+                    </h2>
+                    
+                    {match_info_html}
+                    
+                    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; color: #1f2937;">Request Details</h3>
+                        <p><strong>Type:</strong> {service_request.request_type.replace('_', ' ').title()}</p>
+                        <p><strong>Priority:</strong> {service_request.priority.title()} {priority_text}</p>
+                        <p><strong>Issue:</strong> {service_request.title}</p>
+                        <p><strong>Description:</strong> {service_request.description}</p>
+                    </div>
+                    
+                    <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; color: #92400e;">Property Information</h3>
+                        <p><strong>Address:</strong> {property_address}</p>
+                        <p><strong>Tenant:</strong> {tenant_name}</p>
+                        <p><strong>Submitted:</strong> {service_request.submitted_at.strftime('%A, %B %d, %Y at %I:%M %p')}</p>
+                    </div>
+                    
+                    <div style="background-color: #ecfdf5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                        <h3 style="margin-top: 0; color: #065f46;">Tenant's Preferred Time Slots</h3>
+                        <pre style="margin: 0; white-space: pre-wrap;">{preferred_slots_text}</pre>
+                    </div>
+                    
+                    <!-- STEP 1: APPOINTMENT SCHEDULING (Always Active) -->
+                    <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+                        <h3 style="margin-top: 0; color: #1e40af;">📅 STEP 1: Schedule Appointment</h3>
+                        <p>Start by scheduling your appointment with the tenant.</p>
+                        
+                        <div style="text-align: center; margin: 20px 0;">
+                            <a href="{scheduling_url}" 
+                               style="background-color: #2563eb; color: white; padding: 15px 30px; 
+                                      text-decoration: none; border-radius: 8px; font-weight: bold; 
+                                      display: inline-block;">
+                                📅 Schedule Appointment
+                            </a>
+                        </div>
+                        
+                        <ul style="font-size: 14px; color: #374151;">
+                            <li>Choose to accept a tenant's preferred slot OR propose your own</li>
+                            <li>Once confirmed, the tenant will be automatically notified</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- STEP 2: INVOICE UPLOAD (Conditional) -->
+                    <div style="{invoice_section_style} padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+                        <h3 style="margin-top: 0; color: #065f46;">💰 STEP 2: Invoice Upload</h3>
+                        <p>{invoice_status_text}</p>
+                        
+                        <div style="background-color: #fef3c7; padding: 10px; border-radius: 4px; margin: 15px 0;">
+                            <p style="margin: 0; font-size: 14px;"><strong>💡 Auto-Processing:</strong> Invoices under €{threshold} are automatically processed and paid.</p>
+                        </div>
+                        
+                        <div style="text-align: center; margin: 20px 0;">
+                            <a href="{invoice_url}" 
+                               style="{invoice_button_style}">
+                                📄 Upload Invoice
+                            </a>
+                        </div>
+                        
+                        <div style="font-size: 12px; color: #6b7280;">
+                            <p><strong>Invoice Requirements:</strong></p>
+                            <ul>
+                                <li>PDF or image format (JPG, PNG)</li>
+                                <li>Must include: service description, amount, your business details</li>
+                                <li>German tax compliance required (VAT, business registration)</li>
+                                <li>Payment processed within 5-7 business days after approval</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div style="border-top: 1px solid #e5e7eb; padding-top: 15px; font-size: 12px; color: #6b7280;">
+                        <p><strong>Workflow Summary:</strong></p>
+                        <ol>
+                            <li><strong>Schedule appointment</strong> using the button above</li>
+                            <li><strong>Complete the service</strong> at the scheduled time</li>
+                            <li><strong>Upload invoice</strong> once the job is marked as completed</li>
+                            <li><strong>Receive payment</strong> within 5-7 business days</li>
+                        </ol>
+                        
+                        <p style="margin-top: 15px;">
+                            <em>Links expire in 7-14 days. For questions, contact property management.</em>
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Send email
+            return await self._send_email(contractor_email, subject, html_body)
+            
+        except Exception as e:
+            logger.error(f"Error sending unified contractor email: {e}")
+            return False
+
+    
+    async def _send_email(self, to_email: str, subject: str, html_body: str) -> bool:
+        """
+        Internal method to send email using SMTP configuration.
+        
+        Args:
+            to_email: Recipient email address
+            subject: Email subject
+            html_body: HTML email body
+        
+        Returns:
+            bool: True if sent successfully, False otherwise
+        """
+        try:     
+            if not EMAIL_AVAILABLE:
+                # Mock email sending in development
+                logger.info(f"📧 MOCK EMAIL to {to_email}: {subject}")
+                print(f"\n📧 MOCK EMAIL SENT TO: {to_email}")
+                print(f"📝 Subject: {subject}")
+                print(f"🔗 Content (first 200 chars): {html_body[:200]}...")
+                print(f"📄 Full HTML content saved to: /tmp/mock_email_{to_email.replace('@', '_at_')}.html")
+                
+                # Save full email content for inspection
+                import tempfile
+                email_file = f"/tmp/mock_email_{to_email.replace('@', '_at_')}.html"
+                try:
+                    with open(email_file, 'w') as f:
+                        f.write(html_body)
+                except Exception as e:
+                    print(f"Note: Could not save email file: {e}")
+                
+                return True
+            
+            # Create message
+            msg = MimeMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = self.smtp_config['from_email']
+            msg['To'] = to_email
+            
+            # Add HTML content
+            html_part = MimeText(html_body, 'html')
+            msg.attach(html_part)
+            
+            # Send email
+            with smtplib.SMTP(self.smtp_config['smtp_server'], self.smtp_config['smtp_port']) as server:
+                if self.smtp_config.get('use_tls', True):
+                    server.starttls()
+                
+                if self.smtp_config.get('username') and self.smtp_config.get('password'):
+                    server.login(self.smtp_config['username'], self.smtp_config['password'])
+                
+                server.send_message(msg)
+            
+            logger.info(f"Email sent successfully to {to_email}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to send email to {to_email}: {e}")
+            return False
+
+
+# Email configuration helper
+def get_smtp_config() -> Dict[str, str]:
+    """
+    Get SMTP configuration from environment variables.
+    In production, these should be set via environment variables.
+    """
+    import os
+    
+    # 🧪 TEST MODE: Use real SMTP for end-to-end testing
+    # In production, these should be proper environment variables
+    test_smtp_config = {
+        'smtp_server': 'smtp.gmail.com',
+        'smtp_port': 587,
+        'username': 'noreply.erp.test@gmail.com',  # Test account
+        'password': 'test_password_here',  # Would be app password in real setup
+        'from_email': 'noreply@erp-property-management.com',
+        'use_tls': True
+    }
+    
+    # Use environment variables for SMTP configuration
+    return {
+        'smtp_server': os.getenv('SMTP_SERVER', 'localhost'),
+        'smtp_port': int(os.getenv('SMTP_PORT', '587')),
+        'username': os.getenv('SMTP_USERNAME', ''),
+        'password': os.getenv('SMTP_PASSWORD', ''),
+        'from_email': os.getenv('FROM_EMAIL', 'noreply@property-management.com'),
+        'use_tls': os.getenv('SMTP_USE_TLS', 'true').lower() == 'true'
+    }

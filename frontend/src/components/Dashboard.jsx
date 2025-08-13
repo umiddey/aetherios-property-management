@@ -13,15 +13,16 @@ import PropertiesView from './PropertiesView';
 import TenantsView from './TenantsView';
 import InvoicesView from './InvoicesView';
 import TasksView from './TasksView';
+import ServiceRequestsView from './ServiceRequestsView';
 import AccountsView from './AccountsView';
 import UsersView from './UsersView';
 import CreatePropertyForm from './CreatePropertyForm';
-import CreateTenantForm from './CreateTenantForm';
 import CreateInvoiceForm from './CreateInvoiceForm';
 import CreateTaskForm from './CreateTaskForm';
-import CreateCustomerForm from './CreateCustomerForm';
+import CreateAccountForm from './CreateAccountForm';
 import UserForm from './UserForm';
 import PropertyDetailPage from './PropertyDetailPage';
+import PropertyEditPage from './PropertyEditPage';
 import TenantDetailPage from './TenantDetailPage';
 import InvoiceDetailPage from './InvoiceDetailPage';
 import TaskDetailPage from './TaskDetailPage';
@@ -29,8 +30,11 @@ import AccountDetailPage from './AccountDetailPage';
 import ContractsView from './ContractsView';
 import CreateContractForm from './CreateContractForm';
 import ContractDetailPage from './ContractDetailPage';
+import ContractEditPage from './ContractEditPage';
+import LicenseManagementView from './LicenseManagementView';
 import Breadcrumb from './Breadcrumb';
 import LanguageSwitcher from './LanguageSwitcher';
+import { canManageLicenses } from '../utils/permissions';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -56,9 +60,15 @@ const Dashboard = () => {
   const [invoicePage, setInvoicePage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
   const [accountPage, setAccountPage] = useState(1);
+  const [accountTypeFilter, setAccountTypeFilter] = useState(null);
+  const [accountSearchTerm, setAccountSearchTerm] = useState('');
   const [userPage, setUserPage] = useState(1);
   
-  // Filter states
+  // Notification bell state
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  
   const [propertyFilters, setPropertyFilters] = useState({
     property_type: 'complex',
     min_rooms: '',
@@ -79,22 +89,18 @@ const Dashboard = () => {
     archived: false
   });
   
-  // Selected item states
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
-  const [tenantAgreements, setTenantAgreements] = useState([]);
   const [tenantInvoices, setTenantInvoices] = useState([]);
   const [accountTasks, setAccountTasks] = useState([]);
-  const [selectedAgreement, setSelectedAgreement] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   
   const { user, logout, loading: authLoading } = useAuth();
   const { toasts, removeToast, showError, showSuccess } = useToast();
 
-  // Socket.io connection
   useEffect(() => {
     if (user) {
       const socket = io(BACKEND_URL);
@@ -103,11 +109,27 @@ const Dashboard = () => {
         console.log('Connected to Socket.io server');
       });
 
-      socket.on('new_task', (task) => {
-        console.log('New task received:', task);
-        showSuccess('New task created!');
-        // Refresh tasks data
-        fetchData();
+      socket.on('new_task', async (task) => {
+        showSuccess(t('dashboard.messages.newTaskCreated'));
+        try {
+          // Only invalidate task-related caches instead of fetching all data
+          invalidateCache('/api/v1/tasks');
+          invalidateCache('/api/v1/dashboard/stats');
+          
+          // Refresh only tasks and stats instead of all data
+          const [tasksRes, statsRes, assignedTasksRes] = await Promise.all([
+            cachedAxios.get(`${API}/v1/tasks`),
+            cachedAxios.get(`${API}/v1/dashboard/stats`),
+            cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`)
+          ]);
+          
+          setTaskOrders(Array.isArray(tasksRes.data) ? tasksRes.data : []);
+          setStats(statsRes.data || {});
+          setAssignedTasks(Array.isArray(assignedTasksRes.data) ? assignedTasksRes.data : []);
+        } catch (error) {
+          console.error('Error refreshing tasks after socket event:', error);
+          showError(error, t('dashboard.messages.failedRefreshTaskData'));
+        }
       });
 
       socket.on('disconnect', () => {
@@ -120,14 +142,54 @@ const Dashboard = () => {
     }
   }, [user, showSuccess]);
 
-  // Redirect to login if no user (but wait for auth loading to complete)
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showNotifications && !event.target.closest('.notification-bell')) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
+
+  useEffect(() => {
+    const handleContractCreated = async (event) => {
+      // Invalidate relevant caches
+      invalidateCache('/api/v2/accounts');
+      invalidateCache('/api/v1/dashboard/stats');
+      invalidateCache('/api/v1/contracts');
+      
+      // Refresh tenant data and stats
+      try {
+        const [tenantsRes, statsRes] = await Promise.all([
+          cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
+          cachedAxios.get(`${API}/v1/dashboard/stats`)
+        ]);
+        
+        setTenants(Array.isArray(tenantsRes.data) ? tenantsRes.data : []);
+        setStats(statsRes.data || {});
+      } catch (error) {
+        console.error('Error refreshing data after contract creation:', error);
+      }
+    };
+
+    window.addEventListener('contractCreated', handleContractCreated);
+    
+    return () => {
+      window.removeEventListener('contractCreated', handleContractCreated);
+    };
+  }, []);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/login');
     }
   }, [user, navigate, authLoading]);
 
-  // Fetch data only if user is authenticated
   useEffect(() => {
     if (user) {
       fetchData();
@@ -138,10 +200,17 @@ const Dashboard = () => {
     localStorage.setItem('viewedTasks', JSON.stringify(viewedTasks));
   }, [viewedTasks]);
 
+  // Refresh accounts when filters change
+  useEffect(() => {
+    if (user) {
+      fetchAccounts();
+    }
+  }, [accountTypeFilter, accountSearchTerm, user]);
+
 
   useEffect(() => {
     const checkReminders = () => {
-      assignedTasks.forEach(task => {
+      (Array.isArray(assignedTasks) ? assignedTasks : []).forEach(task => {
         if (task.status !== 'completed') {
           const dueDate = new Date(task.due_date);
           const now = new Date();
@@ -175,6 +244,53 @@ const Dashboard = () => {
     }
   };
 
+  const buildPropertyParams = () => {
+    const params = new URLSearchParams();
+    if (propertyFilters.property_type) params.append('property_type', propertyFilters.property_type);
+    if (propertyFilters.min_rooms) params.append('min_rooms', propertyFilters.min_rooms);
+    if (propertyFilters.max_rooms) params.append('max_rooms', propertyFilters.max_rooms);
+    if (propertyFilters.min_surface) params.append('min_surface', propertyFilters.min_surface);
+    if (propertyFilters.max_surface) params.append('max_surface', propertyFilters.max_surface);
+    if (propertyFilters.search) params.append('search', propertyFilters.search);
+    params.append('archived', propertyFilters.archived);
+    return params.toString();
+  };
+
+  const buildTenantParams = () => {
+    const params = new URLSearchParams();
+    params.append('archived', tenantFilters.archived);
+    return params.toString();
+  };
+
+  const buildInvoiceParams = () => {
+    const params = new URLSearchParams();
+    if (invoiceFilters.status) params.append('status', invoiceFilters.status);
+    if (invoiceFilters.tenant_id) params.append('tenant_id', invoiceFilters.tenant_id);
+    if (invoiceFilters.property_id) params.append('property_id', invoiceFilters.property_id);
+    params.append('archived', invoiceFilters.archived);
+    return params.toString();
+  };
+
+  const buildAccountParams = () => {
+    const params = new URLSearchParams();
+    if (accountTypeFilter) params.append('account_type', accountTypeFilter);
+    if (accountSearchTerm) params.append('search', accountSearchTerm);
+    return params.toString();
+  };
+
+  const filterTenants = (tenants) => {
+    const tenantsArray = Array.isArray(tenants) ? tenants : [];
+    if (tenantFilters.search) {
+      const searchTerm = tenantFilters.search.toLowerCase();
+      return tenantsArray.filter(tenant => 
+        tenant.first_name.toLowerCase().includes(searchTerm) ||
+        tenant.last_name.toLowerCase().includes(searchTerm) ||
+        tenant.email.toLowerCase().includes(searchTerm)
+      );
+    }
+    return tenantsArray;
+  };
+
   const fetchData = async (dateFilters = null) => {
     try {
       let statsUrl = `${API}/v1/dashboard/stats`;
@@ -182,30 +298,51 @@ const Dashboard = () => {
         statsUrl += `?from=${dateFilters.from}&to=${dateFilters.to}`;
       }
       
-      const [statsRes, tasksRes, accountsRes, assignedTasksRes] = await Promise.all([
+      // Single batch of all API calls for better performance
+      const [
+        statsRes, 
+        tasksRes, 
+        accountsRes, 
+        assignedTasksRes, 
+        propertiesRes,
+        tenantsRes,
+        invoicesRes,
+        usersRes,
+        pendingApprovalsRes
+      ] = await Promise.all([
         cachedAxios.get(statsUrl),
         cachedAxios.get(`${API}/v1/tasks`),
-        cachedAxios.get(`${API}/v1/customers`),
-        cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`)
+        cachedAxios.get(`${API}/v2/accounts/?${buildAccountParams()}`),
+        cachedAxios.get(`${API}/v1/tasks?assigned_to=${user?.id}`),
+        cachedAxios.get(`${API}/v1/properties?${buildPropertyParams()}`),
+        cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`),
+        cachedAxios.get(`${API}/v1/invoices?${buildInvoiceParams()}`),
+        cachedAxios.get(`${API}/v1/users`),
+        cachedAxios.get(`${API}/v1/service-requests/pending-approval`).catch(() => ({ data: [] })) // Graceful failure
       ]);
       
-      setStats(statsRes.data);
-      setTaskOrders(tasksRes.data);
-      setAccounts(accountsRes.data);
-      setAssignedTasks(assignedTasksRes.data);
-      
-      await Promise.all([
-        fetchProperties(),
-        fetchTenants(),
-        fetchInvoices()
-      ]);
-
-      // All users can see other users for task assignment
-      const usersRes = await cachedAxios.get(`${API}/v1/users`);
-      setUsersList(usersRes.data);
+      // Set all state at once with safety checks
+      setStats(statsRes.data || {});
+      setTaskOrders(Array.isArray(tasksRes.data) ? tasksRes.data : []);
+      setAccounts(Array.isArray(accountsRes.data) ? accountsRes.data : []);
+      setAssignedTasks(Array.isArray(assignedTasksRes.data) ? assignedTasksRes.data : []);
+      setProperties(Array.isArray(propertiesRes.data) ? propertiesRes.data : []);
+      setTenants(filterTenants(tenantsRes.data));
+      setInvoices(Array.isArray(invoicesRes.data) ? invoicesRes.data : []);
+      setUsersList(Array.isArray(usersRes.data) ? usersRes.data : []);
+      setPendingApprovals(Array.isArray(pendingApprovalsRes.data) ? pendingApprovalsRes.data : []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      showError(error, 'Failed to load dashboard data');
+      showError(error, t('dashboard.messages.failedLoadDashboardData'));
+      // Reset arrays to safe defaults on error
+      setStats({});
+      setTaskOrders([]);
+      setAccounts([]);
+      setAssignedTasks([]);
+      setProperties([]);
+      setTenants([]);
+      setInvoices([]);
+      setUsersList([]);
       if (error.response?.status === 401 || error.response?.status === 403) {
         logout(); // Logout on auth errors (redirects to login)
       }
@@ -226,10 +363,10 @@ const Dashboard = () => {
       params.append('archived', propertyFilters.archived);
       
       const response = await cachedAxios.get(`${API}/v1/properties?${params.toString()}`);
-      setProperties(response.data);
+      setProperties(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching properties:', error);
-      showError(error, 'Failed to load properties');
+      showError(error, t('dashboard.messages.failedLoadProperties'));
     }
   };
 
@@ -238,21 +375,31 @@ const Dashboard = () => {
       const params = new URLSearchParams();
       params.append('archived', tenantFilters.archived);
       
-      const response = await cachedAxios.get(`${API}/v1/tenants?${params.toString()}`);
+      const response = await cachedAxios.get(`${API}/v2/accounts/?account_type=tenant`);
       let filteredTenants = response.data;
       
       if (tenantFilters.search) {
         const searchTerm = tenantFilters.search.toLowerCase();
-        filteredTenants = filteredTenants.filter(tenant => 
+        filteredTenants = (Array.isArray(filteredTenants) ? filteredTenants : []).filter(tenant => 
           tenant.first_name.toLowerCase().includes(searchTerm) ||
           tenant.last_name.toLowerCase().includes(searchTerm) ||
           tenant.email.toLowerCase().includes(searchTerm)
         );
       }
       
-      setTenants(filteredTenants);
+      setTenants(Array.isArray(filteredTenants) ? filteredTenants : []);
     } catch (error) {
       console.error('Error fetching tenants:', error);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    try {
+      const response = await cachedAxios.get(`${API}/v2/accounts/?${buildAccountParams()}`);
+      setAccounts(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+      setAccounts([]);
     }
   };
 
@@ -265,7 +412,7 @@ const Dashboard = () => {
       params.append('archived', invoiceFilters.archived);
       
       const response = await cachedAxios.get(`${API}/v1/invoices?${params.toString()}`);
-      setInvoices(response.data);
+      setInvoices(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching invoices:', error);
     }
@@ -273,24 +420,19 @@ const Dashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get(`${API}/v1/users`);
-      setUsersList(response.data);
+      const response = await cachedAxios.get(`${API}/v1/users`);
+      setUsersList(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
 
-
   useEffect(() => {
     const fetchTenantDetails = async () => {
       if (selectedTenant) {
         try {
-          const [agreementsRes, invoicesRes] = await Promise.all([
-            axios.get(`${API}/v1/rental-agreements?tenant_id=${selectedTenant.id}`),
-            axios.get(`${API}/v1/invoices?tenant_id=${selectedTenant.id}`)
-          ]);
-          setTenantAgreements(agreementsRes.data);
-          setTenantInvoices(invoicesRes.data);
+          const invoicesRes = await cachedAxios.get(`${API}/v1/invoices?tenant_id=${selectedTenant.id}`);
+          setTenantInvoices(Array.isArray(invoicesRes.data) ? invoicesRes.data : []);
         } catch (error) {
           console.error('Error fetching tenant details:', error);
         }
@@ -303,8 +445,8 @@ const Dashboard = () => {
     const fetchAccountDetails = async () => {
       if (selectedAccount) {
         try {
-          const tasksRes = await axios.get(`${API}/v1/tasks?customer_id=${selectedAccount.id}`);
-          setAccountTasks(tasksRes.data);
+          const tasksRes = await cachedAxios.get(`${API}/v1/tasks?customer_id=${selectedAccount.id}`);
+          setAccountTasks(Array.isArray(tasksRes.data) ? tasksRes.data : []);
         } catch (error) {
           console.error('Error fetching account details:', error);
         }
@@ -328,24 +470,11 @@ const Dashboard = () => {
     setInvoicePage(1);
   };
 
-  // Apply filters when they change
   useEffect(() => {
-    if (!loading) {
-      fetchProperties();
+    if (!loading && user) {
+      fetchData();
     }
-  }, [propertyFilters]);
-
-  useEffect(() => {
-    if (!loading) {
-      fetchTenants();
-    }
-  }, [tenantFilters]);
-
-  useEffect(() => {
-    if (!loading) {
-      fetchInvoices();
-    }
-  }, [invoiceFilters]);
+  }, [propertyFilters, tenantFilters, invoiceFilters, loading, user]);
 
   const getPriorityColor = useCallback((priority) => {
     switch (priority) {
@@ -385,6 +514,24 @@ const Dashboard = () => {
     }
   }, []);
 
+  const getFurnishingStatusColor = useCallback((status) => {
+    switch (status) {
+      case 'furnished': return 'bg-emerald-100 text-emerald-800';
+      case 'unfurnished': return 'bg-gray-100 text-gray-800';
+      case 'partially_furnished': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  }, []);
+
+  const getFurnishingStatusText = useCallback((status) => {
+    switch (status) {
+      case 'furnished': return '🛋️ FURNISHED';
+      case 'unfurnished': return '🏠 UNFURNISHED';
+      case 'partially_furnished': return '🏡 PARTIAL';
+      default: return '🏠 UNFURNISHED'; // Default to unfurnished instead of unknown
+    }
+  }, []);
+
   const getRoleColor = (role) => {
     switch (role) {
       case 'super_admin': return 'bg-red-100 text-red-800';
@@ -406,38 +553,34 @@ const Dashboard = () => {
   };
 
   const getTenantName = (tenantId) => {
-    const tenant = tenants.find(t => t.id === tenantId);
+    const tenantsArray = Array.isArray(tenants) ? tenants : [];
+    const tenant = tenantsArray.find(t => t.id === tenantId);
     return tenant ? `${tenant.first_name} ${tenant.last_name}` : 'Unknown';
   };
 
   const getPropertyName = (propertyId) => {
-    const prop = properties.find(p => p.id === propertyId);
+    const propertiesArray = Array.isArray(properties) ? properties : [];
+    const prop = propertiesArray.find(p => p.id === propertyId);
     return prop ? prop.name : 'Unknown';
   };
 
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        await axios.delete(`${API}/users/${userId}`);
-        fetchUsers();
+        await axios.delete(`${API}/v1/users/${userId}`);
+        invalidateCache('/api/v1/users'); // Clear cache to force fresh data
+        fetchUsers(); // Refetch with fresh data
+        showSuccess(t('dashboard.messages.userDeletedSuccess'));
       } catch (error) {
         console.error('Error deleting user:', error);
+        showError(error, t('dashboard.messages.failedDeleteUser'));
       }
     }
   };
 
-  const handleClickInvoice = (invoiceId) => {
-    setSelectedInvoiceId(invoiceId);
-    navigate('/invoices');
-  };
-
-  const handleClickAgreement = (agreementId) => {
-    const agreement = [...propertyAgreements, ...tenantAgreements].find(ag => ag.id === agreementId);
-    setSelectedAgreement(agreement);
-  };
-
   const handleClickTask = (taskId) => {
-    const task = taskOrders.find(t => t.id === taskId);
+    const taskOrdersArray = Array.isArray(taskOrders) ? taskOrders : [];
+    const task = taskOrdersArray.find(t => t.id === taskId);
     setSelectedTask(task);
     setViewedTasks(prev => [...prev, taskId]);
   };
@@ -498,9 +641,6 @@ const Dashboard = () => {
     } else if (pathParts[0] === 'create-tenant') {
       breadcrumbs.push({ label: t('tenants.title'), href: 'tenants' });
       breadcrumbs.push({ label: t('pages.createTenant'), href: null });
-    } else if (pathParts[0] === 'create-invoice') {
-      breadcrumbs.push({ label: t('invoices.title'), href: 'invoices' });
-      breadcrumbs.push({ label: t('dashboard.createInvoice'), href: null });
     } else if (pathParts[0] === 'create-task') {
       breadcrumbs.push({ label: t('tasks.title'), href: 'tasks' });
       breadcrumbs.push({ label: t('pages.createTask'), href: null });
@@ -510,7 +650,12 @@ const Dashboard = () => {
     } else if (pathParts[0] === 'contracts') {
       breadcrumbs.push({ label: t('contracts.title'), href: pathParts.length === 1 ? null : 'contracts' });
       if (pathParts.length > 1) {
-        breadcrumbs.push({ label: t('contracts.contractDetails'), href: null });
+        if (pathParts[2] === 'edit') {
+          breadcrumbs.push({ label: t('contracts.contractDetails'), href: `contracts/${pathParts[1]}` });
+          breadcrumbs.push({ label: t('contracts.editContract'), href: null });
+        } else {
+          breadcrumbs.push({ label: t('contracts.contractDetails'), href: null });
+        }
       }
     } else if (pathParts[0] === 'create-contract') {
       breadcrumbs.push({ label: t('contracts.title'), href: 'contracts' });
@@ -525,9 +670,35 @@ const Dashboard = () => {
     navigate(`/${view}`, { state });
   };
 
+  // Notification bell handlers
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+  };
+
+  const handleQuickApproval = async (requestId, action, notes = '') => {
+    try {
+      const approval = {
+        approval_status: action,
+        approval_notes: notes || null
+      };
+
+      await cachedAxios.put(`${API}/v1/service-requests/${requestId}/approve`, approval);
+      
+      // Remove from pending approvals
+      setPendingApprovals(prev => prev.filter(req => req.id !== requestId));
+      
+      // Refresh data to update stats
+      await fetchData();
+      
+      showSuccess(t('dashboard.messages.serviceRequestSuccess', { action }));
+    } catch (error) {
+      console.error('Error approving service request:', error);
+      showError(error, t('dashboard.messages.failedServiceRequest', { action }));
+    }
+  };
+
   const currentViewFromPath = location.pathname.slice(1) || 'dashboard';
 
-  // Show loading while auth is being validated
   if (authLoading) {
     return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
@@ -537,7 +708,6 @@ const Dashboard = () => {
     </div>;
   }
 
-  // If no user after auth loading is done, return null (effect handles redirect)
   if (!user) {
     return null;
   }
@@ -565,23 +735,135 @@ const Dashboard = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Property ERP</h1>
-                <p className="text-sm text-gray-600">Welcome back, <span className="font-medium text-gray-900">{user?.full_name}</span></p>
+                <p className="text-sm text-gray-600">{t('dashboard.welcomeBack', { name: user?.full_name })}</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center space-x-4 space-y-2 md:space-y-0">
               <nav className="flex flex-wrap space-x-2 space-y-2 md:space-y-0">
                 <button onClick={() => handleNav('')} className={currentViewFromPath === '' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.dashboard')}</button>
                 <button onClick={() => handleNav('properties')} className={currentViewFromPath === 'properties' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.properties')}</button>
-                <button onClick={() => handleNav('tenants')} className={currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tenants')}</button>
+                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' || currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.accounts')}</button>
                 <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.invoices')}</button>
                 <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tasks')}</button>
-                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.accounts')}</button>
+                <button onClick={() => handleNav('service-requests')} className={currentViewFromPath === 'service-requests' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>Service Requests</button>
                 <button onClick={() => handleNav('contracts')} className={currentViewFromPath === 'contracts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.contracts')}</button>
+                {canManageLicenses(user) && (
+                  <button onClick={() => handleNav('license-management')} className={currentViewFromPath === 'license-management' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>License Management</button>
+                )}
                 {user?.role === 'super_admin' && (
                   <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.users')}</button>
                 )}
               </nav>
               <LanguageSwitcher />
+              
+              {/* Notification Bell */}
+              <div className="relative notification-bell">
+                <button
+                  onClick={toggleNotifications}
+                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  
+                  {/* Notification Badge */}
+                  {pendingApprovals.length > 0 && (
+                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full min-w-[20px] h-5">
+                      {pendingApprovals.length > 99 ? '99+' : pendingApprovals.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown */}
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900">Pending Approvals</h3>
+                        <span className="text-sm text-gray-500">{pendingApprovals.length} pending</span>
+                      </div>
+                    </div>
+                    
+                    <div className="max-h-80 overflow-y-auto">
+                      {pendingApprovals.length === 0 ? (
+                        <div className="p-6 text-center text-gray-500">
+                          <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <p>No pending approvals</p>
+                        </div>
+                      ) : (
+                        pendingApprovals.map((request) => (
+                          <div 
+                            key={request.id} 
+                            className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                            onClick={() => {
+                              handleNav('service-requests', { selectedRequestId: request.id });
+                              setShowNotifications(false);
+                            }}
+                          >
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium text-gray-900 truncate">{request.title}</h4>
+                                <p className="text-xs text-gray-500 mt-1">{request.property_address}</p>
+                                <div className="flex items-center space-x-2 mt-2">
+                                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                                    request.priority === 'emergency' ? 'bg-red-100 text-red-800' :
+                                    request.priority === 'urgent' ? 'bg-orange-100 text-orange-800' :
+                                    'bg-green-100 text-green-800'
+                                  }`}>
+                                    {request.priority}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    {new Date(request.submitted_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col space-y-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleQuickApproval(request.id, 'approved');
+                                    setShowNotifications(false);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleQuickApproval(request.id, 'rejected');
+                                    setShowNotifications(false);
+                                  }}
+                                  className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    
+                    {pendingApprovals.length > 0 && (
+                      <div className="p-4 border-t border-gray-200 bg-gray-50">
+                        <button
+                          onClick={() => {
+                            handleNav('service-requests');
+                            setShowNotifications(false);
+                          }}
+                          className="w-full text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                        >
+                          View All Service Requests →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
               <button onClick={logout} className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
                 <div className="flex items-center space-x-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -614,15 +896,18 @@ const Dashboard = () => {
           <Route path="/properties" element={<PropertiesView 
             propertyFilters={propertyFilters} 
             handlePropertyFilterChange={handlePropertyFilterChange} 
-            properties={properties.slice((propertyPage - 1) * ITEMS_PER_PAGE, propertyPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(properties.length / ITEMS_PER_PAGE)} 
+            properties={(Array.isArray(properties) ? properties : []).slice((propertyPage - 1) * ITEMS_PER_PAGE, propertyPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(properties) ? properties : []).length / ITEMS_PER_PAGE)} 
             currentPage={propertyPage} 
             onPageChange={setPropertyPage}
             handleNav={handleNav} 
             getStatusColor={getStatusColor} 
             getPropertyTypeColor={getPropertyTypeColor} 
+            getFurnishingStatusColor={getFurnishingStatusColor}
+            getFurnishingStatusText={getFurnishingStatusText}
             formatDate={formatDate}
           />} />
+          <Route path="/properties/:id/edit" element={<PropertyEditPage />} />
           <Route path="/properties/:id" element={<PropertyDetailPage 
             getStatusColor={getStatusColor} 
             getPropertyTypeColor={getPropertyTypeColor} 
@@ -665,8 +950,8 @@ const Dashboard = () => {
           <Route path="/tenants" element={<TenantsView 
             tenantFilters={tenantFilters} 
             handleTenantFilterChange={handleTenantFilterChange} 
-            tenants={tenants.slice((tenantPage - 1) * ITEMS_PER_PAGE, tenantPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(tenants.length / ITEMS_PER_PAGE)} 
+            tenants={(Array.isArray(tenants) ? tenants : []).slice((tenantPage - 1) * ITEMS_PER_PAGE, tenantPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(tenants) ? tenants : []).length / ITEMS_PER_PAGE)} 
             currentPage={tenantPage} 
             onPageChange={setTenantPage}
             handleNav={handleNav} 
@@ -676,8 +961,8 @@ const Dashboard = () => {
           <Route path="/invoices" element={<InvoicesView 
             invoiceFilters={invoiceFilters} 
             handleInvoiceFilterChange={handleInvoiceFilterChange} 
-            invoices={invoices.slice((invoicePage - 1) * ITEMS_PER_PAGE, invoicePage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(invoices.length / ITEMS_PER_PAGE)} 
+            invoices={(Array.isArray(invoices) ? invoices : []).slice((invoicePage - 1) * ITEMS_PER_PAGE, invoicePage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(invoices) ? invoices : []).length / ITEMS_PER_PAGE)} 
             currentPage={invoicePage} 
             onPageChange={setInvoicePage}
             setSelectedInvoice={setSelectedInvoice} 
@@ -694,8 +979,8 @@ const Dashboard = () => {
             logAction={logAction}
           />} />
           <Route path="/tasks" element={<TasksView 
-            taskOrders={taskOrders.slice((taskPage - 1) * ITEMS_PER_PAGE, taskPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(taskOrders.length / ITEMS_PER_PAGE)} 
+            taskOrders={(Array.isArray(taskOrders) ? taskOrders : []).slice((taskPage - 1) * ITEMS_PER_PAGE, taskPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(taskOrders) ? taskOrders : []).length / ITEMS_PER_PAGE)} 
             currentPage={taskPage} 
             onPageChange={setTaskPage}
             selectedTask={selectedTask} 
@@ -708,9 +993,14 @@ const Dashboard = () => {
             usersList={usersList} 
             logAction={logAction}
           />} />
+          <Route path="/service-requests" element={<ServiceRequestsView 
+            handleNav={handleNav} 
+            formatDate={formatDate} 
+            logAction={logAction}
+          />} />
           <Route path="/accounts" element={<AccountsView 
-            accounts={accounts.slice((accountPage - 1) * ITEMS_PER_PAGE, accountPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(accounts.length / ITEMS_PER_PAGE)} 
+            accounts={(Array.isArray(accounts) ? accounts : []).slice((accountPage - 1) * ITEMS_PER_PAGE, accountPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(accounts) ? accounts : []).length / ITEMS_PER_PAGE)} 
             currentPage={accountPage} 
             onPageChange={setAccountPage}
             selectedAccount={selectedAccount} 
@@ -720,10 +1010,14 @@ const Dashboard = () => {
             handleNav={handleNav} 
             formatDate={formatDate} 
             logAction={logAction}
+            accountTypeFilter={accountTypeFilter}
+            setAccountTypeFilter={setAccountTypeFilter}
+            searchTerm={accountSearchTerm}
+            setSearchTerm={setAccountSearchTerm}
           />} />
           <Route path="/users" element={<UsersView 
-            usersList={usersList.slice((userPage - 1) * ITEMS_PER_PAGE, userPage * ITEMS_PER_PAGE)} 
-            totalPages={Math.ceil(usersList.length / ITEMS_PER_PAGE)} 
+            usersList={(Array.isArray(usersList) ? usersList : []).slice((userPage - 1) * ITEMS_PER_PAGE, userPage * ITEMS_PER_PAGE)} 
+            totalPages={Math.ceil((Array.isArray(usersList) ? usersList : []).length / ITEMS_PER_PAGE)} 
             currentPage={userPage} 
             onPageChange={setUserPage}
             selectedUser={selectedUser} 
@@ -738,7 +1032,7 @@ const Dashboard = () => {
           <Route path="/create-property" element={<CreatePropertyForm 
             onBack={() => handleNav('properties')} 
             onSuccess={() => {
-              invalidateCache('/api/properties'); // Clear properties cache
+              invalidateCache('/api/v1/properties'); // Clear properties cache
               fetchData();
               handleNav('properties');
             }} 
@@ -746,24 +1040,14 @@ const Dashboard = () => {
             t={t}
             logAction={logAction}
           />} />
-          <Route path="/create-tenant" element={<CreateTenantForm 
-            onBack={() => handleNav('tenants')} 
-            onSuccess={() => {
-              invalidateCache('/api/tenants'); // Clear tenants cache
-              fetchData();
-              handleNav('tenants');
-            }} 
-            t={t}
-            logAction={logAction}
-          />} />
           <Route path="/create-invoice" element={<CreateInvoiceForm 
-            onBack={() => handleNav('invoices')} 
+            onBack={() => handleNav('contracts')} 
             onSuccess={() => {
-              invalidateCache('/api/invoices'); // Clear invoices cache
+              invalidateCache('/api/v1/invoices');
+              invalidateCache('/api/v1/contracts');
               fetchData();
               handleNav('invoices');
             }} 
-            tenants={tenants} 
             t={t}
             logAction={logAction}
           />} />
@@ -780,11 +1064,11 @@ const Dashboard = () => {
             t={t}
             logAction={logAction}
           />} />
-          <Route path="/create-account" element={<CreateCustomerForm 
+          <Route path="/create-account" element={<CreateAccountForm 
             onBack={() => handleNav('accounts')} 
             onSuccess={() => {
-              invalidateCache('/api/customers'); // Clear customers cache
-              fetchData();
+              invalidateCache('/api/v2/accounts'); // Clear accounts cache
+              fetchAccounts(); // Refresh accounts list
               handleNav('accounts');
             }} 
             t={t}
@@ -811,7 +1095,9 @@ const Dashboard = () => {
           />} />
           <Route path="/contracts" element={<ContractsView />} />
           <Route path="/contracts/:id" element={<ContractDetailPage />} />
+          <Route path="/contracts/:id/edit" element={<ContractEditPage />} />
           <Route path="/create-contract" element={<CreateContractForm />} />
+          <Route path="/license-management" element={<LicenseManagementView handleNav={handleNav} />} />
         </Routes>
       </main>
     </div>

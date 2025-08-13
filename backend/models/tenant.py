@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 
@@ -15,7 +15,7 @@ class Tenant(BaseModel):
     gender: Optional[str] = None  # male/female
     bank_account: Optional[str] = None  # Bank Konto
     notes: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     is_archived: bool = False
 

@@ -1,7 +1,7 @@
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 import jwt
 import bcrypt
 import os
@@ -37,7 +37,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 def create_access_token(data: dict):
     """Create a JWT access token."""
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+    expire = datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
@@ -83,5 +83,23 @@ async def get_super_admin(current_user: User = Depends(get_current_user)) -> Use
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient privileges"
+        )
+    return current_user
+
+async def get_property_manager_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require property manager admin or higher privileges."""
+    if current_user.role not in ["property_manager_admin", "super_admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Property manager admin privileges required"
+        )
+    return current_user
+
+async def get_normal_user(current_user: User = Depends(get_current_user)) -> User:
+    """Require normal user or higher privileges (all logged in users)."""
+    if current_user.role not in ["user", "property_manager_admin", "super_admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User privileges required"
         )
     return current_user

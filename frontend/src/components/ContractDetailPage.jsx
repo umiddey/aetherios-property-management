@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
-import cachedAxios from '../utils/cachedAxios';
+import cachedAxios, { invalidateCache } from '../utils/cachedAxios';
+import { generatePDF } from '../utils/exportUtils';
 
 const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
@@ -10,12 +11,13 @@ const ContractDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [relatedProperty, setRelatedProperty] = useState(null);
   const [relatedTenant, setRelatedTenant] = useState(null);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
   useEffect(() => {
     fetchContract();
@@ -28,13 +30,13 @@ const ContractDetailPage = () => {
       setContract(response.data);
       
       // Fetch related entities
-      if (response.data.related_property_id) {
-        const propertyResponse = await cachedAxios.get(`${API}/api/v1/properties/${response.data.related_property_id}`);
+      if (response.data.property_id) {
+        const propertyResponse = await cachedAxios.get(`${API}/api/v1/properties/${response.data.property_id}`);
         setRelatedProperty(propertyResponse.data);
       }
       
-      if (response.data.related_tenant_id) {
-        const tenantResponse = await cachedAxios.get(`${API}/api/v1/tenants/${response.data.related_tenant_id}`);
+      if (response.data.other_party_id) {
+        const tenantResponse = await cachedAxios.get(`${API}/v2/accounts/${response.data.other_party_id}`);
         setRelatedTenant(tenantResponse.data);
       }
     } catch (error) {
@@ -65,6 +67,77 @@ const ContractDetailPage = () => {
       case 'financial': return 'bg-indigo-100 text-indigo-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleTerminateContract = async () => {
+    try {
+      // Try passing as query parameter since the endpoint might expect it that way
+      const response = await cachedAxios.put(`${API}/api/v1/contracts/${id}/status?new_status=terminated`, {});
+      
+      // Refresh contract data
+      fetchContract();
+      
+      // Show success message
+      console.log('Contract terminated successfully');
+      
+    } catch (error) {
+      showError(error, 'Failed to terminate contract');
+      console.error('Error terminating contract:', error);
+    }
+  };
+
+  const handleGenerateInvoice = async (overrideAmount = null, overrideDescription = null) => {
+    try {
+      setGeneratingInvoice(true);
+      
+      const queryParams = new URLSearchParams();
+      if (overrideAmount) queryParams.append('override_amount', overrideAmount);
+      if (overrideDescription) queryParams.append('override_description', overrideDescription);
+      
+      const response = await cachedAxios.post(
+        `${API}/api/v1/contracts/${id}/generate-invoice?${queryParams.toString()}`
+      );
+      
+      // Invalidate caches
+      invalidateCache('/api/v1/invoices');
+      invalidateCache('/api/v1/dashboard/stats');
+      
+      showSuccess(`Invoice generated successfully! Invoice ID: ${response.data.invoice_id.slice(0, 8)}`);
+      
+      // Navigate to invoices page to see the new invoice
+      navigate('/invoices');
+    } catch (error) {
+      showError(error, 'Failed to generate invoice from contract');
+      console.error('Error generating invoice:', error);
+    } finally {
+      setGeneratingInvoice(false);
+    }
+  };
+
+  const handleSetupBilling = async (billingType, billingFrequency = 'monthly') => {
+    try {
+      const response = await cachedAxios.post(
+        `${API}/api/v1/contracts/${id}/setup-billing?billing_type=${billingType}&billing_frequency=${billingFrequency}`
+      );
+      
+      // Refresh contract data to show updated billing settings
+      fetchContract();
+      
+      showSuccess(`Contract billing configured successfully! Next billing: ${new Date(response.data.next_billing_date).toLocaleDateString()}`);
+    } catch (error) {
+      showError(error, 'Failed to setup contract billing');
+      console.error('Error setting up billing:', error);
+    }
+  };
+
+  const handleDownloadContract = () => {
+    if (!contract) return;
+    
+    // Use centralized PDF generation
+    generatePDF(contract, 'contract', {
+      relatedProperty,
+      relatedTenant
+    });
   };
 
   const formatDate = (dateString) => {
@@ -314,6 +387,51 @@ const ContractDetailPage = () => {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Billing Information */}
+          {(contract.billing_type || contract.billing_frequency || contract.next_billing_date) && (
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg shadow-sm p-6">
+              <div className="flex items-center mb-4">
+                <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 className="text-lg font-medium text-gray-900">💰 Invoice Generation</h3>
+              </div>
+              <div className="space-y-3">
+                {contract.billing_type && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Billing Type</span>
+                    <p className="text-gray-900 capitalize">{contract.billing_type}</p>
+                  </div>
+                )}
+                {contract.billing_frequency && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Frequency</span>
+                    <p className="text-gray-900 capitalize">{contract.billing_frequency}</p>
+                  </div>
+                )}
+                {contract.next_billing_date && (
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Next Billing</span>
+                    <p className="text-gray-900">{formatDate(contract.next_billing_date)}</p>
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm text-blue-800 font-medium">
+                    Automatic Invoice Generation Active
+                  </span>
+                </div>
+                <p className="text-xs text-blue-700 mt-1">
+                  This contract will automatically generate invoices based on the settings above.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Related Entities */}
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">{t('contracts.relatedEntities')}</h3>
@@ -355,15 +473,101 @@ const ContractDetailPage = () => {
           <div className="bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">{t('common.actions')}</h3>
             <div className="space-y-3">
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+              {/* Contract Management */}
+              <button 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                onClick={() => navigate(`/contracts/${id}/edit`)}
+              >
                 {t('contracts.editContract')}
               </button>
-              <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors">
-                {t('contracts.downloadContract')}
-              </button>
-              <button className="w-full bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors">
-                {t('contracts.terminateContract')}
-              </button>
+
+              {/* NEW: Contract-Based Invoice Generation */}
+              <div className="border-t pt-3">
+                <p className="text-sm font-medium text-gray-700 mb-2">💰 Invoice Generation</p>
+                
+                <button 
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-4 py-2 rounded-lg font-medium transition-colors mb-2"
+                  onClick={() => handleGenerateInvoice()}
+                  disabled={generatingInvoice || contract.status !== 'active'}
+                >
+                  {generatingInvoice ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Generating...
+                    </span>
+                  ) : (
+                    '📄 Generate Invoice Now'
+                  )}
+                </button>
+
+                {!contract.billing_type && contract.status === 'active' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                      onClick={() => handleSetupBilling('credit', 'monthly')}
+                    >
+                      ⬆️ Credit Setup
+                    </button>
+                    <button 
+                      className="bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                      onClick={() => handleSetupBilling('debit', 'monthly')}
+                    >
+                      ⬇️ Debit Setup
+                    </button>
+                  </div>
+                )}
+
+                {contract.status !== 'active' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Invoice generation only available for active contracts
+                  </p>
+                )}
+              </div>
+
+              {/* Legacy Invoice Creation */}
+              <div className="border-t pt-3">
+                <p className="text-sm font-medium text-gray-700 mb-2">📝 Legacy Options</p>
+                <button 
+                  className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  onClick={() => navigate('/create-invoice', { 
+                    state: { 
+                      prefilledData: { 
+                        contract_id: contract.id, 
+                        contract_title: contract.title,
+                        contract_type: contract.contract_type,
+                        property_id: contract.property_id,
+                        other_party_id: contract.other_party_id
+                      } 
+                    } 
+                  })}
+                >
+                  📋 Manual Invoice Form
+                </button>
+              </div>
+
+              {/* Utility Actions */}
+              <div className="border-t pt-3">
+                <button 
+                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors mb-2"
+                  onClick={handleDownloadContract}
+                >
+                  {t('contracts.downloadContract')}
+                </button>
+                
+                <button 
+                  className="w-full bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors"
+                  onClick={() => {
+                    if (window.confirm(t('contracts.confirmTerminate') || 'Are you sure you want to terminate this contract?')) {
+                      handleTerminateContract();
+                    }
+                  }}
+                >
+                  {t('contracts.terminateContract')}
+                </button>
+              </div>
             </div>
           </div>
         </div>

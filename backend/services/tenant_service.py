@@ -1,245 +1,315 @@
+"""
+Tenant Service - Business logic for tenant-specific operations
+Handles CRUD operations and portal access for tenants only
+"""
+
+import secrets
+import string
+import re
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from fastapi import HTTPException
-import logging
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from bson import ObjectId
 
-from services.base_service import BaseService
-from models.tenant import Tenant, TenantCreate, TenantUpdate, TenantFilters
+from models.account import (
+    Account, AccountType, AccountStatus, AccountCreate, AccountUpdate, AccountResponse,
+    TenantProfile
+)
 
-logger = logging.getLogger(__name__)
 
-
-class TenantService(BaseService):
-    """Service for managing tenant operations."""
+class TenantService:
+    """Service layer for tenant management operations with portal access"""
     
     def __init__(self, db: AsyncIOMotorDatabase):
-        super().__init__(db, "tenants")
-        self.setup_indexes()
+        self.db = db
+        self.collection = db["accounts"]  # Base account data
+        self.tenant_profiles = db["tenant_profiles"]  # Tenant-specific data with portal fields
     
-    def setup_indexes(self):
-        """Setup indexes for tenant collection."""
+    async def create_tenant(self, account_data: AccountCreate, created_by: str) -> AccountResponse:
+        """
+        Create a new tenant account with portal code generation
+        """
+        # Generate portal code for tenant
+        portal_code = self._generate_portal_code()
+        
+        # Create base account (no portal fields)
+        account = Account(
+            account_type=AccountType.TENANT,
+            first_name=account_data.first_name,
+            last_name=account_data.last_name,
+            email=account_data.email,
+            phone=account_data.phone,
+            address=account_data.address,
+            created_by=created_by
+        )
+        
+        # Create account and tenant profile
         try:
-            # Email index for uniqueness
-            self.db.tenants.create_index("email", unique=True, background=True)
-            # Search indexes
-            self.db.tenants.create_index([("first_name", "text"), ("last_name", "text"), ("email", "text")], background=True)
-            # Performance indexes
-            self.db.tenants.create_index("is_archived", background=True)
-            self.db.tenants.create_index("created_at", background=True)
-            self.db.tenants.create_index("created_by", background=True)
-            logger.info("Tenant service indexes created successfully")
+            # Convert account to dict and ensure proper types for MongoDB
+            account_dict = account.dict()
+            # Insert base account
+            result = await self.collection.insert_one(account_dict)
+            
+            # Create tenant profile with portal fields
+            tenant_profile_data = account_data.profile_data or {}
+            tenant_profile_data.update({
+                "portal_code": portal_code,
+                "portal_active": False,  # Will be set to True when tenant activates
+                "portal_email": None,
+                "portal_password_hash": None,
+                "portal_last_login": None
+            })
+            
+            tenant_profile = TenantProfile(
+                account_id=account.id,
+                **tenant_profile_data
+            )
+            await self.tenant_profiles.insert_one(tenant_profile.dict())
+            
         except Exception as e:
-            logger.warning(f"Could not create tenant indexes: {str(e)}")
+            # Clean up account if profile creation fails
+            await self.collection.delete_one({"id": account.id})
+            raise Exception(f"Tenant creation failed: {str(e)}")
+        
+        # Return response with profile data
+        return await self.get_tenant_by_id(account.id)
     
-    async def validate_create_data(self, data: TenantCreate) -> None:
-        """Validate tenant creation data."""
-        # Check if email already exists
-        existing_tenant = await self.collection.find_one({"email": data.email, "is_archived": False})
-        if existing_tenant:
-            raise HTTPException(status_code=400, detail=f"Tenant with email '{data.email}' already exists")
+    async def get_tenant_by_id(self, account_id: str) -> Optional[AccountResponse]:
+        """Get tenant by ID with profile data including portal fields"""
+        # Get base account
+        account_doc = await self.collection.find_one({
+            "id": account_id,
+            "account_type": AccountType.TENANT
+        })
+        if not account_doc:
+            return None
         
-        # Validate email format (already handled by EmailStr)
-        # Additional validations can be added here
+        # Remove MongoDB _id field, keep our UUID id
+        account_doc.pop("_id", None)
         
-        if data.phone and len(data.phone) > 50:
-            raise HTTPException(status_code=400, detail="Phone number is too long")
+        # Get tenant profile data (includes portal fields)
+        profile_data = await self.tenant_profiles.find_one({"account_id": account_id})
+        if profile_data:
+            profile_data.pop("_id", None)  # Remove MongoDB ObjectId
         
-        if data.gender and data.gender not in ["male", "female"]:
-            raise HTTPException(status_code=400, detail="Gender must be either 'male' or 'female'")
+        # Create response
+        account_response = AccountResponse(**account_doc, profile_data=profile_data)
+        return account_response
     
-    async def validate_update_data(self, tenant_id: str, update_data: Dict[str, Any]) -> None:
-        """Validate tenant update data."""
-        if "email" in update_data:
-            # Check if email already exists (excluding current tenant)
-            existing_tenant = await self.collection.find_one({"email": update_data["email"], "is_archived": False})
-            if existing_tenant and existing_tenant.get("id") != tenant_id:
-                raise HTTPException(status_code=400, detail=f"Tenant with email '{update_data['email']}' already exists")
-        
-        if "phone" in update_data and update_data["phone"] and len(update_data["phone"]) > 50:
-            raise HTTPException(status_code=400, detail="Phone number is too long")
-        
-        if "gender" in update_data and update_data["gender"] and update_data["gender"] not in ["male", "female"]:
-            raise HTTPException(status_code=400, detail="Gender must be either 'male' or 'female'")
-    
-    async def create_tenant(self, tenant_data: TenantCreate, created_by: str) -> Dict[str, Any]:
-        """Create a new tenant."""
-        await self.validate_create_data(tenant_data)
-        result = await self.create(tenant_data, created_by)
-        logger.info(f"Created tenant with email: {tenant_data.email}")
-        return result
-    
-    async def get_tenant_by_id(self, tenant_id: str) -> Optional[Dict[str, Any]]:
-        """Get tenant by ID."""
-        tenant = await self.get_by_id(tenant_id)
-        if tenant:
-            # Ensure required fields exist with defaults
-            tenant.setdefault("first_name", "")
-            tenant.setdefault("last_name", "")
-            tenant.setdefault("email", "")
-            tenant.setdefault("phone", "")
-            tenant.setdefault("address", "")
-            
-            # Compute status based on active rental agreements
-            tenant["status"] = await self._compute_tenant_status(tenant["id"])
-        return tenant
-    
-    async def get_tenant_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        """Get tenant by email address."""
-        tenant = await self.collection.find_one({"email": email, "is_archived": False})
-        if tenant and "_id" in tenant:
-            del tenant["_id"]
-        return tenant
-    
-    async def get_tenants_with_filters(self, filters: TenantFilters, **kwargs) -> List[Dict[str, Any]]:
-        """Get tenants with advanced filtering."""
-        query = {}
-        
-        # Build query from filters
-        if filters.archived is not None:
-            query["is_archived"] = filters.archived
-        else:
-            query["is_archived"] = False  # Default to non-archived
-        
-        if filters.gender:
-            query["gender"] = filters.gender
-        
-        if filters.search:
-            # Use text search for name and email
-            return await self.search_tenants(filters.search, filters.archived or False)
-        
-        # Get all tenants with query
-        # Map offset to skip for base service compatibility
-        if 'offset' in kwargs:
-            kwargs['skip'] = kwargs.pop('offset')
-        tenants = await self.get_all(query, **kwargs)
-        
-        # Ensure all tenants have required fields and compute status
-        for tenant in tenants:
-            tenant.setdefault("first_name", "")
-            tenant.setdefault("last_name", "")
-            tenant.setdefault("email", "")
-            tenant.setdefault("phone", "")
-            tenant.setdefault("address", "")
-            
-            # Compute status based on active rental agreements
-            tenant["status"] = await self._compute_tenant_status(tenant["id"])
-        
-        return tenants
-    
-    async def update_tenant(self, tenant_id: str, update_data: TenantUpdate) -> Optional[Dict[str, Any]]:
-        """Update a tenant."""
-        update_dict = update_data.model_dump(exclude_unset=True)
-        await self.validate_update_data(tenant_id, update_dict)
-        
-        result = await self.update(tenant_id, update_dict)
-        if result:
-            logger.info(f"Updated tenant: {tenant_id}")
-        return result
-    
-    async def delete_tenant(self, tenant_id: str) -> bool:
-        """Soft delete a tenant (mark as archived)."""
-        result = await self.update(tenant_id, {"is_archived": True})
-        if result:
-            logger.info(f"Archived tenant: {tenant_id}")
-            return True
-        return False
-    
-    async def get_tenant_stats(self) -> Dict[str, Any]:
-        """Get tenant statistics."""
-        try:
-            stats = await self.collection.aggregate([
-                {
-                    "$match": {"is_archived": False}
-                },
-                {
-                    "$group": {
-                        "_id": None,
-                        "total_tenants": {"$sum": 1},
-                        "male_tenants": {
-                            "$sum": {"$cond": [{"$eq": ["$gender", "male"]}, 1, 0]}
-                        },
-                        "female_tenants": {
-                            "$sum": {"$cond": [{"$eq": ["$gender", "female"]}, 1, 0]}
-                        },
-                        "tenants_with_bank_account": {
-                            "$sum": {"$cond": [{"$ne": ["$bank_account", None]}, 1, 0]}
-                        }
-                    }
-                }
-            ]).to_list(1)
-            
-            if stats:
-                return stats[0]
-            else:
-                return {
-                    "total_tenants": 0,
-                    "male_tenants": 0,
-                    "female_tenants": 0,
-                    "tenants_with_bank_account": 0
-                }
-        except Exception as e:
-            logger.error(f"Error getting tenant stats: {str(e)}")
-            raise
-    
-    async def search_tenants(self, search_term: str, archived: bool = False) -> List[Dict[str, Any]]:
-        """Search tenants by name or email."""
+    async def get_tenants(
+        self, 
+        status: Optional[AccountStatus] = None,
+        skip: int = 0,
+        limit: int = 100
+    ) -> List[AccountResponse]:
+        """Get tenants filtered by optional criteria"""
         query = {
-            "$and": [
-                {"is_archived": archived},
-                {
-                    "$or": [
-                        {"first_name": {"$regex": search_term, "$options": "i"}},
-                        {"last_name": {"$regex": search_term, "$options": "i"}},
-                        {"email": {"$regex": search_term, "$options": "i"}}
-                    ]
-                }
-            ]
+            "account_type": AccountType.TENANT,
+            "is_archived": False
         }
-        cursor = self.collection.find(query).sort("created_at", -1)
-        tenants = await cursor.to_list(length=None)
         
-        # Remove MongoDB's _id and ensure all tenants have required fields
-        for tenant in tenants:
-            if "_id" in tenant:
-                del tenant["_id"]
-            tenant.setdefault("first_name", "")
-            tenant.setdefault("last_name", "")
-            tenant.setdefault("email", "")
-            tenant.setdefault("phone", "")
-            tenant.setdefault("address", "")
+        if status:
+            query["status"] = status
+        
+        cursor = self.collection.find(query).skip(skip).limit(limit)
+        tenants = []
+        
+        async for account_doc in cursor:
+            # Remove MongoDB _id field, keep our UUID id
+            account_doc.pop("_id", None)
             
-            # Compute status based on active rental agreements
-            tenant["status"] = await self._compute_tenant_status(tenant["id"])
+            # Get tenant profile data
+            profile_data = await self.tenant_profiles.find_one({"account_id": account_doc["id"]})
+            if profile_data:
+                profile_data.pop("_id", None)
+            
+            account_response = AccountResponse(**account_doc, profile_data=profile_data)
+            tenants.append(account_response)
         
         return tenants
     
-    async def _compute_tenant_status(self, tenant_id: str) -> str:
-        """Compute tenant status based on active rental agreements."""
-        try:
-            # Check if tenant has active rental agreements
-            rental_agreements = await self.db.rental_agreements.find({
-                "tenant_id": tenant_id,
-                "is_active": True,
-                "is_archived": False
-            }).to_list(length=None)
+    async def update_tenant(self, account_id: str, update_data: AccountUpdate, updated_by: str) -> Optional[AccountResponse]:
+        """Update tenant account"""
+        update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+        if update_dict:
+            update_dict["updated_at"] = datetime.now(timezone.utc)
+            update_dict["updated_by"] = updated_by
             
-            if rental_agreements:
-                # Check if any agreement is currently active (within date range)
-                from datetime import datetime
-                current_date = datetime.utcnow()
+            result = await self.collection.update_one(
+                {"id": account_id, "account_type": AccountType.TENANT},
+                {"$set": update_dict}
+            )
+            
+            if result.modified_count > 0:
+                return await self.get_tenant_by_id(account_id)
+        
+        return None
+    
+    async def update_tenant_profile(self, account_id: str, profile_data: Dict[str, Any]) -> bool:
+        """Update tenant profile data"""
+        result = await self.tenant_profiles.update_one(
+            {"account_id": account_id},
+            {"$set": profile_data}
+        )
+        
+        return result.modified_count > 0
+    
+    async def generate_portal_code(self, account_id: str) -> Optional[str]:
+        """Generate a new portal access code for a tenant (invitation link)"""
+        new_code = self._generate_portal_code()
+        
+        result = await self.tenant_profiles.update_one(
+            {"account_id": account_id},
+            {"$set": {
+                "portal_code": new_code,
+                "portal_active": False,  # Will be set to True when user activates with password
+            }}
+        )
+        
+        if result.modified_count > 0:
+            return new_code
+        return None
+    
+    def _generate_portal_code(self) -> str:
+        """Generate a random 7-character alphanumeric portal code"""
+        # Use URL-safe characters (no confusion between 0/O, 1/I, etc.)
+        characters = string.ascii_uppercase + string.digits
+        characters = characters.replace('0', '').replace('O', '').replace('1', '').replace('I', '')
+        
+        return ''.join(secrets.choice(characters) for _ in range(7))
+    
+    async def validate_portal_access(self, portal_code: str) -> Optional[AccountResponse]:
+        """Validate portal access and return tenant if valid"""
+        # Find tenant profile with portal code
+        profile_doc = await self.tenant_profiles.find_one({
+            "portal_code": portal_code,
+            "portal_active": True
+        })
+        
+        if not profile_doc:
+            return None
+        
+        # Get corresponding account
+        account_doc = await self.collection.find_one({
+            "id": profile_doc["account_id"],
+            "account_type": AccountType.TENANT,
+            "status": AccountStatus.ACTIVE,
+            "is_archived": False
+        })
+        
+        if account_doc:
+            # Update last login in profile
+            await self.tenant_profiles.update_one(
+                {"_id": profile_doc["_id"]},
+                {"$set": {"portal_last_login": datetime.now(timezone.utc)}}
+            )
+            
+            # Remove MongoDB _id fields
+            account_doc.pop("_id", None)
+            profile_doc.pop("_id", None)
+            
+            return AccountResponse(**account_doc, profile_data=profile_doc)
+        
+        return None
+    
+    async def get_tenant_by_portal_code(self, portal_code: str) -> Optional[AccountResponse]:
+        """Get tenant by portal code (for validation during activation)"""
+        # Find tenant profile with portal code
+        profile_doc = await self.tenant_profiles.find_one({
+            "portal_code": portal_code
+        })
+        
+        if not profile_doc:
+            return None
+        
+        # Get corresponding account
+        account_doc = await self.collection.find_one({
+            "id": profile_doc["account_id"],
+            "account_type": AccountType.TENANT,
+            "is_archived": False
+        })
+        
+        if account_doc:
+            # Remove MongoDB _id fields
+            account_doc.pop("_id", None)
+            profile_doc.pop("_id", None)
+            
+            return AccountResponse(**account_doc, profile_data=profile_doc)
+        
+        return None
+    
+    async def activate_portal_account(self, portal_code: str, email: Optional[str], password_hash: str) -> bool:
+        """Activate portal account with email and password"""
+        result = await self.tenant_profiles.update_one(
+            {"portal_code": portal_code},
+            {"$set": {
+                "portal_active": True,
+                "portal_email": email,
+                "portal_password_hash": password_hash
+            }}
+        )
+        
+        return result.modified_count > 0
+    
+    async def archive_tenant(self, account_id: str, archived_by: str) -> bool:
+        """Archive a tenant (soft delete)"""
+        result = await self.collection.update_one(
+            {"id": account_id, "account_type": AccountType.TENANT},
+            {"$set": {
+                "is_archived": True,
+                "updated_at": datetime.now(timezone.utc),
+                "updated_by": archived_by
+            }}
+        )
+        
+        # Also disable portal access
+        if result.modified_count > 0:
+            await self.tenant_profiles.update_one(
+                {"account_id": account_id},
+                {"$set": {"portal_active": False}}
+            )
+        
+        return result.modified_count > 0
+    
+    async def get_active_contracts_for_tenant(self, account_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all active contracts for a tenant with property details
+        Used for service request contract selection
+        """
+        current_datetime = datetime.now(timezone.utc)
+        
+        # Query active contracts for this tenant
+        contracts_cursor = self.db.contracts.find({
+            "other_party_id": account_id,
+            "status": "active",
+            "start_date": {"$lte": current_datetime},
+            "$or": [
+                {"end_date": {"$gte": current_datetime}},
+                {"end_date": None}  # No end date means ongoing
+            ],
+            "is_archived": False
+        })
+        
+        contracts = await contracts_cursor.to_list(length=None)
+        
+        # Enrich contracts with property details
+        enriched_contracts = []
+        for contract in contracts:
+            # Remove MongoDB _id
+            contract.pop("_id", None)
+            
+            # Get property details if property_id exists
+            if contract.get("property_id"):
+                property_doc = await self.db.properties.find_one({
+                    "id": contract["property_id"],
+                    "is_archived": False
+                })
                 
-                for agreement in rental_agreements:
-                    start_date = agreement.get("start_date")
-                    end_date = agreement.get("end_date")
-                    
-                    # If start_date is in the past (or today) and end_date is in the future (or None)
-                    if start_date and start_date <= current_date:
-                        if end_date is None or end_date >= current_date:
-                            return "active"
-                
-                return "inactive"
-            else:
-                return "inactive"
-        except Exception as e:
-            logger.error(f"Error computing tenant status for {tenant_id}: {str(e)}")
-            return "inactive"
+                if property_doc:
+                    # Remove MongoDB _id from property
+                    property_doc.pop("_id", None)
+                    contract["property_details"] = property_doc
+            
+            enriched_contracts.append(contract)
+        
+        return enriched_contracts

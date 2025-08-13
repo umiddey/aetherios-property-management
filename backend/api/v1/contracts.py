@@ -2,10 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime
 from services.contract_service import ContractService
+from services.contract_invoice_service import ContractInvoiceService
+from services.invoice_service import InvoiceService
 from models.contract import (
     Contract, ContractCreate, ContractUpdate, ContractResponse, 
-    ContractType, ContractStatus
+    ContractType, ContractStatus, ContractBillingType
 )
+from models.invoice import Invoice
 from utils.auth import get_current_user
 from utils.dependencies import get_database
 
@@ -19,12 +22,21 @@ async def create_contract(
     db = Depends(get_database)
 ):
     """Create a new contract"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
+        logger.info(f"Creating contract: {contract_data.title}, type: {contract_data.contract_type}")
+        logger.info(f"Contract data - Property ID: {contract_data.property_id}, Other Party ID: {contract_data.other_party_id}")
         contract_service = ContractService(db)
         user_id = current_user.get("id") if isinstance(current_user, dict) else current_user.id
+        logger.info(f"User ID: {user_id}")
+        
         contract = await contract_service.create_contract(contract_data, user_id)
+        logger.info(f"Contract created successfully: {contract.get('id')}")
         return ContractResponse(**contract)
     except Exception as e:
+        logger.error(f"Error creating contract: {str(e)}", exc_info=True)
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Error creating contract: {str(e)}")
@@ -37,6 +49,7 @@ async def get_contracts(
     contract_type: Optional[ContractType] = Query(None),
     status: Optional[ContractStatus] = Query(None),
     search: Optional[str] = Query(None),
+    other_party_id: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
     db = Depends(get_database)
 ):
@@ -44,14 +57,23 @@ async def get_contracts(
     try:
         contract_service = ContractService(db)
         
+        # Auto-update contract statuses based on dates
+        await contract_service.auto_update_contract_statuses()
+        
         if search:
             contracts = await contract_service.search_contracts(search, skip, limit)
+        elif other_party_id:
+            contracts = await contract_service.get_contracts_by_other_party(other_party_id)
         elif contract_type:
             contracts = await contract_service.get_contracts_by_type(contract_type, skip, limit)
         elif status:
             contracts = await contract_service.get_contracts_by_status(status, skip, limit)
         else:
             contracts = await contract_service.get_all(query={"is_archived": False}, skip=skip, limit=limit)
+        
+        # Apply additional filters if other party filtering was used
+        if other_party_id and contract_type:
+            contracts = [c for c in contracts if c.get('contract_type') == contract_type]
         
         return [ContractResponse(**contract) for contract in contracts]
     except Exception as e:
@@ -67,6 +89,10 @@ async def get_contract(
     """Get a specific contract by ID"""
     try:
         contract_service = ContractService(db)
+        
+        # Auto-update contract statuses based on dates
+        await contract_service.auto_update_contract_statuses()
+        
         contract = await contract_service.get_by_id(contract_id)
         if not contract:
             raise HTTPException(status_code=404, detail="Contract not found")
@@ -242,6 +268,7 @@ async def auto_update_contract_statuses(
         result = await contract_service.auto_update_contract_statuses()
         return {
             "message": "Contract statuses updated successfully",
+            "draft_updated": result["draft_updated"],
             "activated": result["activated"],
             "expired": result["expired"]
         }
@@ -278,18 +305,104 @@ async def get_contract_statuses(
     ]
 
 
-@router.post("/contracts/import-rental-agreements")
-async def import_rental_agreements(
+# NEW: Contract-based Invoice Generation Endpoints
+@router.post("/contracts/{contract_id}/generate-invoice")
+async def generate_invoice_from_contract(
+    contract_id: str,
+    override_amount: Optional[float] = Query(None),
+    override_description: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user),
     db = Depends(get_database)
 ):
-    """Import existing rental agreements as contracts"""
+    """Generate an invoice from a contract"""
     try:
         contract_service = ContractService(db)
-        result = await contract_service.import_rental_agreements()
+        invoice_service = InvoiceService(db)
+        contract_invoice_service = ContractInvoiceService(contract_service, invoice_service)
+        
+        user_id = current_user.get("id") if isinstance(current_user, dict) else current_user.id
+        
+        invoice = await contract_invoice_service.generate_invoice_from_contract(
+            contract_id=contract_id,
+            created_by=user_id,
+            override_amount=override_amount,
+            override_description=override_description
+        )
+        
+        return {"message": "Invoice generated successfully", "invoice_id": invoice["id"]}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating invoice: {str(e)}")
+
+
+@router.post("/contracts/{contract_id}/setup-billing")
+async def setup_contract_billing(
+    contract_id: str,
+    billing_type: ContractBillingType,
+    billing_frequency: str = Query("monthly"),
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Configure a contract for automatic invoice generation"""
+    try:
+        contract_service = ContractService(db)
+        invoice_service = InvoiceService(db)
+        contract_invoice_service = ContractInvoiceService(contract_service, invoice_service)
+        
+        contract = await contract_invoice_service.setup_contract_billing(
+            contract_id=contract_id,
+            billing_type=billing_type,
+            billing_frequency=billing_frequency
+        )
+        
         return {
-            "message": "Rental agreements imported successfully",
-            "imported": result["imported"]
+            "message": "Contract billing configured successfully",
+            "contract_id": contract.id,
+            "billing_type": contract.billing_type,
+            "billing_frequency": contract.billing_frequency,
+            "next_billing_date": contract.next_billing_date
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error setting up contract billing: {str(e)}")
+
+
+@router.post("/contracts/generate-recurring-invoices")
+async def generate_recurring_invoices(
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Generate all due recurring invoices (to be called by scheduled job)"""
+    try:
+        contract_service = ContractService(db)
+        invoice_service = InvoiceService(db)
+        contract_invoice_service = ContractInvoiceService(contract_service, invoice_service)
+        
+        user_id = current_user.get("id") if isinstance(current_user, dict) else current_user.id
+        
+        invoices = await contract_invoice_service.generate_recurring_invoices(created_by=user_id)
+        
+        return {
+            "message": f"Generated {len(invoices)} recurring invoices",
+            "generated_count": len(invoices),
+            "invoice_ids": [inv.id for inv in invoices]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error importing rental agreements: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating recurring invoices: {str(e)}")
+
+
+@router.get("/contracts/billing-types/list")
+async def get_billing_types(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get list of available billing types"""
+    return [
+        {"value": "credit", "label": "Credit (Contractor receives payment)"},
+        {"value": "debit", "label": "Debit (Customer pays for service)"},
+        {"value": "recurring", "label": "Recurring (Auto-generated invoices)"},
+        {"value": "one_time", "label": "One-time invoice"}
+    ]
+
+

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import cachedAxios from '../utils/cachedAxios';
+import apiCache from '../utils/cache';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -21,13 +22,15 @@ const AccountDetailPage = ({
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [generatingCode, setGeneratingCode] = useState(false);
 
   useEffect(() => {
     const fetchAccountDetails = async () => {
       try {
         setLoading(true);
         const [accountRes, tasksRes] = await Promise.all([
-          cachedAxios.get(`${API}/v1/customers/${id}`),
+          cachedAxios.get(`${API}/v2/accounts/${id}`),
           cachedAxios.get(`${API}/v1/tasks?customer_id=${id}`)
         ]);
         
@@ -45,6 +48,50 @@ const AccountDetailPage = ({
       fetchAccountDetails();
     }
   }, [id]);
+
+  const generatePortalCode = async () => {
+    try {
+      setGeneratingCode(true);
+      const response = await cachedAxios.post(`${API}/v2/accounts/${id}/portal-code`);
+      
+      // Update the account with the new portal code
+      setAccount(prev => ({
+        ...prev,
+        portal_code: response.data.portal_code
+      }));
+      
+      // Invalidate cache for this account so future navigation shows updated data
+      apiCache.delete(`${API}/v2/accounts/${id}`);
+      
+    } catch (error) {
+      console.error('Error generating portal code:', error);
+      setError('Failed to generate portal code');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  const copyInvitationLink = async () => {
+    if (!account.portal_code) return;
+    
+    const invitationLink = `${window.location.origin}/portal/invite/${account.portal_code}`;
+    
+    try {
+      await navigator.clipboard.writeText(invitationLink);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (error) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = invitationLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
 
   if (loading) {
     return (
@@ -96,15 +143,22 @@ const AccountDetailPage = ({
               <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              <h1 className="text-3xl font-bold text-gray-900">{account.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900">{account.full_name || `${account.first_name} ${account.last_name}`}</h1>
             </div>
-            {account.company && (
-              <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                {account.company}
+            <span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              {account.account_type?.toUpperCase() || 'ACCOUNT'}
+            </span>
+            {account.status && (
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                account.status === 'active' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-red-100 text-red-800'
+              }`}>
+                {account.status.toUpperCase()}
               </span>
             )}
           </div>
-          <p className="text-lg text-gray-600 mt-2">Customer Account Details</p>
+          <p className="text-lg text-gray-600 mt-2">Account Management & Portal Access</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -117,16 +171,25 @@ const AccountDetailPage = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <p className="text-lg font-semibold text-gray-900">{account.name}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <p className="text-lg font-semibold text-gray-900">{account.full_name || `${account.first_name} ${account.last_name}`}</p>
                   </div>
                   
-                  {account.company && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                      <p className="text-gray-900">{account.company}</p>
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
+                    <p className="text-gray-900">{account.account_type?.charAt(0).toUpperCase() + account.account_type?.slice(1) || 'Unknown'}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      account.status === 'active' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {account.status?.toUpperCase() || 'UNKNOWN'}
+                    </span>
+                  </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -171,6 +234,138 @@ const AccountDetailPage = ({
                 </div>
               </div>
             </div>
+
+            {/* Portal Access Section - Only for Tenants */}
+            {account.account_type === 'tenant' && (
+              <div className="bg-white shadow rounded-lg p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">🏠 Tenant Portal Access</h2>
+                
+                <div className="space-y-6">
+                  {/* Portal Code Display */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-medium text-blue-900">Portal Access Code</h3>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={generatePortalCode}
+                          disabled={generatingCode}
+                          className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                            generatingCode
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                        >
+                          {generatingCode ? 'Generating...' : account.portal_code ? 'Regenerate' : 'Generate'}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {account.portal_code ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-3">
+                          <span className="font-mono text-xl font-bold text-blue-800 bg-white px-3 py-2 rounded border">
+                            {account.portal_code}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            account.portal_active 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {account.portal_active ? 'Active' : 'Pending Activation'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-blue-700">
+                          {account.portal_active 
+                            ? 'Tenant has activated their portal account and can log in.'
+                            : 'Send this invitation link to the tenant to activate their portal account.'
+                          }
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-blue-700">
+                        Click "Generate" to create a portal access code for this tenant.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Invitation Link */}
+                  {account.portal_code && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h3 className="text-lg font-medium text-green-900 mb-3">📧 Invitation Link</h3>
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={`${window.location.origin}/portal/invite/${account.portal_code}`}
+                            className="flex-1 px-3 py-2 border border-green-300 rounded-md bg-white text-sm font-mono"
+                          />
+                          <button
+                            onClick={copyInvitationLink}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                              copySuccess
+                                ? 'bg-green-600 text-white'
+                                : 'bg-green-600 text-white hover:bg-green-700'
+                            }`}
+                          >
+                            {copySuccess ? 'Copied!' : 'Copy Link'}
+                          </button>
+                        </div>
+                        <div className="bg-green-100 rounded-md p-3">
+                          <p className="text-sm text-green-800">
+                            <strong>📋 Instructions for tenant:</strong>
+                          </p>
+                          <ol className="text-sm text-green-700 mt-2 space-y-1 list-decimal list-inside">
+                            <li>Click the invitation link above</li>
+                            <li>Enter their email address and create a password</li>
+                            <li>Access their tenant portal to submit service requests</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Portal Activity */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Portal Status</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Code Status:</span>
+                          <span className={account.portal_code ? 'text-green-600' : 'text-gray-400'}>
+                            {account.portal_code ? 'Generated' : 'Not Generated'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Account Status:</span>
+                          <span className={account.portal_active ? 'text-green-600' : 'text-yellow-600'}>
+                            {account.portal_active ? 'Activated' : 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-2">Last Activity</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Last Login:</span>
+                          <span className="text-gray-500">
+                            {account.portal_last_login ? formatDate(account.portal_last_login) : 'Never'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Code Created:</span>
+                          <span className="text-gray-500">
+                            {account.portal_code ? formatDate(account.created_at) : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Notes */}
             {account.notes && (

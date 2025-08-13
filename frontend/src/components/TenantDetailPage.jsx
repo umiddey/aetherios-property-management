@@ -19,45 +19,36 @@ const TenantDetailPage = ({
   const { t } = useLanguage();
   
   const [tenant, setTenant] = useState(null);
-  const [agreements, setAgreements] = useState([]);
   const [contracts, setContracts] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedAgreement, setSelectedAgreement] = useState(null);
+
+  const fetchTenantDetails = async () => {
+    try {
+      setLoading(true);
+      const [tenantRes, contractsRes, invoicesRes] = await Promise.all([
+        cachedAxios.get(`${API}/v2/accounts/${id}`),
+        cachedAxios.get(`${API}/v1/contracts?contract_type=rental&other_party_id=${id}`),
+        cachedAxios.get(`${API}/v1/invoices?tenant_id=${id}`)
+      ]);
+      
+      setTenant(tenantRes.data);
+      setContracts(contractsRes.data);
+      setInvoices(invoicesRes.data);
+    } catch (error) {
+      console.error('Error fetching tenant details:', error);
+      setError('Failed to load tenant details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchTenantDetails = async () => {
-      try {
-        setLoading(true);
-        const [tenantRes, agreementsRes, contractsRes, invoicesRes] = await Promise.all([
-          cachedAxios.get(`${API}/v1/tenants/${id}`),
-          cachedAxios.get(`${API}/v1/rental-agreements?tenant_id=${id}`),
-          cachedAxios.get(`${API}/v1/contracts?contract_type=rental&related_tenant_id=${id}`),
-          cachedAxios.get(`${API}/v1/invoices?tenant_id=${id}`)
-        ]);
-        
-        setTenant(tenantRes.data);
-        setAgreements(agreementsRes.data);
-        setContracts(contractsRes.data);
-        setInvoices(invoicesRes.data);
-      } catch (error) {
-        console.error('Error fetching tenant details:', error);
-        setError('Failed to load tenant details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (id) {
       fetchTenantDetails();
     }
   }, [id]);
-
-  const handleClickAgreement = (agreementId) => {
-    const agreement = agreements.find(ag => ag.id === agreementId);
-    setSelectedAgreement(agreement);
-  };
 
   const handleClickInvoice = (invoiceId) => {
     navigate(`/invoices/${invoiceId}`);
@@ -266,61 +257,6 @@ const TenantDetailPage = ({
           )}
         </div>
 
-        {/* Legacy Rental Agreements */}
-        {agreements.length > 0 && (
-          <div className="mt-8 bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Legacy Rental Agreements</h2>
-            
-            <div className="space-y-4">
-              {agreements.map(agreement => (
-                <div key={agreement.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="font-medium text-gray-900">{getPropertyName(agreement.property_id)}</h3>
-                      <p className="text-sm text-gray-600">
-                        {formatDate(agreement.start_date)} - {agreement.end_date ? formatDate(agreement.end_date) : 'Ongoing'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-green-600">{formatCurrency(agreement.monthly_rent)}/month</p>
-                      <p className="text-sm text-gray-500">Deposit: {formatCurrency(agreement.deposit)}</p>
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => handleClickAgreement(agreement.id)}
-                    className="text-blue-500 hover:text-blue-700 text-sm font-medium"
-                  >
-                    {selectedAgreement?.id === agreement.id ? 'Hide Details' : 'View Details'}
-                  </button>
-                  
-                  {selectedAgreement?.id === agreement.id && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-md">
-                      <h5 className="font-semibold mb-2">Agreement Details</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p><strong>Property:</strong> {getPropertyName(selectedAgreement.property_id)}</p>
-                          <p><strong>Start Date:</strong> {formatDate(selectedAgreement.start_date)}</p>
-                          <p><strong>End Date:</strong> {selectedAgreement.end_date ? formatDate(selectedAgreement.end_date) : 'Indefinite'}</p>
-                        </div>
-                        <div>
-                          <p><strong>Monthly Rent:</strong> {formatCurrency(selectedAgreement.monthly_rent)}</p>
-                          <p><strong>Deposit:</strong> {formatCurrency(selectedAgreement.deposit)}</p>
-                          <p><strong>Status:</strong> {selectedAgreement.end_date ? 'Ended' : 'Active'}</p>
-                        </div>
-                      </div>
-                      {selectedAgreement.notes && (
-                        <div className="mt-3">
-                          <p><strong>Notes:</strong> {selectedAgreement.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Invoices */}
         <div className="mt-8 bg-white shadow rounded-lg p-6">

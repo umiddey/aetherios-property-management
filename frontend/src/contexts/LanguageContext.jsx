@@ -13,6 +13,7 @@ export const useLanguage = () => {
 export const LanguageProvider = ({ children }) => {
   const [currentLanguage, setCurrentLanguage] = useState('de'); // Default to German
   const [translations, setTranslations] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load translations
   useEffect(() => {
@@ -25,8 +26,10 @@ export const LanguageProvider = ({ children }) => {
           de: germanTranslations.default,
           en: englishTranslations.default
         });
+        setIsLoading(false);
       } catch (error) {
         console.error('Error loading translations:', error);
+        setIsLoading(false);
       }
     };
 
@@ -81,11 +84,21 @@ export const LanguageProvider = ({ children }) => {
     currentLanguage,
     changeLanguage,
     t,
+    isLoading,
     availableLanguages: [
       { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
       { code: 'en', name: 'English', flag: '🇬🇧' }
     ]
   };
+
+  // Show loading state until translations are loaded
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading translations...</div>
+      </div>
+    );
+  }
 
   return (
     <LanguageContext.Provider value={value}>

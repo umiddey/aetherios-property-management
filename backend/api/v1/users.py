@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from services.user_service import UserService
@@ -110,7 +110,7 @@ async def get_me(
         email=current_user.email,
         full_name=current_user.full_name,
         role=current_user.role,
-        created_at=datetime.utcnow(),  # Note: this would need to be fetched from DB for accurate created_at
+        created_at=datetime.now(timezone.utc),  # Note: this would need to be fetched from DB for accurate created_at
         is_active=current_user.is_active
     )
 

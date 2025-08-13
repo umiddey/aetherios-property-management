@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from datetime import datetime
+from pydantic import BaseModel, Field, field_validator
+from datetime import datetime, timezone, date
 from typing import Optional, List, Dict, Any
 from enum import Enum
 import uuid
@@ -21,6 +21,13 @@ class ContractStatus(str, Enum):
     PENDING = "pending"
 
 
+class ContractBillingType(str, Enum):
+    CREDIT = "credit"  # Service provider receives money (contractor payment)
+    DEBIT = "debit"    # Customer pays money (tenant charges)
+    RECURRING = "recurring"  # Auto-recurring invoices (rent, salary)
+    ONE_TIME = "one_time"    # Single invoice generation
+
+
 class ContractParty(BaseModel):
     name: str
     role: str  # "tenant", "landlord", "contractor", "service_provider", "employee", "employer", "bank", "insurance_company"
@@ -29,72 +36,75 @@ class ContractParty(BaseModel):
     address: Optional[str] = None
 
 
-class Contract(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+# Base contract model with all shared fields
+class ContractBase(BaseModel):
+    """Base contract model containing all shared fields across contract operations"""
     title: str
     contract_type: ContractType
     parties: List[ContractParty]
-    start_date: datetime
-    end_date: Optional[datetime] = None
-    status: ContractStatus = ContractStatus.DRAFT
+    start_date: date
+    end_date: Optional[date] = None
     value: Optional[float] = None
     currency: str = "EUR"
     
+    # Invoice generation settings
+    billing_type: Optional[ContractBillingType] = None
+    billing_frequency: Optional[str] = None  # "monthly", "quarterly", "yearly", "one_time"
+    next_billing_date: Optional[date] = None
+    
     # Related entities
-    related_property_id: Optional[str] = None
-    related_tenant_id: Optional[str] = None
-    related_user_id: Optional[str] = None
+    property_id: Optional[str] = None  # Property this contract relates to
+    other_party_id: Optional[str] = None  # Account ID of the other party (tenant/contractor/employee)
+    other_party_type: Optional[str] = None  # "tenant", "contractor", "employee" for clarity
     
     # Contract details
     description: Optional[str] = None
     terms: Optional[str] = None
     renewal_info: Optional[Dict[str, Any]] = None
+    type_specific_data: Optional[Dict[str, Any]] = None
+
+
+class ContractCreate(ContractBase):
+    """Contract creation model - inherits all fields from ContractBase"""
+    pass
+
+
+class Contract(ContractBase):
+    """Full contract model with metadata fields"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    status: ContractStatus = ContractStatus.DRAFT
     
     # Document management
     documents: Optional[List[Dict[str, str]]] = None  # [{"name": "contract.pdf", "url": "..."}]
     
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     created_by: str
     is_archived: bool = False
-    
-    # Type-specific fields (using flexible dict structure)
-    type_specific_data: Optional[Dict[str, Any]] = None
-
-
-class ContractCreate(BaseModel):
-    title: str
-    contract_type: ContractType
-    parties: List[ContractParty]
-    start_date: datetime
-    end_date: Optional[datetime] = None
-    value: Optional[float] = None
-    currency: str = "EUR"
-    
-    related_property_id: Optional[str] = None
-    related_tenant_id: Optional[str] = None
-    related_user_id: Optional[str] = None
-    
-    description: Optional[str] = None
-    terms: Optional[str] = None
-    renewal_info: Optional[Dict[str, Any]] = None
-    type_specific_data: Optional[Dict[str, Any]] = None
 
 
 class ContractUpdate(BaseModel):
+    """Contract update model - all fields optional for partial updates"""
     title: Optional[str] = None
     status: Optional[ContractStatus] = None
     parties: Optional[List[ContractParty]] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     value: Optional[float] = None
     currency: Optional[str] = None
     
-    related_property_id: Optional[str] = None
-    related_tenant_id: Optional[str] = None
-    related_user_id: Optional[str] = None
+    # Invoice generation settings
+    billing_type: Optional[ContractBillingType] = None
+    billing_frequency: Optional[str] = None
+    next_billing_date: Optional[date] = None
     
+    # Related entities
+    property_id: Optional[str] = None
+    other_party_id: Optional[str] = None
+    other_party_type: Optional[str] = None
+    
+    # Contract details
     description: Optional[str] = None
     terms: Optional[str] = None
     renewal_info: Optional[Dict[str, Any]] = None
@@ -102,31 +112,15 @@ class ContractUpdate(BaseModel):
     is_archived: Optional[bool] = None
 
 
-class ContractResponse(BaseModel):
-    id: str
-    title: str
-    contract_type: ContractType
-    parties: List[ContractParty]
-    start_date: datetime
-    end_date: Optional[datetime] = None
-    status: ContractStatus
-    value: Optional[float] = None
-    currency: str
+class ContractResponse(Contract):
+    """Contract response model - inherits from Contract for API responses"""
     
-    related_property_id: Optional[str] = None
-    related_tenant_id: Optional[str] = None
-    related_user_id: Optional[str] = None
-    
-    description: Optional[str] = None
-    terms: Optional[str] = None
-    renewal_info: Optional[Dict[str, Any]] = None
-    documents: Optional[List[Dict[str, str]]] = None
-    type_specific_data: Optional[Dict[str, Any]] = None
-    
-    created_at: datetime
-    updated_at: datetime
-    created_by: str
-    is_archived: bool
+    @field_validator('start_date', 'end_date', mode='before')
+    @classmethod
+    def convert_datetime_to_date(cls, v):
+        if isinstance(v, datetime):
+            return v.date()
+        return v
 
 
 # Specialized contract types for better type safety and validation

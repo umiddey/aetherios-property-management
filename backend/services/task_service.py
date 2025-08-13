@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import uuid
 
@@ -97,8 +97,8 @@ class TaskService(BaseService):
                 "property_id": getattr(task_data, 'property_id', None),
                 "assigned_to": getattr(task_data, 'assigned_to', None),
                 "created_by": created_by,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
                 "is_archived": False,
                 "is_active": True
             }
@@ -122,7 +122,7 @@ class TaskService(BaseService):
         await self.validate_update_data(task_id, update_data)
         
         # Add updated_at timestamp
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = datetime.now(timezone.utc)
         
         return await self.update(task_id, update_data)
     

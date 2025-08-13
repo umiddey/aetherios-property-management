@@ -1,12 +1,13 @@
-// src/AuthContext.js
+// Authentication Context with JWT token management and session handling
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Add this import for navigation
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import cachedAxios from './utils/cachedAxios';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// Auth Context
 const AuthContext = createContext();
 
 const useAuth = () => {
@@ -25,34 +26,38 @@ const AuthProvider = ({ children }) => {
     const savedActivity = localStorage.getItem('lastActivity');
     return savedActivity ? parseInt(savedActivity) : Date.now();
   });
+  
   const navigate = useNavigate();
+  const location = useLocation();
+  const INACTIVE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
-  // 10 minute timeout in milliseconds
-  const INACTIVE_TIMEOUT = 10 * 60 * 1000;
-
-  // Define logout function early so it can be used in useEffects
   const logout = () => {
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('lastActivity');
     delete axios.defaults.headers.common['Authorization'];
-    navigate('/login');
+    
+    // Only redirect to admin login if not on portal or contractor routes
+    if (!location.pathname.startsWith('/portal') && !location.pathname.startsWith('/contractor')) {
+      navigate('/login');
+    }
   };
 
-  // Activity tracking
+  // Track user activity for auto-logout
   useEffect(() => {
     const updateActivity = () => {
-      setLastActivity(Date.now());
-      localStorage.setItem('lastActivity', Date.now().toString());
+      const now = Date.now();
+      setLastActivity(now);
+      localStorage.setItem('lastActivity', now.toString());
     };
 
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
     events.forEach(event => {
       document.addEventListener(event, updateActivity, true);
     });
 
-    // Initialize lastActivity from localStorage if available
     const storedActivity = localStorage.getItem('lastActivity');
     if (storedActivity) {
       setLastActivity(parseInt(storedActivity));
@@ -77,14 +82,14 @@ const AuthProvider = ({ children }) => {
       }
     };
 
-    const interval = setInterval(checkInactivity, 60000); // Check every minute
+    const interval = setInterval(checkInactivity, 60000);
     return () => clearInterval(interval);
   }, [token, user, lastActivity, INACTIVE_TIMEOUT]);
 
+  // Validate token on startup and token changes
   useEffect(() => {
     const validateToken = async () => {
       if (token) {
-        // Check if session expired due to inactivity
         const storedActivity = localStorage.getItem('lastActivity');
         if (storedActivity) {
           const timeSinceLastActivity = Date.now() - parseInt(storedActivity);
@@ -95,25 +100,31 @@ const AuthProvider = ({ children }) => {
         }
 
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
         try {
-          // Test with a protected endpoint to validate token and fetch user
-          const response = await axios.get(`${API}/v1/users/me`);
+          const response = await cachedAxios.get(`${API}/v1/users/me`);
           setUser(response.data);
         } catch (error) {
           if (error.response?.status === 401) {
-            // Invalid token - clear it and redirect to login
             localStorage.removeItem('token');
             localStorage.removeItem('lastActivity');
             setToken(null);
             setUser(null);
             delete axios.defaults.headers.common['Authorization'];
-            navigate('/login');
+            
+            // Only redirect to admin login if not on portal or contractor routes
+            if (!location.pathname.startsWith('/portal') && !location.pathname.startsWith('/contractor')) {
+              navigate('/login');
+            }
           } else {
             console.error('Token validation error:', error);
           }
         }
       } else {
-        navigate('/login');
+        // Only redirect to admin login if not on portal or contractor routes
+        if (!location.pathname.startsWith('/portal') && !location.pathname.startsWith('/contractor')) {
+          navigate('/login');
+        }
       }
       setLoading(false);
     };
@@ -131,14 +142,16 @@ const AuthProvider = ({ children }) => {
       localStorage.setItem('token', access_token);
       localStorage.setItem('lastActivity', Date.now().toString());
       setLastActivity(Date.now());
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
       
-      navigate('/'); // Add this: Redirect to dashboard on success
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      navigate('/');
       
       return { success: true };
     } catch (error) {
-      console.log('Login error:', error);
-      return { success: false, error: error.response?.data?.detail || 'Login failed' };
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || 'Login failed' 
+      };
     }
   };
 

@@ -30,12 +30,17 @@
     "filters": "Filter",
     "login": "Anmelden",
     "loggingIn": "Anmeldung...",
+    "username": "Benutzername",
+    "password": "Passwort",
     "creating": "Erstellen...",
     "updating": "Aktualisieren...",
     "adding": "Hinzufügen...",
+    "saving": "Speichern...",
     "select": "Auswählen",
     "view": "Ansehen",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "customer": "Kunde",
+    "selectCustomer": "Kunde auswählen"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -71,7 +76,18 @@
     "exportStatistics": "Statistiken exportieren",
     "activeAgreements": "Aktive Verträge",
     "unpaidInvoices": "Unbezahlte Rechnungen",
-    "assignedTasks": "Zugewiesene Aufgaben"
+    "assignedTasks": "Zugewiesene Aufgaben",
+    "welcomeBack": "Willkommen zurück, {{name}}",
+    "messages": {
+      "newTaskCreated": "Neue Aufgabe erstellt!",
+      "userDeletedSuccess": "Benutzer erfolgreich gelöscht",
+      "serviceRequestSuccess": "Serviceanfrage {{action}} erfolgreich",
+      "failedRefreshTaskData": "Fehler beim Aktualisieren der Aufgabendaten",
+      "failedLoadDashboardData": "Fehler beim Laden der Dashboard-Daten",
+      "failedLoadProperties": "Fehler beim Laden der Immobilien",
+      "failedDeleteUser": "Fehler beim Löschen des Benutzers",
+      "failedServiceRequest": "Fehler beim {{action}} der Serviceanfrage"
+    }
   },
   "pages": {
     "propertyDetails": "Immobilien-Details",
@@ -104,6 +120,7 @@
     "office": "Büro",
     "commercial": "Gewerblich",
     "building": "Gebäude",
+    "complex": "Komplex",
     "sqm": "m²",
     "perSqm": "pro m²",
     "filters": "Filter",
@@ -117,7 +134,35 @@
     "details": "Details",
     "created": "Erstellt",
     "noPropertiesFound": "Keine Immobilien gefunden",
-    "empty": "Verfügbar"
+    "empty": "Verfügbar",
+    "rentPerSqm": "Miete pro m²",
+    "coldRent": "Kaltmiete",
+    "smartFilteringText": "Intelligente Immobilienfilterung • Echtzeitsuche",
+    "portfolioText": "Ihr Immobilienportfolio • {{count}} Immobilien",
+    "noPropertiesMessage": "Beginnen Sie mit dem Aufbau Ihres Immobilienportfolios, indem Sie Ihre erste Immobilie hinzufügen.",
+    "propertyNotFound": "Immobilie nicht gefunden",
+    "propertyDetails": "Immobilien-Details",
+    "backToProperties": "Zurück zu Immobilien",
+    "editProperty": "Immobilie bearbeiten",
+    "createContract": "Vertrag erstellen",
+    "viewContract": "Vertrag anzeigen →",
+    "propertyInformation": "Immobilien-Informationen",
+    "address": "Adresse",
+    "surfaceArea": "Wohnfläche",
+    "warmRent": "Warmmiete (Gesamt)",
+    "betriebskosten": "Betriebskosten",
+    "ownerDetailsNotAvailable": "Eigentümer-Details sind für diese Immobilie nicht verfügbar.",
+    "furnishedItems": "Möblierung ({{count}})",
+    "noFurnishedItems": "Noch keine Möblierung registriert",
+    "manageFurnishedItems": "Verwenden Sie die Bearbeiten-Schaltfläche, um die Möblierung zu verwalten",
+    "technicalObjects": "Technische Objekte ({{count}})",
+    "addTechnicalObjects": "Technische Objekte hinzufügen",
+    "propertyNotFoundTitle": "Immobilie nicht gefunden",
+    "propertyNotFoundMessage": "Die Immobilie, die Sie bearbeiten möchten, konnte nicht gefunden werden.",
+    "propertyUpdatedSuccess": "Immobilie erfolgreich aktualisiert",
+    "errors": {
+      "loadPropertyDetails": "Fehler beim Laden der Immobilien-Details"
+    }
   },
   "tenants": {
     "title": "Mieter",
@@ -145,11 +190,13 @@
     "searchPlaceholder": "Nach Name oder E-Mail suchen",
     "showArchived": "Archivierte anzeigen",
     "contact": "Kontakt",
-    "noTenantsFound": "Keine Mieter gefunden"
+    "noTenantsFound": "Keine Mieter gefunden",
+    "unknownTenant": "Unbekannter Mieter"
   },
   "invoices": {
     "title": "Rechnungen",
     "createInvoice": "Rechnung erstellen",
+    "createFirstInvoice": "Erste Rechnung erstellen",
     "invoiceList": "Rechnungsliste",
     "invoiceDetails": "Rechnungsdetails",
     "invoiceId": "Rechnungs-ID",
@@ -164,12 +211,25 @@
     "paid": "Bezahlt",
     "pending": "Ausstehend",
     "overdue": "Überfällig",
+    "draft": "Entwurf",
+    "sent": "Versendet",
     "paymentStatus": "Zahlungsstatus",
     "showArchived": "Archivierte anzeigen",
     "allStatuses": "Alle Status",
+    "contractRequired": "Rechnungserstellung erfordert einen Vertrag. Bitte erstellen Sie Rechnungen von Vertragsdetailseiten.",
+    "createFromContract": "Rechnung aus Vertrag erstellen",
+    "createFromContractNote": "Rechnungen können nur aus Verträgen erstellt werden. Besuchen Sie eine Vertragsdetailseite, um eine Rechnung zu erstellen.",
+    "createFromContractInstructions": "Um Rechnungen zu erstellen, navigieren Sie zu einem Vertrag und verwenden Sie die Schaltfläche 'Rechnung erstellen'.",
     "allTenants": "Alle Mieter",
     "allProperties": "Alle Immobilien",
-    "noInvoicesFound": "Keine Rechnungen gefunden"
+    "professionalInvoiceManagement": "Professionelles Rechnungsmanagement-System",
+    "noInvoicesFound": "Keine Rechnungen gefunden",
+    "noInvoicesMessage": "Keine Rechnungen entsprechen Ihren aktuellen Filtern. Erstellen Sie Ihre erste Rechnung, um zu beginnen.",
+    "archive": "Archiv",
+    "contractBasedInvoice": "Vertragsbasierte Rechnung",
+    "credit": "Haben",
+    "debit": "Soll",
+    "viewInvoice": "Rechnung anzeigen"
   },
   "tasks": {
     "title": "Aufgaben",
@@ -197,7 +257,17 @@
     "allAssignees": "Alle Zugewiesenen",
     "noTasksFound": "Keine Aufgaben gefunden",
     "activities": "Aktivitäten",
-    "noActivitiesRecorded": "Keine Aktivitäten aufgezeichnet"
+    "noActivitiesRecorded": "Keine Aktivitäten aufgezeichnet",
+    "unassigned": "Nicht zugewiesen",
+    "noTasksMessage": "Keine Aufgaben entsprechen Ihren aktuellen Filtern. Erstellen Sie Ihre erste Aufgabe, um zu beginnen.",
+    "backToTasks": "Zurück zu Aufgaben",
+    "efficientTaskManagement": "Effizientes Aufgabenmanagement und Tracking-System",
+    "taskForProperty": "Aufgabe für Immobilie",
+    "failedToCreateTask": "Fehler beim Erstellen der Aufgabe",
+    "dueDate": "Fälligkeitsdatum",
+    "assignedTo": "Zugewiesen an",
+    "none": "Keine",
+    "cancel": "Abbrechen"
   },
   "accounts": {
     "title": "Konten",
@@ -215,7 +285,39 @@
     "website": "Website",
     "noAccountsFound": "Keine Konten gefunden",
     "associatedTasks": "Verknüpfte Aufgaben",
-    "noTasksAssociated": "Keine Aufgaben verknüpft"
+    "noTasksAssociated": "Keine Aufgaben verknüpft",
+    "accountType": "Kontotyp",
+    "allTypes": "Alle Typen",
+    "tenant": "Mieter",
+    "employee": "Mitarbeiter",
+    "contractor": "Auftragnehmer",
+    "searchPlaceholder": "Nach Name oder E-Mail suchen...",
+    "manageEfficiency": "Verwalten Sie alle Kontotypen mit einheitlicher Effizienz",
+    "licensesExpiringSoon": "⚠️ Lizenzen laufen bald ab",
+    "expiredLicenses": "❌ Abgelaufene Lizenzen",
+    "noAccountsMessage": "Keine Konten entsprechen Ihren aktuellen Filtern. Versuchen Sie, Ihre Suchkriterien anzupassen.",
+    "eligible": "✓ Berechtigt",
+    "notEligible": "✗ Nicht berechtigt",
+    "expiring": "Läuft ab",
+    "totalLicenses": "Lizenzen gesamt:",
+    "expired": "Abgelaufen:",
+    "expiringSoon": "Läuft bald ab:",
+    "eligibleAssignments": "✓ Für Aufträge berechtigt",
+    "notEligibleAssignments": "✗ Nicht für Aufträge berechtigt",
+    "manageLicenses": "📋 Lizenzen verwalten",
+    "smartFilters": "Smart Filter",
+    "licenseCompliance": "Lizenz-Compliance",
+    "allContractors": "Alle Auftragnehmer",
+    "eligibleForAssignments": "✓ Für Aufträge berechtigt",
+    "notEligibleText": "✗ Nicht berechtigt",
+    "availableOnlyForContractors": "Nur für Auftragnehmer verfügbar",
+    "loading": "Laden...",
+    "noLicenseData": "Keine Lizenzdaten",
+    "valid": "Gültig",
+    "expiringSoonText": "Läuft bald ab",
+    "viewDetails": "Details anzeigen",
+    "view": "Anzeigen",
+    "manageContractsEfficiency": "Verwalten Sie Ihre Verträge mit moderner Effizienz"
   },
   "forms": {
     "createProperty": {
@@ -262,7 +364,48 @@
       "cancelled": "Gekündigt",
       "parentProperty": "Übergeordnete Immobilie",
       "none": "Keine",
-      "additionalDetailsPlaceholder": "Zusätzliche Details zur Immobilie..."
+      "additionalDetailsPlaceholder": "Zusätzliche Details zur Immobilie...",
+      "generatingId": "ID wird generiert...",
+      "autoGenerated": "Automatisch generiert basierend auf Name und Typ",
+      "idFormat": "Automatisch generiert: [vorname]_[nachname]_[typ]_[JJJJQQ###] (z.B., jordan_smith_apartment_202503001)",
+      "furnishing": {
+        "unfurnished": "🏠 Unmöbliert",
+        "furnished": "🛋️ Möbliert",
+        "partiallyFurnished": "🏡 Teilmöbliert"
+      },
+      "furnishedItems": "Möblierung",
+      "itemsCount": "{{count}} Gegenstände",
+      "manageFurnishedItems": "Möblierung verwalten",
+      "addRemoveFurnishedItems": "Möblierte Gegenstände hinzufügen/entfernen (für möblierte Immobilien aktiviert)",
+      "energyCertificate": {
+        "title": "⚡ Energieausweis *",
+        "mandatoryNote": "Pflicht für Immobilienvermarktung - Bußgeld bis zu 15.000€",
+        "type": "Ausweistyp *",
+        "class": "Energieklasse *",
+        "value": "Energiewert (kWh/m²·a) *",
+        "expiry": "Gültig bis *",
+        "co2": "CO₂-Emissionen (kg CO₂/m²·a)",
+        "types": {
+          "verbrauchsausweis": "Verbrauchsausweis (Verbrauchsbasiert)",
+          "bedarfsausweis": "Bedarfsausweis (Bedarfsbasiert)"
+        },
+        "classes": {
+          "aPlus": "A+ (Beste)",
+          "h": "H (Schlechteste)"
+        }
+      },
+      "germanCompliance": "🇩🇪 Deutsche Rechtskonformität",
+      "placeholders": {
+        "floorExample": "z.B., 2. OG, Erdgeschoss",
+        "totalFloors": "Gesamtanzahl Etagen im Gebäude",
+        "priceExample": "z.B. 2,50",
+        "noLimit": "Leer lassen für unbegrenzt",
+        "energyExample": "z.B. 150,0",
+        "co2Example": "z.B. 35,0"
+      },
+      "errors": {
+        "loadPropertyManagers": "Fehler beim Laden der Immobilienverwalter"
+      }
     },
     "createTenant": {
       "title": "Neuen Mieter hinzufügen",
@@ -289,6 +432,8 @@
       "invoiceRecipients": "Rechnungsempfänger",
       "invoiceDetails": "Rechnungsdetails",
       "invoiceDates": "Rechnungsdaten",
+      "contract": "Vertrag",
+      "selectContract": "Vertrag auswählen (optional)",
       "tenant": "Mieter",
       "selectTenant": "Mieter auswählen",
       "property": "Immobilie",
@@ -356,6 +501,7 @@
     "editContract": "Vertrag bearbeiten",
     "downloadContract": "Vertrag herunterladen",
     "terminateContract": "Vertrag kündigen",
+    "confirmTerminate": "Sind Sie sicher, dass Sie diesen Vertrag kündigen möchten?",
     "backToContracts": "Zurück zu Verträge",
     "notFound": "Vertrag nicht gefunden",
     "createContractDescription": "Erstellen Sie einen neuen Vertrag, indem Sie das unten stehende Formular ausfüllen.",
@@ -368,6 +514,8 @@
     "noContractsFound": "Keine Verträge gefunden",
     "noContractsDescription": "Beginnen Sie, indem Sie Ihren ersten Vertrag erstellen.",
     "createFirstContract": "Ersten Vertrag erstellen",
+    "createFirstRentalContract": "Ersten Mietvertrag erstellen",
+    "ongoing": "Laufend",
     "more": "weitere",
     "types": {
       "rental": "Mietvertrag",
@@ -440,13 +588,210 @@
       "contractDeleted": "Vertrag erfolgreich gelöscht",
       "createError": "Fehler beim Erstellen des Vertrags",
       "updateError": "Fehler beim Aktualisieren des Vertrags",
-      "deleteError": "Fehler beim Löschen des Vertrags"
+      "deleteError": "Fehler beim Löschen des Vertrags",
+      "fetchError": "Fehler beim Laden der Verträge"
     },
     "errors": {
       "invalidEndDate": "Enddatum muss nach Startdatum liegen",
       "minimumParties": "Mindestens 2 Parteien sind erforderlich",
       "invalidValue": "Wert muss eine positive Zahl sein"
     }
+  },
+  "technicalObjects": {
+    "title": "Technische Objekte",
+    "noObjectsTitle": "Keine technischen Objekte",
+    "noObjectsDescription": "Fügen Sie technische Geräte und Systeme hinzu, um Wartung und Compliance zu verfolgen",
+    "type": "Typ",
+    "manufacturer": "Hersteller",
+    "model": "Modell",
+    "heating": "Heizung",
+    "fuel": "Brennstoff",
+    "distribution": "Verteilung",
+    "installed": "Installiert",
+    "addedBy": "Hinzugefügt von",
+    "status": {
+      "active": "✅ Aktiv",
+      "maintenance": "🔧 Wartung",
+      "inactive": "❌ Inaktiv"
+    },
+    "types": {
+      "heating_system": "Heizungsanlage",
+      "elevator": "Aufzug",
+      "intercom": "Gegensprechanlage",
+      "security_system": "Sicherheitssystem",
+      "fire_safety": "Brandschutz",
+      "ventilation": "Lüftung",
+      "plumbing": "Sanitär",
+      "electrical": "Elektrik",
+      "other": "Sonstiges",
+      "technical_object": "Technisches Objekt"
+    },
+    "heatingTypes": {
+      "zentralheizung": "Zentralheizung",
+      "etagenheizung": "Etagenheizung",
+      "einzelheizung": "Einzelheizung"
+    },
+    "distributionTypes": {
+      "surface_area": "Wohnfläche",
+      "apartment_count": "Gleichverteilung",
+      "consumption": "Verbrauchsbasiert"
+    },
+    "managementTitle": "Verwaltung technischer Objekte",
+    "managementSubtitle": "Verwalten Sie technische Ausrüstung und Systeme für diese Immobilie. Umfasst Heizung, Aufzüge und andere Gebäudesysteme mit deutscher BetrKV-Konformität.",
+    "manager": {
+      "title": "Technische Objekte",
+      "subtitle": "Immobilienausstattung und -systeme verwalten",
+      "addButton": "Technisches Objekt hinzufügen",
+      "loadingMessage": "Technische Objekte werden geladen...",
+      "noObjectsMessage": "Keine technischen Objekte für diese Immobilie konfiguriert",
+      "addFirstButton": "Erstes technisches Objekt hinzufügen",
+      "editTitle": "Technisches Objekt bearbeiten",
+      "addTitle": "Neues technisches Objekt hinzufügen",
+      "deleteConfirm": "Sind Sie sicher, dass Sie dieses technische Objekt löschen möchten?",
+      "errors": {
+        "loadFailed": "Fehler beim Laden der technischen Objekte",
+        "saveFailed": "Fehler beim Speichern des technischen Objekts",
+        "deleteFailed": "Fehler beim Löschen des technischen Objekts"
+      },
+      "form": {
+        "objectName": "Objektname",
+        "objectNamePlaceholder": "z.B., Zentralheizung",
+        "objectType": "Objekttyp",
+        "manufacturer": "Hersteller",
+        "manufacturerPlaceholder": "z.B., Viessmann",
+        "model": "Modell",
+        "modelPlaceholder": "z.B., Vitocrossal 300",
+        "status": "Status",
+        "installationDate": "Installationsdatum",
+        "heatingSystemDetails": "🔥 Heizungsdetails",
+        "heatingType": "Heizungstyp",
+        "selectType": "Typ auswählen",
+        "costDistributionMethod": "Kostenumlage-Methode",
+        "selectMethod": "Methode auswählen",
+        "costPerSqm": "Kosten pro m² (€)",
+        "costPerSqmPlaceholder": "z.B., 2,50",
+        "powerOutput": "Leistung (kW)",
+        "powerOutputPlaceholder": "z.B., 150,0",
+        "notes": "Notizen",
+        "notesPlaceholder": "Zusätzliche Notizen, Wartungshistorie, etc.",
+        "saving": "Speichern...",
+        "updateButton": "Objekt aktualisieren",
+        "addButton": "Objekt hinzufügen",
+        "cancelButton": "Abbrechen"
+      },
+      "objectTypes": {
+        "heating_system": "🔥 Heizungsanlage",
+        "elevator": "🛗 Aufzug",
+        "intercom": "📞 Gegensprechanlage",
+        "building_management": "🏢 Gebäudeverwaltung",
+        "security_system": "🔒 Sicherheitssystem",
+        "ventilation": "💨 Lüftung",
+        "solar_panels": "☀️ Solaranlagen",
+        "fire_safety": "🚨 Brandschutz",
+        "water_system": "💧 Wassersystem",
+        "electrical_system": "⚡ Elektroanlage"
+      },
+      "statuses": {
+        "active": "✅ Aktiv",
+        "maintenance": "🔧 In Wartung",
+        "broken": "❌ Defekt",
+        "decommissioned": "🔐 Stillgelegt",
+        "planned": "📅 Geplant"
+      },
+      "heatingTypes": {
+        "zentralheizung": "Zentralheizung",
+        "gasheizung": "Gasheizung",
+        "fernwaerme": "Fernwärme",
+        "waermepumpe": "Wärmepumpe",
+        "elektroheizung": "Elektroheizung"
+      },
+      "distributionMethods": {
+        "surface_area": "Wohnfläche (m²)",
+        "consumption": "Verbrauchsbasiert (BetrKV)",
+        "apartment_count": "Gleichverteilung"
+      }
+    }
+  },
+  "furnishedItems": {
+    "title": "Möblierte Gegenstände",
+    "subtitle": "{{count}} Gegenstände • Deutsche Rechtslage",
+    "addButton": "Gegenstand hinzufügen",
+    "noItemsTitle": "Noch keine möblierten Gegenstände",
+    "noItemsDescription": "Fügen Sie Möbel und Geräte hinzu, um Eigentumsrechte und Haftung zu verfolgen",
+    "editTitle": "Möblierten Gegenstand bearbeiten",
+    "addTitle": "Möblierten Gegenstand hinzufügen",
+    "essential": "Wesentlich",
+    "deleteConfirm": "Sind Sie sicher, dass Sie diesen Gegenstand entfernen möchten?",
+    "errors": {
+      "saveFailed": "Fehler beim Speichern des möblierten Gegenstands. Bitte versuchen Sie es erneut.",
+      "deleteFailed": "Fehler beim Löschen des möblierten Gegenstands. Bitte versuchen Sie es erneut."
+    },
+    "categories": {
+      "furniture": "🪑 Möbel",
+      "appliance": "🔌 Haushaltsgeräte",
+      "electronics": "📺 Elektronik",
+      "kitchen": "🍳 Küche",
+      "bathroom": "🚿 Bad",
+      "decoration": "🖼️ Dekoration",
+      "lighting": "💡 Beleuchtung",
+      "other": "📦 Sonstiges"
+    },
+    "conditions": {
+      "new": "✨ Neu",
+      "excellent": "⭐ Ausgezeichnet",
+      "good": "👍 Gut",
+      "fair": "👌 Akzeptabel",
+      "poor": "⚠️ Schlecht"
+    },
+    "ownership": {
+      "landlord": "🏠 Vom Vermieter bereitgestellt",
+      "tenant": "👤 Vom Mieter bereitgestellt"
+    },
+    "form": {
+      "itemName": "Gegenstandsname",
+      "itemNamePlaceholder": "z.B., Wohnzimmersofa",
+      "category": "Kategorie",
+      "brand": "Marke",
+      "brandPlaceholder": "z.B., IKEA",
+      "model": "Modell",
+      "modelPlaceholder": "z.B., EKTORP",
+      "condition": "Zustand",
+      "ownership": "Eigentümerschaft",
+      "purchasePrice": "Kaufpreis (€)",
+      "currentValue": "Aktueller Wert (€)",
+      "description": "Beschreibung",
+      "descriptionPlaceholder": "Zusätzliche Details, Eigenschaften oder Notizen...",
+      "essential": "Wesentlicher Gegenstand",
+      "essentialDescription": "Erforderlich für das grundlegende Wohnen (beeinflusst rechtliche Verantwortung)",
+      "save": "Gegenstand speichern",
+      "cancel": "Abbrechen",
+      "saving": "Speichern..."
+    }
+  },
+  "customers": {
+    "title": "Kunden",
+    "addCustomer": "Kunde hinzufügen", 
+    "backToCustomers": "← Zurück zu Kunden",
+    "createCustomerFailed": "Fehler beim Erstellen des Kunden",
+    "form": {
+      "name": "Name",
+      "company": "Unternehmen", 
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "address": "Adresse",
+      "cancel": "Abbrechen",
+      "creating": "Erstellen...",
+      "createCustomer": "Kunde erstellen"
+    }
+  },
+  "errors": {
+    "somethingWentWrong": "Etwas ist schief gelaufen",
+    "unexpectedError": "Die Anwendung ist auf einen unerwarteten Fehler gestoßen. Bitte aktualisieren Sie die Seite, um es erneut zu versuchen.",
+    "refreshPage": "Seite aktualisieren"
+  },
+  "pagination": {
+    "previous": "Zurück",
+    "next": "Weiter"
   },
   "language": {
     "switchLanguage": "Sprache wechseln",
