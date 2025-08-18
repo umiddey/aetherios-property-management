@@ -197,7 +197,7 @@ class ContractorEmailService:
             # Construct URLs
             scheduling_url = f"{base_url}/contractor/schedule/{scheduling_token}"
             invoice_url = f"{base_url}/contractor/invoice/{invoice_token}"
-            
+
             # Format preferred slots
             preferred_slots_text = ""
             if service_request.tenant_preferred_slots:

@@ -44,16 +44,21 @@ const ServiceRequestForm = () => {
         }
 
         // Fetch form options and tenant's contracts in parallel
-        const [typesResponse, prioritiesResponse, contractsResponse] = await Promise.all([
-          axios.get(`${BACKEND_URL}/api/v1/service-request-options/types`),
-          axios.get(`${BACKEND_URL}/api/v1/service-request-options/priorities`),
+        const token = secureStorage.getPortalToken();
+        const authHeaders = { Authorization: `Bearer ${token}` };
+        
+        const [metadataResponse, contractsResponse] = await Promise.all([
+          axios.get(`${BACKEND_URL}/api/v1/portal/service-request-metadata`, {
+            headers: authHeaders
+          }),
           axios.get(`${BACKEND_URL}/api/v1/portal/contracts`, {
-            headers: { Authorization: `Bearer ${secureStorage.getPortalToken()}` }
+            headers: authHeaders
           })
         ]);
         
-        setRequestTypes(typesResponse.data || []);
-        setPriorities(prioritiesResponse.data || []);
+        // Extract types and priorities from metadata response
+        setRequestTypes(metadataResponse.data.types || []);
+        setPriorities(metadataResponse.data.priorities || []);
         setContracts(contractsResponse.data || []);
         
         // Auto-select contract if only one active contract

@@ -16,12 +16,8 @@ from models.account import (
 from models.user import User
 from services.account_service import AccountService
 from services.tenant_service import TenantService
-from dependencies import get_current_user
-
-# Import database connection
-async def get_database():
-    from server import db
-    return db
+from utils.auth import get_current_user
+from utils.dependencies import get_database
 
 router = APIRouter(prefix="/api/v2/accounts", tags=["accounts-v2"])
 

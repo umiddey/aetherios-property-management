@@ -6,7 +6,8 @@ from datetime import datetime
 from models.property import PropertyCreate, PropertyUpdate, PropertyFilters
 from services.property_service import PropertyService
 from services.property_validation import PropertyValidationService, Jurisdiction
-from dependencies import get_current_user, get_property_service
+from utils.auth import get_current_user
+from utils.dependencies import get_property_service
 
 logger = logging.getLogger(__name__)
 

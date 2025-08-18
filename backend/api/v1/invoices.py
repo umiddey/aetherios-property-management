@@ -1,39 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import List, Optional
 from datetime import datetime
 import logging
 
 from services.invoice_service import InvoiceService
 from models.invoice import Invoice, InvoiceCreate, InvoiceUpdate, InvoiceFilters, InvoiceStatus
-from middleware.auth import get_current_user_from_token
+from utils.auth import get_current_user
+from utils.dependencies import get_invoice_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
-security = HTTPBearer()
-
-
-def get_invoice_service() -> InvoiceService:
-    """Dependency to get invoice service."""
-    # This will be injected by the main application
-    from server import db
-    return InvoiceService(db)
 
 
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_invoice(
     invoice_data: InvoiceCreate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Create a new invoice."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Create invoice
-        result = await invoice_service.create_invoice(invoice_data, current_user["id"])
+        result = await invoice_service.create_invoice(invoice_data, current_user.id)
         
         return {
             "message": "Invoice created successfully",
@@ -57,13 +47,11 @@ async def get_invoices(
     date_to: Optional[datetime] = Query(None),
     limit: Optional[int] = Query(100),
     offset: Optional[int] = Query(0),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Get invoices with optional filters."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Create filters
         filters = InvoiceFilters(
@@ -94,13 +82,11 @@ async def get_invoices(
 @router.get("/{invoice_id}", response_model=dict)
 async def get_invoice(
     invoice_id: str,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Get a specific invoice by ID."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Get invoice
         invoice = await invoice_service.get_invoice_by_id(invoice_id)
@@ -120,13 +106,11 @@ async def get_invoice(
 async def update_invoice(
     invoice_id: str,
     invoice_update: InvoiceUpdate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Update an invoice."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Update invoice
         result = await invoice_service.update_invoice(invoice_id, invoice_update)
@@ -148,13 +132,11 @@ async def update_invoice(
 @router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_invoice(
     invoice_id: str,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Delete (archive) an invoice."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Delete invoice
         success = await invoice_service.delete_invoice(invoice_id)
@@ -173,13 +155,11 @@ async def delete_invoice(
 @router.patch("/{invoice_id}/mark-paid", response_model=dict)
 async def mark_invoice_paid(
     invoice_id: str,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Mark an invoice as paid."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Mark as paid
         result = await invoice_service.mark_invoice_as_paid(invoice_id)
@@ -201,13 +181,11 @@ async def mark_invoice_paid(
 @router.patch("/{invoice_id}/mark-sent", response_model=dict)
 async def mark_invoice_sent(
     invoice_id: str,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Mark an invoice as sent."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Mark as sent
         result = await invoice_service.mark_invoice_as_sent(invoice_id)
@@ -228,13 +206,11 @@ async def mark_invoice_sent(
 
 @router.get("/overdue/list", response_model=List[dict])
 async def get_overdue_invoices(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Get all overdue invoices."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Get overdue invoices
         invoices = await invoice_service.get_overdue_invoices()
@@ -249,13 +225,11 @@ async def get_overdue_invoices(
 
 @router.get("/stats/summary", response_model=dict)
 async def get_invoice_stats(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Get invoice statistics."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Get stats
         stats = await invoice_service.get_invoice_stats()
@@ -270,13 +244,11 @@ async def get_invoice_stats(
 
 @router.post("/update-overdue", response_model=dict)
 async def update_overdue_invoices(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Update overdue invoice statuses."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Update overdue invoices
         count = await invoice_service.update_overdue_invoices()
@@ -296,13 +268,11 @@ async def update_overdue_invoices(
 async def get_tenant_invoices(
     tenant_id: str,
     archived: Optional[bool] = Query(False),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Get all invoices for a specific tenant."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Get tenant invoices
         invoices = await invoice_service.get_invoices_by_tenant(tenant_id, archived)
@@ -319,13 +289,11 @@ async def get_tenant_invoices(
 async def get_property_invoices(
     property_id: str,
     archived: Optional[bool] = Query(False),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    current_user = Depends(get_current_user),
     invoice_service: InvoiceService = Depends(get_invoice_service)
 ):
     """Get all invoices for a specific property."""
     try:
-        # Get current user
-        current_user = await get_current_user_from_token(credentials.credentials)
         
         # Get property invoices
         invoices = await invoice_service.get_invoices_by_property(property_id, archived)

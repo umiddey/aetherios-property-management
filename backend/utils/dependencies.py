@@ -1,17 +1,26 @@
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-import os
-from pathlib import Path
-from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from services.property_service import PropertyService
+from repositories.property_repository import PropertyRepository
+from services.tenant_service import TenantService
+from services.invoice_service import InvoiceService
+from fastapi import Depends
+from utils.database import get_database, db
 
-# Load environment variables
-ROOT_DIR = Path(__file__).parent.parent
-load_dotenv(ROOT_DIR / '.env')
+# Service Dependencies
+async def get_property_repository() -> PropertyRepository:
+    """Get property repository instance."""
+    return PropertyRepository(db)
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ.get('DB_NAME', 'test_database')]
+async def get_property_service(
+    property_repository: PropertyRepository = Depends(get_property_repository)
+) -> PropertyService:
+    """Get property service instance."""
+    return PropertyService(db)
 
-async def get_database() -> AsyncIOMotorDatabase:
-    """Get the database instance."""
-    return db
+async def get_tenant_service() -> TenantService:
+    """Get tenant service instance."""
+    return TenantService(db)
+
+async def get_invoice_service() -> InvoiceService:
+    """Get invoice service instance."""
+    return InvoiceService(db)

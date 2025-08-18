@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import List, Optional, Union
+from motor.motor_asyncio import AsyncIOMotorDatabase
 import logging
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -12,7 +13,8 @@ from models.technical_object import (
 )
 from models.heating_system import HeatingSystemCreate
 from services.technical_object_validation import TechnicalObjectValidationService, Jurisdiction
-from dependencies import get_current_user, db
+from utils.auth import get_current_user
+from utils.dependencies import get_database
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,8 @@ def get_validation_service():
 async def create_technical_object(
     request: Request,
     current_user = Depends(get_current_user),
-    validator: TechnicalObjectValidationService = Depends(get_validation_service)
+    validator: TechnicalObjectValidationService = Depends(get_validation_service),
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Create a new technical object with German legal compliance validation."""
     try:
@@ -97,7 +100,8 @@ async def create_technical_object(
 async def get_technical_objects_by_property(
     property_id: str,
     object_type: Optional[TechnicalObjectType] = Query(None, description="Filter by object type"),
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get all technical objects for a specific property."""
     try:
@@ -135,7 +139,8 @@ async def get_technical_objects_by_property(
 @router.get("/{object_id}")
 async def get_technical_object(
     object_id: str,
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Get a specific technical object by ID."""
     try:
@@ -160,7 +165,8 @@ async def update_technical_object(
     object_id: str,
     update_data: TechnicalObjectUpdate,
     current_user = Depends(get_current_user),
-    validator: TechnicalObjectValidationService = Depends(get_validation_service)
+    validator: TechnicalObjectValidationService = Depends(get_validation_service),
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Update a technical object with validation."""
     try:
@@ -211,7 +217,8 @@ async def update_technical_object(
 @router.delete("/{object_id}")
 async def delete_technical_object(
     object_id: str,
-    current_user = Depends(get_current_user)
+    current_user = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Soft delete a technical object and remove from property references."""
     try:

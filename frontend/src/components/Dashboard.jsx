@@ -34,6 +34,7 @@ import ContractEditPage from './ContractEditPage';
 import LicenseManagementView from './LicenseManagementView';
 import Breadcrumb from './Breadcrumb';
 import LanguageSwitcher from './LanguageSwitcher';
+import SidebarNavigation from './ui/SidebarNavigation';
 import { canManageLicenses } from '../utils/permissions';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -722,38 +723,24 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <header className="bg-white shadow-lg border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center py-6 space-y-4 md:space-y-0">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mr-3">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Property ERP</h1>
-                <p className="text-sm text-gray-600">{t('dashboard.welcomeBack', { name: user?.full_name })}</p>
-              </div>
+    <div className="flex h-screen bg-gray-50">
+       {/* Sidebar Navigation */}
+      <SidebarNavigation 
+        onNavigate={handleNav} 
+        user={user} 
+        canManageLicenses={canManageLicenses}
+      />
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden md:ml-0">
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+        <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 md:px-6">
+          <div className="flex justify-between items-center py-4 pl-16 md:pl-0">
+            <div>
+              <p className="text-sm text-gray-600">{t('dashboard.welcomeBack', { name: user?.full_name })}</p>
             </div>
-            <div className="flex flex-wrap items-center space-x-4 space-y-2 md:space-y-0">
-              <nav className="flex flex-wrap space-x-2 space-y-2 md:space-y-0">
-                <button onClick={() => handleNav('')} className={currentViewFromPath === '' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.dashboard')}</button>
-                <button onClick={() => handleNav('properties')} className={currentViewFromPath === 'properties' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.properties')}</button>
-                <button onClick={() => handleNav('accounts')} className={currentViewFromPath === 'accounts' || currentViewFromPath === 'tenants' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.accounts')}</button>
-                <button onClick={() => handleNav('invoices')} className={currentViewFromPath === 'invoices' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.invoices')}</button>
-                <button onClick={() => handleNav('tasks')} className={currentViewFromPath === 'tasks' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.tasks')}</button>
-                <button onClick={() => handleNav('service-requests')} className={currentViewFromPath === 'service-requests' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>Service Requests</button>
-                <button onClick={() => handleNav('contracts')} className={currentViewFromPath === 'contracts' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.contracts')}</button>
-                {canManageLicenses(user) && (
-                  <button onClick={() => handleNav('license-management')} className={currentViewFromPath === 'license-management' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>License Management</button>
-                )}
-                {user?.role === 'super_admin' && (
-                  <button onClick={() => handleNav('users')} className={currentViewFromPath === 'users' ? 'px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg' : 'px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-all duration-200'}>{t('navigation.users')}</button>
-                )}
-              </nav>
+            <div className="flex items-center space-x-4">
               <LanguageSwitcher />
               
               {/* Notification Bell */}
@@ -875,11 +862,12 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-      </header>
+        </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Breadcrumb items={generateBreadcrumbs()} onNavigate={handleNav} />
-        <Routes>
+        <main className="flex-1 overflow-auto p-6">
+          <div className="space-y-6">
+            <Breadcrumb items={generateBreadcrumbs()} onNavigate={handleNav} />
+            <Routes>
           <Route path="/" element={<DashboardView 
             stats={stats} 
             assignedTasks={assignedTasks} 
@@ -1098,8 +1086,10 @@ const Dashboard = () => {
           <Route path="/contracts/:id/edit" element={<ContractEditPage />} />
           <Route path="/create-contract" element={<CreateContractForm />} />
           <Route path="/license-management" element={<LicenseManagementView handleNav={handleNav} />} />
-        </Routes>
-      </main>
+            </Routes>
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
