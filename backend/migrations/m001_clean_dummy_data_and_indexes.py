@@ -179,6 +179,8 @@ class CleanDummyDataAndIndexes(Migration):
         await self._create_index_safe(activities, [("created_by", 1)], background=True)
         
         logger.info("All performance indexes created successfully")
+
+        # Accounts/Profiles indexes moved to server startup for this environment (dummy data)
     
     async def _drop_indexes(self) -> None:
         """Drop the indexes created by this migration."""

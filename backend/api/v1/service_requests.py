@@ -24,18 +24,18 @@ from models.service_request import (
     ServiceRequestApprovalStatus,
     ServiceRequestApproval
 )
-from dependencies import get_current_user, get_portal_user, db
-from services.service_request_service import ServiceRequestService
+from utils.auth import get_current_user, get_portal_user
+from utils.dependencies import get_database
+from services.core.service_request_service import ServiceRequestService
 
 router = APIRouter(prefix="/service-requests", tags=["service-requests"])
-public_router = APIRouter(prefix="/service-requests", tags=["service-requests-public"])
 
-# Export both routers
-__all__ = ["router", "public_router"]
+# Export router (public_router removed for security)
+__all__ = ["router"]
 
 
 # Initialize service request service
-def get_service_request_service() -> ServiceRequestService:
+def get_service_request_service(db: Database = Depends(get_database)) -> ServiceRequestService:
     """Dependency to get service request service instance"""
     return ServiceRequestService(db)
 
@@ -608,20 +608,4 @@ async def mark_service_request_complete(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to mark service request as complete")
 
 
-# Utility Endpoints (Public - No Authentication Required)
-@public_router.get("/types", response_model=List[str])
-async def get_service_request_types():
-    """Get all available service request types"""
-    return [request_type.value for request_type in ServiceRequestType]
-
-
-@public_router.get("/priorities", response_model=List[str])  
-async def get_service_request_priorities():
-    """Get all available service request priorities"""
-    return [priority.value for priority in ServiceRequestPriority]
-
-
-@public_router.get("/statuses", response_model=List[str])
-async def get_service_request_statuses():
-    """Get all available service request statuses"""
-    return [status.value for status in ServiceRequestStatus]
+# Public endpoints removed for security - use authenticated endpoints instead

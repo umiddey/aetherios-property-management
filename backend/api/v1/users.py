@@ -4,7 +4,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime, timezone
 import logging
 
-from services.user_service import UserService
+from services.accounts.user_service import UserService
 from models.user import User, UserCreate, UserUpdate, UserResponse, UserLogin, Token
 from utils.auth import get_current_user, get_super_admin, create_access_token
 from utils.dependencies import get_database

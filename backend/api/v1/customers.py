@@ -4,7 +4,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime
 import logging
 
-from services.customer_service import CustomerService
+from services.accounts.customer_service import CustomerService
 from models.customer import Customer, CustomerCreate, CustomerUpdate, CustomerResponse
 from utils.auth import get_current_user
 from utils.dependencies import get_database

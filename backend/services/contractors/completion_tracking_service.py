@@ -33,8 +33,8 @@ except ImportError as e:
             def __exit__(self, *args): pass
 
 from models.service_request import ServiceRequest
-from services.contractor_email_service import ContractorEmailService, get_smtp_config
-from services.tenant_service import TenantService
+from services.contractors.contractor_email_service import ContractorEmailService, get_smtp_config
+from services.accounts.tenant_service import TenantService
 
 
 logger = logging.getLogger(__name__)

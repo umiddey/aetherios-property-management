@@ -22,9 +22,9 @@ EMAIL_AVAILABLE = True  # FORCE TRUE - WE'RE SENDING REAL EMAILS
 
 from models.service_request import ServiceRequest, ServiceRequestType
 from models.account import ContractorProfile
-from services.contractor_service import ContractorService
-from services.tenant_service import TenantService
-from services.contractor_matching_service import ContractorMatchingService, PropertyLocation
+from services.contractors.contractor_service import ContractorService
+from services.accounts.tenant_service import TenantService
+from services.contractors.contractor_matching_service import ContractorMatchingService, PropertyLocation
 
 
 logger = logging.getLogger(__name__)
@@ -197,7 +197,7 @@ class ContractorEmailService:
             # Construct URLs
             scheduling_url = f"{base_url}/contractor/schedule/{scheduling_token}"
             invoice_url = f"{base_url}/contractor/invoice/{invoice_token}"
-            
+
             # Format preferred slots
             preferred_slots_text = ""
             if service_request.tenant_preferred_slots:

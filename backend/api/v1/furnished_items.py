@@ -3,8 +3,9 @@ from typing import List, Optional
 import logging
 
 from models.furnished_item import FurnishedItemCreate, FurnishedItemUpdate, FurnishedItemFilters
-from services.property_service import PropertyService
-from dependencies import get_current_user, get_property_service
+from services.core.property_service import PropertyService
+from utils.auth import get_current_user
+from utils.dependencies import get_property_service
 
 logger = logging.getLogger(__name__)
 

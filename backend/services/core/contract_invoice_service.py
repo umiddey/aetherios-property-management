@@ -6,7 +6,7 @@ import logging
 
 from models.contract import Contract, ContractBillingType, ContractType
 from models.invoice import Invoice, InvoiceCreate, InvoiceType, InvoiceStatus
-from .base_service import BaseService
+from ..base_service import BaseService
 from .contract_service import ContractService
 from .invoice_service import InvoiceService
 

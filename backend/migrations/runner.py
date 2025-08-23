@@ -1,5 +1,6 @@
 from .migration_base import MigrationRunner
 from .m001_clean_dummy_data_and_indexes import CleanDummyDataAndIndexes
+from .m002_property_hierarchy_restructure import PropertyHierarchyRestructureMigration
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import logging
 
@@ -15,6 +16,7 @@ async def run_all_migrations(db: AsyncIOMotorDatabase) -> None:
         
         # Add all migrations in order
         runner.add_migration(CleanDummyDataAndIndexes(db))
+        runner.add_migration(PropertyHierarchyRestructureMigration(db))
         
         # Run migrations
         await runner.run_migrations()

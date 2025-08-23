@@ -9,11 +9,11 @@ from fastapi import APIRouter, HTTPException, status, UploadFile, File, Depends
 from pydantic import BaseModel
 from pymongo.database import Database
 
-from dependencies import db
+from utils.dependencies import get_database
 from models.service_request import ServiceRequest, ServiceRequestStatus
-from services.contractor_email_service import ContractorEmailService, get_smtp_config
-from services.completion_tracking_service import CompletionTrackingService
-from services.tenant_service import TenantService
+from services.contractors.contractor_email_service import ContractorEmailService, get_smtp_config
+from services.contractors.completion_tracking_service import CompletionTrackingService
+from services.accounts.tenant_service import TenantService
 
 
 router = APIRouter(prefix="/contractor", tags=["contractor"])
@@ -45,20 +45,20 @@ class FileUploadResponse(BaseModel):
 
 
 # Service Dependencies
-def get_contractor_email_service() -> ContractorEmailService:
+def get_contractor_email_service(db: Database) -> ContractorEmailService:
     """Get contractor email service instance"""
     return ContractorEmailService(db, get_smtp_config())
 
 
-def get_completion_tracking_service() -> CompletionTrackingService:
+def get_completion_tracking_service(db: Database) -> CompletionTrackingService:
     """Get completion tracking service instance"""
-    contractor_service = get_contractor_email_service()
+    contractor_service = get_contractor_email_service(db)
     return CompletionTrackingService(db, contractor_service)
 
 
 # Scheduling Endpoints (Link 1)
 @router.get("/schedule/{token}")
-async def get_scheduling_details(token: str):
+async def get_scheduling_details(token: str, db: Database = Depends(get_database)):
     """
     Get service request details for contractor scheduling (Link 1)
     
@@ -125,7 +125,8 @@ async def get_scheduling_details(token: str):
 async def submit_scheduling_response(
     token: str,
     response: SchedulingResponse,
-    completion_service: CompletionTrackingService = Depends(get_completion_tracking_service)
+    completion_service: CompletionTrackingService = Depends(lambda db=Depends(get_database): get_completion_tracking_service(db)),
+    db: Database = Depends(get_database)
 ):
     """
     Submit contractor scheduling response (Link 1)
@@ -198,7 +199,7 @@ async def submit_scheduling_response(
         )
         
         # Create ERP Task for this scheduled appointment
-        await _create_scheduled_task(service_request, confirmed_datetime, response)
+        await _create_scheduled_task(service_request, confirmed_datetime, response, db)
         
         # TODO: Send notification to tenant about confirmed appointment
         # This would integrate with the tenant notification system
@@ -227,7 +228,7 @@ async def submit_scheduling_response(
 
 # Invoice Endpoints (Link 2)
 @router.get("/invoice/{token}/availability")
-async def check_invoice_upload_availability(token: str):
+async def check_invoice_upload_availability(token: str, db: Database = Depends(get_database)):
     """
     Check if invoice upload is available for the given token.
     
@@ -235,10 +236,15 @@ async def check_invoice_upload_availability(token: str):
     Used by contractor portal to enable/disable invoice upload interface.
     """
     try:
+        print(f"🔍 DEBUG: Checking invoice availability for token: {token}")
+        print(f"🔍 DEBUG: Database object: {db}")
+        
         # Find service request by invoice token
         service_request = await db.service_requests.find_one({
             "invoice_upload_token": token
         })
+        
+        print(f"🔍 DEBUG: Service request found: {bool(service_request)}")
         
         if not service_request:
             raise HTTPException(
@@ -279,8 +285,13 @@ async def check_invoice_upload_availability(token: str):
             request_priority = service_request.get("priority", "routine")
             appointment_duration_hours = duration_hours.get(request_priority, 1)
             
-            # Calculate appointment end time
+            # Ensure appointment_datetime is timezone-aware
             from datetime import timedelta
+            if appointment_datetime.tzinfo is None:
+                # If timezone-naive, assume it's UTC
+                appointment_datetime = appointment_datetime.replace(tzinfo=timezone.utc)
+            
+            # Calculate appointment end time
             appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
             
             if datetime.now(timezone.utc) >= appointment_end_time:
@@ -333,7 +344,7 @@ async def check_invoice_upload_availability(token: str):
 
 
 @router.get("/invoice/{token}")
-async def get_invoice_details(token: str):
+async def get_invoice_details(token: str, db: Database = Depends(get_database)):
     """
     Get service request details for contractor invoice submission (Link 2)
     
@@ -397,8 +408,13 @@ async def get_invoice_details(token: str):
                 request_priority = service_request.get("priority", "routine")
                 appointment_duration_hours = duration_hours.get(request_priority, 1)
                 
-                # Calculate appointment end time
+                # Ensure appointment_datetime is timezone-aware
                 from datetime import timedelta
+                if appointment_datetime.tzinfo is None:
+                    # If timezone-naive, assume it's UTC
+                    appointment_datetime = appointment_datetime.replace(tzinfo=timezone.utc)
+                
+                # Calculate appointment end time
                 appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
                 
                 if datetime.now(timezone.utc) >= appointment_end_time:
@@ -450,7 +466,8 @@ async def get_invoice_details(token: str):
 @router.post("/invoice/{token}/upload")
 async def upload_invoice_file(
     token: str,
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    db: Database = Depends(get_database)
 ) -> FileUploadResponse:
     """
     Upload invoice file for contractor (Link 2)
@@ -524,7 +541,8 @@ async def upload_invoice_file(
 @router.post("/invoice/{token}")
 async def submit_invoice(
     token: str,
-    invoice: InvoiceSubmission
+    invoice: InvoiceSubmission,
+    db: Database = Depends(get_database)
 ):
     """
     Submit contractor invoice (Link 2)
@@ -563,7 +581,12 @@ async def submit_invoice(
             request_priority = service_request.get("priority", "routine")
             appointment_duration_hours = duration_hours.get(request_priority, 1)
             
+            # Ensure appointment_datetime is timezone-aware
             from datetime import timedelta
+            if appointment_datetime.tzinfo is None:
+                # If timezone-naive, assume it's UTC
+                appointment_datetime = appointment_datetime.replace(tzinfo=timezone.utc)
+            
             appointment_end_time = appointment_datetime + timedelta(hours=appointment_duration_hours)
             
             if datetime.now(timezone.utc) >= appointment_end_time:
@@ -612,7 +635,7 @@ async def submit_invoice(
         )
         
         # Create Invoice in ERP system
-        erp_invoice_id = await _create_erp_invoice(service_request, invoice, auto_approved)
+        erp_invoice_id = await _create_erp_invoice(service_request, invoice, auto_approved, db)
         
         if erp_invoice_id:
             await db.service_requests.update_one(
@@ -647,7 +670,7 @@ async def submit_invoice(
 
 # Helper Functions
 async def _create_scheduled_task(service_request: dict, confirmed_datetime: datetime, 
-                                response: SchedulingResponse) -> Optional[str]:
+                                response: SchedulingResponse, db: Database) -> Optional[str]:
     """
     Create ERP Task when appointment is scheduled by contractor.
     Integrates with existing Task system.
@@ -699,7 +722,7 @@ async def _create_scheduled_task(service_request: dict, confirmed_datetime: date
 
 
 async def _create_erp_invoice(service_request: dict, invoice: InvoiceSubmission, 
-                            auto_approved: bool) -> Optional[str]:
+                            auto_approved: bool, db: Database) -> Optional[str]:
     """
     Create Invoice in ERP system from contractor submission.
     Integrates with existing Invoice system and contract automation.

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
+import { PROFESSIONAL_FORM_CLASSES, getProfessionalInputClasses, getProfessionalSelectClasses, getProfessionalTextareaClasses } from './ui/ProfessionalFormStandards';
+import Button from './ui/Button';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -148,7 +150,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
     <div className="max-w-4xl mx-auto">
       <button
         onClick={onBack}
-        className="mb-6 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+        className="mb-6 px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors duration-200 flex items-center gap-2"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -156,16 +158,16 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
         {t('forms.backTo')} {t('navigation.accounts')}
       </button>
       
-      <div className="bg-white shadow-lg rounded-2xl p-8 border border-gray-100">
+      <div className={PROFESSIONAL_FORM_CLASSES.container}>
         <div className="flex items-center mb-8">
-          <div className={`w-12 h-12 bg-gradient-to-r ${getAccountTypeColor(formData.account_type)} rounded-xl flex items-center justify-center mr-4`}>
+          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
             {getAccountTypeIcon(formData.account_type)}
           </div>
           <h2 className="text-2xl font-bold text-gray-900">{t('accounts.addAccount')}</h2>
         </div>
         
         {error && (
-          <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 text-red-700 px-6 py-4 rounded-xl mb-6 flex items-center">
+          <div className={PROFESSIONAL_FORM_CLASSES.alertError}>
             <svg className="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
@@ -177,7 +179,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
           {/* Account Type Selection */}
           <div className="mt-8 mb-6">
             <div className="flex items-center mb-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                 </svg>
@@ -196,13 +198,13 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     onChange={handleChange}
                     className="sr-only"
                   />
-                  <div className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                  <div className={`p-4 rounded-md border-2 transition-all duration-200 ${
                     formData.account_type === type 
                       ? `border-blue-500 bg-blue-50 shadow-lg` 
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}>
                     <div className="flex items-center">
-                      <div className={`w-8 h-8 bg-gradient-to-r ${getAccountTypeColor(type)} rounded-lg flex items-center justify-center mr-3`}>
+                      <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                         {getAccountTypeIcon(type)}
                       </div>
                       <span className="font-medium text-gray-900">{t(`accounts.${type}`)}</span>
@@ -216,7 +218,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
           {/* Personal Information Section */}
           <div className="mt-8 mb-6">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
@@ -235,7 +237,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                 name="first_name"
                 value={formData.first_name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 required
               />
             </div>
@@ -249,7 +251,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                 name="last_name"
                 value={formData.last_name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 required
               />
             </div>
@@ -258,7 +260,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
           {/* Contact Information Section */}
           <div className="mt-8 mb-6">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                 </svg>
@@ -277,7 +279,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 required
               />
             </div>
@@ -291,7 +293,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
               />
             </div>
           </div>
@@ -305,7 +307,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
               name="address"
               value={formData.address}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               required
             />
           </div>
@@ -315,7 +317,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
             <>
               <div className="mt-8 mb-6">
                 <div className="flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3">
+                  <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
@@ -334,7 +336,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="date_of_birth"
                     value={formData.date_of_birth}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   />
                 </div>
                 
@@ -346,7 +348,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="gender"
                     value={formData.gender}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   >
                     <option value="">{t('forms.createTenant.selectGender')}</option>
                     <option value="male">{t('tenants.male')}</option>
@@ -365,7 +367,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                   name="bank_account"
                   value={formData.bank_account}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className={getProfessionalInputClasses()}
                   placeholder={t('forms.createTenant.bankAccountPlaceholder')}
                 />
               </div>
@@ -376,7 +378,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
             <>
               <div className="mt-8 mb-6">
                 <div className="flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mr-3">
+                  <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0H8m8 0v2a2 2 0 01-2 2H10a2 2 0 01-2-2V6" />
                     </svg>
@@ -395,7 +397,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="employee_id"
                     value={formData.employee_id}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   />
                 </div>
                 
@@ -408,7 +410,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="department"
                     value={formData.department}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   />
                 </div>
               </div>
@@ -423,7 +425,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="position"
                     value={formData.position}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   />
                 </div>
                 
@@ -436,7 +438,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="start_date"
                     value={formData.start_date}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   />
                 </div>
               </div>
@@ -451,7 +453,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                   name="salary"
                   value={formData.salary}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className={getProfessionalInputClasses()}
                 />
               </div>
             </>
@@ -461,7 +463,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
             <>
               <div className="mt-8 mb-6">
                 <div className="flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mr-3">
+                  <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                     </svg>
@@ -480,7 +482,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="company_name"
                     value={formData.company_name}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   />
                 </div>
                 
@@ -493,7 +495,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="tax_id"
                     value={formData.tax_id}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   />
                 </div>
               </div>
@@ -507,7 +509,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="contract_type"
                     value={formData.contract_type}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   >
                     <option value="">Select Contract Type</option>
                     <option value="freelance">Freelance</option>
@@ -527,7 +529,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="hourly_rate"
                     value={formData.hourly_rate}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                   />
                 </div>
               </div>
@@ -588,7 +590,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="license_number"
                     value={formData.license_number}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                     placeholder="Professional license number"
                   />
                 </div>
@@ -602,7 +604,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     name="insurance_info"
                     value={formData.insurance_info}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className={getProfessionalInputClasses()}
                     placeholder="Insurance provider and policy"
                   />
                 </div>
@@ -620,7 +622,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     const areas = e.target.value.split(',').map(area => area.trim()).filter(area => area);
                     setFormData({ ...formData, service_areas: areas });
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className={getProfessionalInputClasses()}
                   placeholder="Cities or postal codes (comma separated): Munich, 80331, Augsburg"
                 />
               </div>
@@ -637,7 +639,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
                     const specs = e.target.value.split(',').map(spec => spec.trim()).filter(spec => spec);
                     setFormData({ ...formData, specializations: specs });
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className={getProfessionalInputClasses()}
                   placeholder="Specific skills (comma separated): Emergency repairs, Solar installation, Industrial HVAC"
                 />
               </div>
@@ -653,7 +655,7 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               rows="3"
               placeholder={`Additional notes about this ${formData.account_type}...`}
             />
@@ -663,14 +665,14 @@ const CreateAccountForm = ({ onBack, onSuccess }) => {
             <button
               type="button"
               onClick={onBack}
-              className="px-6 py-3 text-gray-700 bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-300 font-medium"
+              className="px-6 py-3 text-gray-700 bg-blue-600 rounded-md hover:from-gray-200 hover:to-gray-300 transition-all duration-300 font-medium"
             >
               {t('forms.cancelButton')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-bold shadow-lg hover:shadow-xl flex items-center gap-2"
+              className="px-8 py-3 bg-blue-600 text-white rounded-md hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-bold shadow-lg hover:shadow-xl flex items-center gap-2"
             >
               {loading ? (
                 <>

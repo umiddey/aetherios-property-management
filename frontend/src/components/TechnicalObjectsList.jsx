@@ -3,12 +3,32 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 const getObjectTypeIcon = (objectType) => {
   const iconMap = {
-    'heating_system': '🔥',
-    'elevator': '🛗',
+    // German Compliance Types - Schornsteinfeger
+    'heating_gas': '🔥',
+    'heating_oil': '🔥', 
+    'heating_wood': '🔥',
+    'chimney': '🏠',
+    // German Compliance Types - TÜV
+    'elevator_passenger': '🛗',
+    'elevator_freight': '🛗',
+    'pressure_vessel': '⚗️',
+    'boiler_system': '🔥',
+    'fire_extinguisher': '🚨',
+    // German Compliance Types - DGUV V3
+    'electrical_installation': '⚡',
+    'electrical_portable': '⚡',
+    // Standard Building Systems
     'intercom': '📞',
+    'building_management': '🏢',
     'security_system': '🔒',
-    'fire_safety': '🚨',
     'ventilation': '💨',
+    'air_conditioning': '❄️',
+    'water_supply': '💧',
+    'sewage_system': '🚰',
+    'solar_panels': '☀️',
+    // Legacy fallbacks
+    'elevator': '🛗',
+    'fire_safety': '🚨',
     'plumbing': '🚿',
     'electrical': '⚡',
     'other': '🔧'
@@ -107,7 +127,7 @@ const TechnicalObjectsList = ({ objects = [], loading = false }) => {
             )}
 
             {/* Heating System Specific Info */}
-            {object.object_type === 'heating_system' && (
+            {['heating_gas', 'heating_oil', 'heating_wood'].includes(object.object_type) && (
               <div className="border-t pt-2 mt-2">
                 {object.heating_type && (
                   <div className="flex items-center justify-between">

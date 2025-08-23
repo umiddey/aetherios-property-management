@@ -1,5 +1,6 @@
-// Utility functions for exporting data
+// Enhanced utility functions for exporting data
 import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 
 /**
  * Export data to CSV format
@@ -487,4 +488,262 @@ const generateContractPDF = (doc, contract, options, yPosition, margin, contentW
   }
 
   return yPosition;
+};
+
+// =============================================
+// ENHANCED EXPORT SYSTEM - E1.8.6
+// =============================================
+
+/**
+ * Enhanced export with progress tracking and data transformation
+ * @param {Array} data - Data to export
+ * @param {Array} columns - Column configuration with render functions
+ * @param {string} filename - Base filename
+ * @param {string} format - 'csv' or 'excel'
+ * @param {Function} onProgress - Progress callback (progress: 0-100)
+ */
+export const exportDataWithProgress = async (data, columns, filename, format = 'csv', onProgress = null) => {
+  if (!data || data.length === 0) {
+    throw new Error('No data to export');
+  }
+
+  const totalSteps = data.length + 2; // Data processing + file generation + download
+  let currentStep = 0;
+
+  const updateProgress = (step, message) => {
+    currentStep = step;
+    const progress = Math.round((currentStep / totalSteps) * 100);
+    if (onProgress) {
+      onProgress(progress, message);
+    }
+  };
+
+  try {
+    updateProgress(0, 'Preparing export...');
+    
+    // Transform data with progress tracking
+    const transformedData = [];
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const transformedRow = {};
+      
+      columns.forEach(column => {
+        let value = row[column.key];
+        
+        // Apply export transformation if defined
+        if (column.exportTransform) {
+          value = column.exportTransform(value, row);
+        } else if (column.render && !column.editable) {
+          // Extract text from rendered components for non-editable columns
+          value = extractTextFromRender(column.render(value, row));
+        }
+        
+        transformedRow[column.label] = value || '';
+      });
+      
+      transformedData.push(transformedRow);
+      
+      if (i % 50 === 0 || i === data.length - 1) {
+        updateProgress(i + 1, `Processing row ${i + 1} of ${data.length}...`);
+        // Allow UI to update
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+    }
+
+    updateProgress(data.length + 1, 'Generating file...');
+
+    // Generate file based on format
+    if (format === 'excel') {
+      await exportToExcel(transformedData, filename);
+    } else {
+      await exportToCSVEnhanced(transformedData, filename);
+    }
+
+    updateProgress(totalSteps, 'Export complete!');
+    
+  } catch (error) {
+    console.error('Export failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * Export data to Excel format
+ */
+const exportToExcel = async (data, filename) => {
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  
+  // Auto-size columns
+  const colWidths = [];
+  const headers = Object.keys(data[0] || {});
+  
+  headers.forEach((header, index) => {
+    const headerWidth = header.length;
+    const maxDataWidth = Math.max(
+      ...data.map(row => String(row[header] || '').length).slice(0, 100) // Sample first 100 rows for performance
+    );
+    colWidths[index] = { wch: Math.min(Math.max(headerWidth, maxDataWidth), 50) };
+  });
+  
+  worksheet['!cols'] = colWidths;
+  
+  // Apply header styling
+  const range = XLSX.utils.decode_range(worksheet['!ref']);
+  for (let col = range.s.c; col <= range.e.c; col++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+    if (!worksheet[cellAddress]) continue;
+    
+    worksheet[cellAddress].s = {
+      font: { bold: true },
+      fill: { fgColor: { rgb: "E3F2FD" } }
+    };
+  }
+  
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
+  
+  const timestamp = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(workbook, `${filename}-${timestamp}.xlsx`);
+};
+
+/**
+ * Enhanced CSV export with better formatting
+ */
+const exportToCSVEnhanced = async (data, filename) => {
+  const headers = Object.keys(data[0] || {});
+  const headerRow = headers.join(',');
+  
+  const rows = data.map(row => 
+    headers.map(header => {
+      let value = row[header] || '';
+      // Enhanced CSV escaping
+      value = String(value).replace(/"/g, '""');
+      // Wrap in quotes if contains comma, newline, or quote
+      if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+        value = `"${value}"`;
+      }
+      return value;
+    }).join(',')
+  );
+  
+  const csvContent = [headerRow, ...rows].join('\n');
+  
+  // Add BOM for proper Excel UTF-8 handling
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+  
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  
+  const timestamp = new Date().toISOString().split('T')[0];
+  link.setAttribute('download', `${filename}-${timestamp}.csv`);
+  
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  URL.revokeObjectURL(url);
+};
+
+/**
+ * Extract plain text from React render functions for export
+ */
+const extractTextFromRender = (renderedContent) => {
+  if (!renderedContent) return '';
+  
+  if (typeof renderedContent === 'string' || typeof renderedContent === 'number') {
+    return String(renderedContent);
+  }
+  
+  // Handle React elements - extract text content
+  if (renderedContent && typeof renderedContent === 'object') {
+    if (renderedContent.props && renderedContent.props.children) {
+      const children = renderedContent.props.children;
+      if (Array.isArray(children)) {
+        return children.map(extractTextFromRender).join(' ').trim();
+      }
+      return extractTextFromRender(children);
+    }
+  }
+  
+  return '';
+};
+
+/**
+ * Enhanced properties export with configurable columns
+ */
+export const exportPropertiesEnhanced = async (properties, selectedColumns = null, format = 'csv', onProgress = null) => {
+  const defaultColumns = [
+    { 
+      key: 'id', 
+      label: 'Property ID',
+      exportTransform: (value) => value
+    },
+    { 
+      key: 'name', 
+      label: 'Property Name',
+      exportTransform: (value) => value || 'Unnamed Property'
+    },
+    { 
+      key: 'property_type', 
+      label: 'Type',
+      exportTransform: (value) => value || 'N/A'
+    },
+    { 
+      key: 'address', 
+      label: 'Full Address',
+      exportTransform: (value, row) => {
+        return [row.street, row.house_nr, row.postcode, row.city]
+          .filter(Boolean)
+          .join(', ') || 'No address';
+      }
+    },
+    { 
+      key: 'surface_area', 
+      label: 'Surface Area (m²)',
+      exportTransform: (value) => value ? `${value} m²` : 'N/A'
+    },
+    { 
+      key: 'rooms', 
+      label: 'Number of Rooms',
+      exportTransform: (value) => value || 'N/A'
+    },
+    { 
+      key: 'rent', 
+      label: 'Monthly Rent (€)',
+      exportTransform: (value, row) => {
+        const rent = value || row.cold_rent || (row.rent_per_sqm && row.surface_area ? row.rent_per_sqm * row.surface_area : null);
+        return rent ? `€${Number(rent).toLocaleString()}` : 'N/A';
+      }
+    },
+    { 
+      key: 'status', 
+      label: 'Status',
+      exportTransform: (value) => value || 'Unknown'
+    },
+    { 
+      key: 'tenant_info', 
+      label: 'Current Tenant',
+      exportTransform: (value, row) => {
+        return row.tenant_name || row.current_tenant || 'Vacant';
+      }
+    },
+    { 
+      key: 'created_at', 
+      label: 'Created Date',
+      exportTransform: (value) => value ? new Date(value).toLocaleDateString() : 'N/A'
+    }
+  ];
+
+  const columnsToUse = selectedColumns || defaultColumns;
+  
+  return await exportDataWithProgress(
+    properties, 
+    columnsToUse, 
+    'properties', 
+    format, 
+    onProgress
+  );
 };

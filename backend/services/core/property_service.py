@@ -29,19 +29,11 @@ class PropertyService(BaseService):
         if not data.id.replace('_', '').replace('-', '').isalnum():
             raise HTTPException(status_code=400, detail="Property ID must contain only alphanumeric characters, hyphens, and underscores")
         
-        if data.parent_id:
-            parent_exists = await self.exists(data.parent_id)
-            if not parent_exists:
-                # Try to find by ObjectId for backward compatibility
-                try:
-                    parent = await self.collection.find_one({"_id": ObjectId(data.parent_id)})
-                    if not parent:
-                        raise HTTPException(status_code=404, detail="Parent property not found")
-                except Exception:
-                    raise HTTPException(status_code=404, detail="Parent property not found")
-            
-            # Validate property hierarchy logic
-            await self._validate_property_hierarchy(data.property_type, data.parent_id)
+        # Convert Pydantic model to dict for hierarchy validation
+        data_dict = data.model_dump()
+        
+        # Enhanced hierarchy validation
+        await self.validate_hierarchy_constraints(data_dict)
         
         # Validate required numeric fields
         if data.surface_area <= 0:
@@ -50,10 +42,11 @@ class PropertyService(BaseService):
         if data.number_of_rooms <= 0:
             raise HTTPException(status_code=400, detail="Number of rooms must be greater than 0")
         
-        if data.rent_per_sqm is not None and data.rent_per_sqm < 0:
+        # Only validate rent fields if they exist on the model
+        if hasattr(data, 'rent_per_sqm') and data.rent_per_sqm is not None and data.rent_per_sqm < 0:
             raise HTTPException(status_code=400, detail="Rent per square meter cannot be negative")
         
-        if data.cold_rent is not None and data.cold_rent < 0:
+        if hasattr(data, 'cold_rent') and data.cold_rent is not None and data.cold_rent < 0:
             raise HTTPException(status_code=400, detail="Cold rent cannot be negative")
     
     async def validate_update_data(self, doc_id: str, update_data: Dict[str, Any]) -> None:
@@ -122,6 +115,14 @@ class PropertyService(BaseService):
         # Build query from filters
         if filters.property_type:
             query["property_type"] = filters.property_type
+        elif filters.property_type_in:
+            query["property_type"] = {"$in": filters.property_type_in}
+        
+        # Handle unit_type filtering for units specifically
+        if filters.unit_type:
+            query["unit_type"] = filters.unit_type
+        elif filters.unit_type_in:
+            query["unit_type"] = {"$in": filters.unit_type_in}
         
         if filters.min_rooms is not None:
             query["number_of_rooms"] = {"$gte": filters.min_rooms}
@@ -301,14 +302,11 @@ class PropertyService(BaseService):
         
         parent_type = parent_property.get("property_type")
         
-        # Define valid parent-child relationships
+        # Define valid parent-child relationships for new hierarchy
         valid_relationships = {
             "complex": [],  # Complex can have no parent
             "building": ["complex"],  # Building can only have Complex as parent
-            "apartment": ["building"],  # Apartment can only have Building as parent
-            "office": ["building"],  # Office can only have Building as parent
-            "house": ["complex", "building"],  # House can have Complex or Building as parent
-            "commercial": ["building"]  # Commercial can only have Building as parent
+            "unit": ["building"],  # Unit can only have Building as parent
         }
         
         if property_type not in valid_relationships:
@@ -490,10 +488,7 @@ class PropertyService(BaseService):
         valid_relationships = {
             "complex": [],  # Complex can have no parent
             "building": ["complex"],  # Building can only have Complex as parent
-            "apartment": ["building"],  # Apartment can only have Building as parent
-            "office": ["building"],  # Office can only have Building as parent
-            "house": ["complex", "building"],  # House can have Complex or Building as parent
-            "commercial": ["building"]  # Commercial can only have Building as parent
+            "unit": ["building"],  # Unit can only have Building as parent
         }
         
         if property_type not in valid_relationships:
@@ -519,3 +514,69 @@ class PropertyService(BaseService):
             prop.setdefault("property_type", "apartment")
         
         return parent_properties
+    
+    async def get_hierarchy_by_complex(self, complex_id: str) -> Dict[str, Any]:
+        """Get the complete hierarchy tree for a complex (Complex -> Buildings -> Units)."""
+        # Get the complex
+        complex_property = await self.get_by_id(complex_id)
+        if not complex_property or complex_property.get("property_type") != "complex":
+            raise HTTPException(status_code=404, detail="Complex not found")
+        
+        # Get all buildings within this complex
+        buildings = await self.get_child_properties(complex_id)
+        
+        # For each building, get its units
+        for building in buildings:
+            building["units"] = await self.get_child_properties(building["id"])
+        
+        return {
+            "complex": complex_property,
+            "buildings": buildings
+        }
+    
+    async def get_units_by_unit_type(self, unit_type: str) -> List[Dict[str, Any]]:
+        """Get all units of a specific unit type."""
+        query = {
+            "property_type": "unit",
+            "unit_type": unit_type,
+            "is_archived": False
+        }
+        return await self.get_all(query)
+    
+    async def validate_hierarchy_constraints(self, property_data: Dict[str, Any]) -> None:
+        """Enhanced hierarchy validation for the new structure."""
+        property_type = property_data.get("property_type")
+        parent_id = property_data.get("parent_id")
+        unit_type = property_data.get("unit_type")
+        
+        # Complex validation - no parent allowed, no unit_type
+        if property_type == "complex":
+            if parent_id:
+                raise HTTPException(status_code=400, detail="Complex cannot have a parent")
+            if unit_type:
+                raise HTTPException(status_code=400, detail="Complex cannot have unit_type")
+        
+        # Building validation - must have Complex parent, no unit_type
+        elif property_type == "building":
+            if not parent_id:
+                raise HTTPException(status_code=400, detail="Building must have a Complex parent")
+            if unit_type:
+                raise HTTPException(status_code=400, detail="Building cannot have unit_type")
+            
+            parent_property = await self.get_by_id(parent_id)
+            if not parent_property or parent_property.get("property_type") != "complex":
+                raise HTTPException(status_code=400, detail="Building parent must be a Complex")
+        
+        # Unit validation - must have Building parent, must have unit_type
+        elif property_type == "unit":
+            if not parent_id:
+                raise HTTPException(status_code=400, detail="Unit must have a Building parent")
+            if not unit_type:
+                raise HTTPException(status_code=400, detail="Unit must have unit_type specified")
+            
+            parent_property = await self.get_by_id(parent_id)
+            if not parent_property or parent_property.get("property_type") != "building":
+                raise HTTPException(status_code=400, detail="Unit parent must be a Building")
+        
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid property_type: {property_type}")

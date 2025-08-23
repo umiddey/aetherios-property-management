@@ -72,6 +72,9 @@ class PropertyRepository(BaseRepository):
         if "property_type" in filters:
             query["property_type"] = filters["property_type"]
         
+        if "unit_type" in filters:
+            query["unit_type"] = filters["unit_type"]
+        
         if "status" in filters:
             query["status"] = filters["status"]
         

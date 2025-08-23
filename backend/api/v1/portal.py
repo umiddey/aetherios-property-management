@@ -1,6 +1,7 @@
 """
 Portal API - Customer/Tenant Portal Access System
 Handles invitation-based account activation and portal authentication
+Unified to use central auth utilities (JWT + bcrypt) and provide refresh.
 """
 
 import secrets
@@ -9,8 +10,6 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends, status, Header
-from passlib.context import CryptContext
-from jose import JWTError, jwt
 
 from models.account import (
     PortalInvitationResponse, 
@@ -19,20 +18,17 @@ from models.account import (
     PortalLoginResponse,
     AccountResponse
 )
-from dependencies import get_current_user, db
-from services.tenant_service import TenantService
-
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# JWT settings (reuse from main auth)
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
-SECRET_KEY = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from utils.dependencies import get_database
+from utils.auth import (
+    create_portal_access_token,
+    decode_token,
+    verify_password as verify_bcrypt_password,
+    hash_password as bcrypt_hash_password,
+    normalize_email,
+    get_portal_user,
+)
+from services.accounts.tenant_service import TenantService
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 
@@ -43,28 +39,24 @@ def generate_portal_code() -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password against hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify password against hash (bcrypt)."""
+    return verify_bcrypt_password(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    """Hash password for storage"""
-    return pwd_context.hash(password)
+    """Hash password for storage (bcrypt)."""
+    return bcrypt_hash_password(password)
 
 
-def create_portal_access_token(account_id: str, email: str) -> str:
-    """Create JWT token for portal access"""
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode = {
-        "sub": account_id,
-        "email": email,
-        "type": "portal",  # Distinguish from admin tokens
-        "exp": expire
-    }
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+def _create_portal_token(account_id: str, email_for_token: str) -> str:
+    """Create a typed portal JWT using central auth util (24h by default)."""
+    return create_portal_access_token(account_id, email_for_token, expires_hours=24)
 
 
-async def get_current_portal_user(authorization: str = Header(None)):
+async def get_current_portal_user(
+    authorization: str = Header(None),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     """
     Dependency to get current authenticated portal user
     Similar to get_current_user but for portal tokens
@@ -85,14 +77,14 @@ async def get_current_portal_user(authorization: str = Header(None)):
         raise credentials_exception
     
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode_token(token)
         account_id: str = payload.get("sub")
-        email: str = payload.get("email")
+        email: str = normalize_email(payload.get("email"))
         token_type: str = payload.get("type")
         
         if account_id is None or token_type != "portal":
             raise credentials_exception
-    except JWTError:
+    except Exception:
         raise credentials_exception
     
     # Get tenant account using TenantService
@@ -107,10 +99,14 @@ async def get_current_portal_user(authorization: str = Header(None)):
     portal_email = None
     if tenant_account.profile_data:
         portal_active = tenant_account.profile_data.get("portal_active", False)
-        portal_email = tenant_account.profile_data.get("portal_email")
+        portal_email = normalize_email(tenant_account.profile_data.get("portal_email"))
     
-    # Verify portal is active and email matches
-    if not portal_active or portal_email != email:
+    # Verify portal is active and token email matches the configured portal email (or base email for backward compatibility)
+    if not portal_active:
+        raise credentials_exception
+    if portal_email and email != portal_email:
+        raise credentials_exception
+    if not portal_email and email != normalize_email(tenant_account.email):
         raise credentials_exception
     
     # Convert to dict format for backward compatibility
@@ -131,7 +127,10 @@ async def get_current_portal_user(authorization: str = Header(None)):
 
 
 @router.get("/invite/{portal_code}", response_model=PortalInvitationResponse)
-async def get_portal_invitation(portal_code: str):
+async def get_portal_invitation(
+    portal_code: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     """
     Validate portal invitation code and return account information for activation
     URL: GET /api/v1/portal/invite/ZJD1ML0
@@ -165,7 +164,10 @@ async def get_portal_invitation(portal_code: str):
 
 
 @router.post("/activate", response_model=PortalLoginResponse)
-async def activate_portal_account(activation: PortalActivation):
+async def activate_portal_account(
+    activation: PortalActivation,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
     """
     Activate portal account with password creation
     This invalidates the invitation code and enables regular login
@@ -195,7 +197,7 @@ async def activate_portal_account(activation: PortalActivation):
     password_hash = get_password_hash(activation.password)
     
     # Allow custom email or use account's existing email
-    portal_email = activation.email if activation.email else tenant_account.email
+    portal_email = normalize_email(activation.email) if activation.email else normalize_email(tenant_account.email)
     
     # TODO: Check if this portal_email is already in use by another tenant
     # For now, we'll skip this check to focus on the core architectural cleanup
@@ -213,11 +215,15 @@ async def activate_portal_account(activation: PortalActivation):
             detail="Failed to activate portal account"
         )
     
-    # Create access token
-    access_token = create_portal_access_token(tenant_account.id, tenant_account.email)
-    
     # Get updated tenant account data
     updated_tenant = await tenant_service.get_tenant_by_id(tenant_account.id)
+
+    # Create access token using portal email if configured
+    token_email = (
+        normalize_email((updated_tenant.profile_data or {}).get("portal_email"))
+        if updated_tenant and updated_tenant.profile_data else normalize_email(tenant_account.email)
+    )
+    access_token = _create_portal_token(tenant_account.id, token_email)
     
     # Return login response
     return PortalLoginResponse(
@@ -227,27 +233,20 @@ async def activate_portal_account(activation: PortalActivation):
 
 
 @router.post("/login", response_model=PortalLoginResponse)
-async def portal_login(login: PortalLogin):
+async def portal_login(
+    login: PortalLogin,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
     """
     Regular portal login for activated accounts
     """
     # Find tenant by portal_email using TenantService
     tenant_service = TenantService(db)
     
-    # For simplicity during this architectural cleanup, we'll find by looking through all tenants
-    # TODO: Add optimized email lookup method to TenantService  
-    all_tenants = await tenant_service.get_tenants(limit=1000)  # Get all tenants
-    
-    matching_tenant = None
-    for tenant in all_tenants:
-        if tenant.profile_data:
-            portal_email = tenant.profile_data.get("portal_email")
-            portal_active = tenant.profile_data.get("portal_active", False)
-            
-            # Check if this tenant matches login email and is active
-            if portal_active and (portal_email == login.email or tenant.email == login.email):
-                matching_tenant = tenant
-                break
+    # Optimized lookup: try portal_email match, then base account email
+    matching_tenant = await tenant_service.get_tenant_by_portal_email(login.email)
+    if not matching_tenant:
+        matching_tenant = await tenant_service.get_tenant_by_account_email(login.email)
     
     if not matching_tenant:
         raise HTTPException(
@@ -271,8 +270,13 @@ async def portal_login(login: PortalLogin):
         "portal_last_login": datetime.now(timezone.utc)
     })
     
+    # Determine which email to embed in token: prefer configured portal email
+    token_email = (
+        normalize_email((matching_tenant.profile_data or {}).get("portal_email"))
+        if matching_tenant and matching_tenant.profile_data else normalize_email(matching_tenant.email)
+    )
     # Create access token
-    access_token = create_portal_access_token(matching_tenant.id, matching_tenant.email)
+    access_token = _create_portal_token(matching_tenant.id, token_email)
     
     # Return login response
     return PortalLoginResponse(
@@ -306,6 +310,60 @@ async def get_portal_user_info(current_account=Depends(get_current_portal_user))
     )
 
 
+@router.post("/refresh", response_model=PortalLoginResponse)
+async def refresh_portal_token(
+    authorization: str = Header(None),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
+    """Refresh a valid portal token, returning a new token with sliding expiration."""
+    from fastapi.security.utils import get_authorization_scheme_param
+
+    if not authorization:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing credentials")
+
+    scheme, token = get_authorization_scheme_param(authorization)
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # Validate existing token
+    try:
+        payload = decode_token(token)
+        if payload.get("type") != "portal":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+        account_id = payload.get("sub")
+        email = payload.get("email")
+        if not account_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    tenant_service = TenantService(db)
+    tenant_account = await tenant_service.get_tenant_by_id(account_id)
+    if not tenant_account or tenant_account.is_archived:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account not available")
+
+    portal_active = False
+    portal_email = None
+    if tenant_account.profile_data:
+        portal_active = tenant_account.profile_data.get("portal_active", False)
+        portal_email = normalize_email(tenant_account.profile_data.get("portal_email"))
+
+    if not portal_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Portal access disabled")
+
+    # Backward compatibility: accept base email or configured portal email from prior token
+    token_email = portal_email or normalize_email(tenant_account.email)
+    if email not in {token_email, normalize_email(tenant_account.email)}:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email mismatch")
+
+    # Issue new token
+    new_token = _create_portal_token(account_id, token_email)
+
+    return PortalLoginResponse(
+        access_token=new_token,
+        account=tenant_account
+    )
+
 @router.get("/dashboard")
 async def get_portal_dashboard(current_account=Depends(get_current_portal_user)):
     """
@@ -321,12 +379,15 @@ async def get_portal_dashboard(current_account=Depends(get_current_portal_user))
 
 
 @router.get("/contracts")
-async def get_portal_contracts(current_account=Depends(get_current_portal_user)):
+async def get_portal_contracts(
+    current_account=Depends(get_current_portal_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+):
     """
     Get all active contracts for the authenticated portal user (tenant)
     Used for service request contract selection
     """
-    from services.account_service import AccountService
+    from services.accounts.account_service import AccountService
     
     account_service = AccountService(db)
     
@@ -343,14 +404,15 @@ async def get_portal_contracts(current_account=Depends(get_current_portal_user))
 @router.get("/furnished-items/property/{property_id}")
 async def get_portal_furnished_items(
     property_id: str,
-    current_account=Depends(get_current_portal_user)
+    current_account=Depends(get_current_portal_user),
+    db: AsyncIOMotorDatabase = Depends(get_database),
 ):
     """
     Get furnished items for a specific property (portal access)
     Used for service request furnished item selection
     """
-    from services.property_service import PropertyService
-    from services.account_service import AccountService
+    from services.core.property_service import PropertyService
+    from services.accounts.account_service import AccountService
     
     property_service = PropertyService(db)
     account_service = AccountService(db)
@@ -378,4 +440,32 @@ async def get_portal_furnished_items(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve furnished items: {str(e)}"
+        )
+
+
+@router.get("/service-request-metadata")
+async def get_service_request_metadata(portal_user = Depends(get_portal_user)):
+    """
+    Get service request metadata for portal form dropdowns
+    
+    Returns the available service request types, priorities, and statuses
+    for authenticated portal users (tenants) to populate form dropdowns.
+    
+    SECURITY: Replaces public endpoints that exposed internal business logic.
+    Only authenticated portal users can access this operational data.
+    """
+    try:
+        # Import service request enums
+        from models.service_request import ServiceRequestType, ServiceRequestPriority, ServiceRequestStatus
+        
+        return {
+            "types": [request_type.value for request_type in ServiceRequestType],
+            "priorities": [priority.value for priority in ServiceRequestPriority], 
+            "statuses": [status.value for status in ServiceRequestStatus]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve service request metadata: {str(e)}"
         )

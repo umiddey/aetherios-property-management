@@ -4,7 +4,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime
 import logging
 
-from services.analytics_service import AnalyticsService
+from services.analytics.analytics_service import AnalyticsService
 from models.analytics import AnalyticsLog, AnalyticsLogCreate, AnalyticsLogResponse
 from utils.auth import get_current_user
 from utils.dependencies import get_database

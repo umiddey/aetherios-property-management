@@ -184,17 +184,17 @@ const ServiceRequestsView = ({
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-100 p-6">
       {/* Modern Header with Glassmorphism */}
       <div className="relative mb-8">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-3xl blur-xl opacity-20 animate-pulse"></div>
-        <div className="relative bg-white/80 backdrop-blur-xl rounded-3xl p-8 border border-white/30 shadow-2xl">
+        <div className="absolute inset-0 bg-blue-600 rounded-lg blur-xl opacity-20 animate-pulse"></div>
+        <div className="relative bg-white/80 backdrop-blur-xl rounded-lg p-8 border border-white/30 shadow-2xl">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div className="flex items-center space-x-4">
-              <div className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg">
+              <div className="p-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 011-1h1a2 2 0 100-4H7a1 1 0 01-1-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-bold bg-blue-600 bg-clip-text text-transparent">
                   Service Requests
                 </h1>
                 <p className="text-gray-600 mt-1">Manage tenant maintenance requests</p>
@@ -203,11 +203,11 @@ const ServiceRequestsView = ({
 
             {/* Stats Cards */}
             <div className="flex gap-4">
-              <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 border border-white/30">
+              <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4 border border-white/30">
                 <div className="text-2xl font-bold text-indigo-600">{serviceRequests.length}</div>
                 <div className="text-sm text-gray-600">Total Requests</div>
               </div>
-              <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 border border-white/30">
+              <div className="bg-white/60 backdrop-blur-sm rounded-lg p-4 border border-white/30">
                 <div className="text-2xl font-bold text-orange-600">
                   {serviceRequests.filter(r => r.approval_status === 'pending_approval').length}
                 </div>
@@ -219,14 +219,14 @@ const ServiceRequestsView = ({
       </div>
 
       {/* Filters */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl p-6 border border-white/30 shadow-xl mb-6">
+      <div className="bg-white/80 backdrop-blur-xl rounded-lg p-6 border border-white/30 shadow-xl mb-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">All Statuses</option>
               {statusOptions.map(status => (
@@ -242,7 +242,7 @@ const ServiceRequestsView = ({
             <select
               value={filters.priority}
               onChange={(e) => handleFilterChange('priority', e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">All Priorities</option>
               {priorityOptions.map(priority => (
@@ -258,7 +258,7 @@ const ServiceRequestsView = ({
             <select
               value={filters.request_type}
               onChange={(e) => handleFilterChange('request_type', e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">All Types</option>
               {typeOptions.map(type => (
@@ -272,7 +272,7 @@ const ServiceRequestsView = ({
       </div>
 
       {/* Service Requests Table */}
-      <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-white/30 shadow-xl overflow-hidden">
+      <div className="bg-white/80 backdrop-blur-xl rounded-lg border border-white/30 shadow-xl overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -293,7 +293,7 @@ const ServiceRequestsView = ({
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-indigo-50 to-purple-50">
+                <thead className="bg-blue-600">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
@@ -388,7 +388,7 @@ const ServiceRequestsView = ({
       {/* Service Request Detail Modal */}
       {selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Service Request Details</h2>
@@ -576,7 +576,7 @@ const ServiceRequestsView = ({
       {/* Approval Modal */}
       {approvalModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full">
+          <div className="bg-white rounded-lg max-w-md w-full">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-900">

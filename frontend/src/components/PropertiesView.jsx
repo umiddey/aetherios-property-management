@@ -1,8 +1,18 @@
-// src/components/PropertiesView.js
-import React from 'react';
+// Enterprise Properties View - Data Table Implementation
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Pagination from './Pagination';
-import { exportProperties } from '../utils/exportUtils';
+import { exportProperties, exportPropertiesEnhanced, exportDataWithProgress } from '../utils/exportUtils';
+import EnterpriseDataTable from './ui/EnterpriseDataTable';
+import EnterpriseSearchBar from './ui/EnterpriseSearchBar';
+import BulkActionsToolbar from './ui/BulkActionsToolbar';
+import { 
+  PROPERTIES_TABLE_COLUMNS, 
+  getDefaultSortConfig, 
+  filterPropertiesBySearch, 
+  filterPropertiesByUnits,
+  sortProperties 
+} from './PropertiesTableConfig.jsx';
 
 const PropertiesView = ({
   propertyFilters,
@@ -19,326 +29,398 @@ const PropertiesView = ({
   formatDate
 }) => {
   const { t } = useLanguage();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState(getDefaultSortConfig());
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [tableDensity, setTableDensity] = useState('compact'); // NEW: Density state
+  
+
+  // Process properties: filter by units if applicable, then by search, then sort
+  const processedProperties = useMemo(() => {
+    let filtered = properties;
+    
+    // Apply Units filter if active (new hierarchy)
+    if (propertyFilters.unit_type_in) {
+      filtered = filterPropertiesByUnits(filtered, propertyFilters.unit_type_in);
+    }
+    
+    // Apply search filter
+    filtered = filterPropertiesBySearch(filtered, searchTerm);
+    
+    // Sort
+    return sortProperties(filtered, sortConfig);
+  }, [properties, propertyFilters.unit_type_in, searchTerm, sortConfig]);
+
+  const handleSort = (newSortConfig) => {
+    setSortConfig(newSortConfig);
+  };
+
+  const handleRowClick = (property) => {
+    handleNav(`properties/${property.id}`);
+  };
+
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+  };
+
+  const handleToggleFilters = () => {
+    setShowAdvancedFilters(!showAdvancedFilters);
+  };
+
+
+  const handleDensityChange = (newDensity) => {
+    setTableDensity(newDensity);
+  };
+
+  // Bulk selection state and handlers
+  const [selectedProperties, setSelectedProperties] = useState([]);
+  
+  // Export progress state
+  const [exportProgress, setExportProgress] = useState({ progress: 0, message: '', isExporting: false });
+  
+  const handleSelectionChange = (selectedIds) => {
+    setSelectedProperties(selectedIds);
+  };
+
+  // Bulk action handlers
+  const handleBulkExport = async (selectedItems, format) => {
+    const itemsToExport = processedProperties.filter(p => selectedItems.includes(p.id));
+    
+    if (itemsToExport.length === 0) {
+      alert('No items to export');
+      return;
+    }
+
+    try {
+      setExportProgress({ progress: 0, message: 'Starting export...', isExporting: true });
+      
+      const onProgress = (progress, message) => {
+        setExportProgress({ progress, message, isExporting: true });
+      };
+
+      // Use enhanced export with progress tracking
+      await exportPropertiesEnhanced(itemsToExport, null, format, onProgress);
+      
+      setExportProgress({ progress: 100, message: 'Export completed!', isExporting: false });
+      
+      // Clear progress after 2 seconds
+      setTimeout(() => {
+        setExportProgress({ progress: 0, message: '', isExporting: false });
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Export failed:', error);
+      setExportProgress({ progress: 0, message: `Export failed: ${error.message}`, isExporting: false });
+      
+      // Clear error after 3 seconds
+      setTimeout(() => {
+        setExportProgress({ progress: 0, message: '', isExporting: false });
+      }, 3000);
+    }
+  };
+
+  const handleBulkEdit = async (selectedItems) => {
+    // Future: open bulk edit modal
+    console.log('Bulk editing properties:', selectedItems);
+    alert(`Bulk edit modal would open for ${selectedItems.length} properties`);
+  };
+
+  const handleBulkArchive = async (selectedItems) => {
+    // Future: implement bulk archive
+    console.log('Archiving properties:', selectedItems);
+    alert(`Would archive ${selectedItems.length} properties`);
+  };
+
+  const handleBulkDelete = async (selectedItems) => {
+    // Future: implement bulk delete
+    console.log('Deleting properties:', selectedItems);
+    alert(`Would delete ${selectedItems.length} properties`);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedProperties([]);
+  };
+
+  const handleSelectVisible = () => {
+    const visibleIds = paginatedProperties.map(p => p.id);
+    setSelectedProperties(visibleIds);
+  };
+
+  const handleInvertSelection = () => {
+    const allVisibleIds = paginatedProperties.map(p => p.id);
+    const invertedSelection = allVisibleIds.filter(id => !selectedProperties.includes(id));
+    setSelectedProperties(invertedSelection);
+  };
+
+  // Inline cell editing handler
+  const handleCellEdit = async (rowId, columnKey, newValue) => {
+    console.log(`Editing property ${rowId}: ${columnKey} = ${newValue}`);
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // For demo purposes, just log the change
+    // In real implementation, this would call API to update the property
+    console.log(`Successfully updated property ${rowId}: ${columnKey} changed to ${newValue}`);
+    
+    // Could throw error to simulate validation failure:
+    // if (!newValue || newValue.trim() === '') {
+    //   throw new Error('Value cannot be empty');
+    // }
+  };
+
+  // Enterprise pagination options
+  const [itemsPerPageOption, setItemsPerPageOption] = useState('auto');
+  
+  const PAGINATION_OPTIONS = [
+    { value: 'auto', label: 'Auto (Smart)' },
+    { value: 20, label: '20 per page' },
+    { value: 50, label: '50 per page' },
+    { value: 100, label: '100 per page' },
+    { value: 'all', label: 'Show all' }
+  ];
+
+  // Smart pagination based on density and screen size
+  const getItemsPerPage = () => {
+    if (itemsPerPageOption === 'all') return processedProperties.length;
+    if (itemsPerPageOption !== 'auto') return itemsPerPageOption;
+    
+    // Auto mode: adaptive to density
+    if (tableDensity === 'ultra') return 25; // Ultra-compact: 25+ visible
+    if (tableDensity === 'compact') return 20; // Compact: 20 visible
+    if (tableDensity === 'normal') return 15; // Normal: 15 visible
+    return 12; // Comfortable: 12 visible
+  };
+  
+  const itemsPerPage = getItemsPerPage();
+  const totalProcessedItems = processedProperties.length;
+  const totalProcessedPages = Math.ceil(totalProcessedItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedProperties = processedProperties.slice(startIndex, startIndex + itemsPerPage);
+
+  const paginationConfig = {
+    currentPage,
+    totalPages: totalProcessedPages,
+    total: totalProcessedItems,
+    from: startIndex + 1,
+    to: Math.min(startIndex + itemsPerPage, totalProcessedItems),
+    prevPage: currentPage > 1,
+    nextPage: currentPage < totalProcessedPages,
+    onPageChange
+  };
 
   return (
-    <div className="space-y-8">
-      {/* Advanced Filters - Glassmorphism */}
-      <div className="bg-white/60 backdrop-blur-xl shadow-2xl rounded-3xl p-8 border border-white/30">
-        <div className="flex items-center justify-between mb-8">
+    <div className="space-y-6">
+      {/* Enterprise Search */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mr-4 shadow-xl rotate-3 hover:rotate-0 transition-transform">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-3xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                {t('properties.filters')}
-              </h3>
-              <p className="text-gray-500 text-sm mt-1">{t('properties.smartFilteringText')}</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            <div className="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg">
-              {properties.length} Found
-            </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Smart Search Input */}
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
-              <svg className="w-6 h-6 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <input
-              type="text"
-              placeholder={t('properties.searchPlaceholder')}
-              value={propertyFilters.search}
-              onChange={(e) => handlePropertyFilterChange('search', e.target.value)}
-              className="pl-12 pr-4 py-4 bg-white/70 backdrop-blur-sm border border-white/40 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all duration-300 w-full text-gray-900 placeholder-gray-500 shadow-lg hover:shadow-xl"
-            />
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
-          </div>
-          
-          {/* Property Type Selector */}
-          <div className="relative group">
-            <select
-              value={propertyFilters.property_type}
-              onChange={(e) => handlePropertyFilterChange('property_type', e.target.value)}
-              className="appearance-none px-4 py-4 bg-white/70 backdrop-blur-sm border border-white/40 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all duration-300 w-full text-gray-900 shadow-lg hover:shadow-xl pr-12"
-            >
-              <option value="">{t('properties.allTypes')}</option>
-              <option value="apartment">🏠 {t('properties.apartment')}</option>
-              <option value="house">🏡 {t('properties.house')}</option>
-              <option value="office">🏢 {t('properties.office')}</option>
-              <option value="commercial">🏬 {t('properties.commercial')}</option>
-              <option value="complex">🏘️ {t('properties.complex')}</option>
-              <option value="building">🏢 {t('properties.building')}</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-              <svg className="w-6 h-6 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Search Properties
+              </h3>
+              <p className="text-sm text-gray-500">Find properties by name, address, or ID</p>
             </div>
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-lg text-sm font-medium">
+              {processedProperties.length} Found
+            </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Room Range */}
-          <div className="space-y-3">
-            <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide">🛏️ Rooms</label>
-            <div className="flex space-x-3">
-              <input
-                type="number"
-                placeholder="Min"
-                value={propertyFilters.min_rooms}
-                onChange={(e) => handlePropertyFilterChange('min_rooms', e.target.value)}
-                className="px-4 py-3 bg-white/70 backdrop-blur-sm border border-white/40 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all duration-300 w-full text-gray-900 shadow-lg hover:shadow-xl"
-              />
-              <input
-                type="number"
-                placeholder="Max"
-                value={propertyFilters.max_rooms}
-                onChange={(e) => handlePropertyFilterChange('max_rooms', e.target.value)}
-                className="px-4 py-3 bg-white/70 backdrop-blur-sm border border-white/40 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all duration-300 w-full text-gray-900 shadow-lg hover:shadow-xl"
-              />
-            </div>
-          </div>
-          
-          {/* Surface Range */}
-          <div className="space-y-3">
-            <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide">📐 Surface (m²)</label>
-            <div className="flex space-x-3">
-              <input
-                type="number"
-                placeholder="Min"
-                value={propertyFilters.min_surface}
-                onChange={(e) => handlePropertyFilterChange('min_surface', e.target.value)}
-                className="px-4 py-3 bg-white/70 backdrop-blur-sm border border-white/40 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all duration-300 w-full text-gray-900 shadow-lg hover:shadow-xl"
-              />
-              <input
-                type="number"
-                placeholder="Max"
-                value={propertyFilters.max_surface}
-                onChange={(e) => handlePropertyFilterChange('max_surface', e.target.value)}
-                className="px-4 py-3 bg-white/70 backdrop-blur-sm border border-white/40 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all duration-300 w-full text-gray-900 shadow-lg hover:shadow-xl"
-              />
-            </div>
-          </div>
-          
-          {/* Archive Toggle */}
-          <div className="space-y-3">
-            <label className="text-sm font-semibold text-gray-700 uppercase tracking-wide">🗄️ Archives</label>
-            <label className="group flex items-center bg-white/50 backdrop-blur-sm px-6 py-4 rounded-xl hover:bg-white/70 transition-all duration-300 cursor-pointer border border-white/40 shadow-lg hover:shadow-xl">
-              <input
-                type="checkbox"
-                checked={propertyFilters.archived}
-                onChange={(e) => handlePropertyFilterChange('archived', e.target.checked)}
-                className="mr-4 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-all duration-200"
-              />
-              <span className="text-sm font-medium text-gray-800 group-hover:text-gray-900">{t('properties.showArchived')}</span>
-            </label>
-          </div>
-        </div>
+        
+        <EnterpriseSearchBar
+          placeholder="Search properties, addresses, IDs..."
+          value={searchTerm}
+          onSearch={handleSearch}
+          showAdvancedFilters={showAdvancedFilters}
+          onToggleFilters={handleToggleFilters}
+        />
       </div>
 
-      {/* Property Portfolio - Card Grid */}
-      <div className="space-y-6">
+
+
+      {/* Properties Data Table */}
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mr-4 shadow-xl rotate-3 hover:rotate-0 transition-transform">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
             </div>
             <div>
-              <h2 className="text-4xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              <h2 className="text-xl font-semibold text-gray-900">
                 {t('properties.title')}
               </h2>
-              <p className="text-gray-500 text-sm mt-1">{t('properties.portfolioText', { count: properties.length })}</p>
+              <p className="text-sm text-gray-500">{t('properties.portfolioText', { count: processedProperties.length })}</p>
             </div>
           </div>
-          <div className="flex space-x-4">
+          <div className="flex items-center space-x-3">
+            {/* Enterprise Pagination Selector */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-gray-600">Show:</label>
+              <select
+                value={itemsPerPageOption}
+                onChange={(e) => setItemsPerPageOption(e.target.value === 'all' ? 'all' : parseInt(e.target.value) || 'auto')}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {PAGINATION_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="h-6 border-l border-gray-300"></div>
+            
             <button 
-              onClick={() => exportProperties(properties)}
-              className="group bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 flex items-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105"
+              onClick={async () => {
+                try {
+                  setExportProgress({ progress: 0, message: 'Starting full export...', isExporting: true });
+                  
+                  const onProgress = (progress, message) => {
+                    setExportProgress({ progress, message, isExporting: true });
+                  };
+
+                  await exportPropertiesEnhanced(processedProperties, null, 'csv', onProgress);
+                  
+                  setExportProgress({ progress: 100, message: 'Export completed!', isExporting: false });
+                  
+                  setTimeout(() => {
+                    setExportProgress({ progress: 0, message: '', isExporting: false });
+                  }, 2000);
+                  
+                } catch (error) {
+                  console.error('Export failed:', error);
+                  setExportProgress({ progress: 0, message: `Export failed: ${error.message}`, isExporting: false });
+                  
+                  setTimeout(() => {
+                    setExportProgress({ progress: 0, message: '', isExporting: false });
+                  }, 3000);
+                }
+              }}
+              disabled={exportProgress.isExporting}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
             >
-              <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <span className="font-semibold">{t('common.export')}</span>
+              <span>{t('common.export')}</span>
             </button>
             <button 
               onClick={() => handleNav('create-property')} 
-              className="group bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 flex items-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
             >
-              <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span className="font-semibold">{t('properties.addProperty')}</span>
+              <span>{t('properties.addProperty')}</span>
             </button>
           </div>
         </div>
-        {/* Property Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {properties.map(property => (
-            <div
-              key={property.id}
-              onClick={() => handleNav(`properties/${property.id}`)}
-              className="group relative bg-white/70 backdrop-blur-xl rounded-3xl p-8 border border-white/30 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 cursor-pointer overflow-hidden"
-            >
-              {/* Animated background */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-500/5 to-pink-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <div className="absolute top-2 right-2 w-20 h-20 bg-blue-400/20 rounded-full blur-2xl group-hover:bg-blue-400/30 transition-all duration-500"></div>
-              
-              {/* Status Badge */}
-              {/* <div className="absolute top-4 right-4">
-                <div className={`px-3 py-1.5 text-xs font-black ${getStatusColor(property.status)} backdrop-blur-sm`}>
-                  {property.status === 'empty' ? t('properties.empty') : property.status === 'occupied' ? t('properties.occupied') : property.status}
+
+        {/* Bulk Actions Toolbar */}
+        <BulkActionsToolbar
+          selectedCount={selectedProperties.length}
+          selectedItems={selectedProperties}
+          totalCount={paginatedProperties.length}
+          onExport={handleBulkExport}
+          onBulkEdit={handleBulkEdit}
+          onArchive={handleBulkArchive}
+          onDelete={handleBulkDelete}
+          onClear={handleClearSelection}
+          onSelectVisible={handleSelectVisible}
+          onInvertSelection={handleInvertSelection}
+          entityType="properties"
+          permissions={{
+            canExport: true,
+            canEdit: true,
+            canArchive: true,
+            canDelete: false // Disable delete for safety
+          }}
+          loading={exportProgress.isExporting}
+        />
+
+        {/* Export Progress Indicator */}
+        {exportProgress.isExporting && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                <div>
+                  <div className="text-sm font-medium text-blue-900">Exporting Properties</div>
+                  <div className="text-xs text-blue-700">{exportProgress.message}</div>
                 </div>
-              </div> */}
-              
-              <div className="relative z-10">
-                {/* Property Icon & Type */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                  </div>
-                  <div className="flex flex-col space-y-1.5">
-                    <div className={`px-2.5 py-1 text-xs font-black rounded-lg ${getStatusColor(property.status)} backdrop-blur-sm`}>
-                      {property.status === 'empty' ? t('properties.empty') : property.status === 'occupied' ? t('properties.occupied') : property.status}
-                    </div>
-                    <div className={`px-2.5 py-1 text-xs font-black rounded-lg ${getPropertyTypeColor(property.property_type)} shadow-md`}>
-                      {property.property_type?.toUpperCase()}
-                    </div>
-                    <div className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-md ${getFurnishingStatusColor(property.furnishing_status)}`}>
-                      {getFurnishingStatusText(property.furnishing_status)}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Property Name & ID */}
-                <div className="mb-6">
-                  <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                    {property.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 font-medium">ID: {property.id}</p>
-                </div>
-                
-                {/* Address */}
-                <div className="flex items-start mb-6">
-                  <svg className="w-5 h-5 text-gray-400 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <div>
-                    <p className="text-gray-900 font-semibold">{property.street} {property.house_nr}</p>
-                    <p className="text-gray-500 text-sm">{property.postcode} {property.city}</p>
-                  </div>
-                </div>
-                
-                {/* Rent Display with Betriebskosten Breakdown */}
-                <div className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border border-gray-200/50">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center">
-                      <svg className="w-6 h-6 text-gray-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402 2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div>
-                        {property.betriebskosten_per_sqm ? (
-                          <>
-                            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Warm Rent (Total)</p>
-                            <p className="text-2xl font-black text-gray-900">
-                              €{((property.surface_area || 0) * ((property.rent_per_sqm || 0) + property.betriebskosten_per_sqm)).toFixed(2)}
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Cold Rent</p>
-                            <p className="text-2xl font-black text-gray-900">
-                              {property.cold_rent ? `€${property.cold_rent}` : 'N/A'}
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Surface</p>
-                      <p className="text-lg font-bold text-gray-700">
-                        {property.surface_area || 'N/A'} m²
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Betriebskosten Breakdown */}
-                  {property.betriebskosten_per_sqm && (
-                    <div className="mt-3 pt-3 border-t border-gray-200/50">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Cold Rent:</span>
-                        <span className="font-semibold">€{((property.surface_area || 0) * (property.rent_per_sqm || 0)).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm mt-1">
-                        <span className="text-gray-600">Betriebskosten:</span>
-                        <span className="font-semibold">€{((property.surface_area || 0) * property.betriebskosten_per_sqm).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Property Stats */}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200/50">
-                  <div className="flex items-center text-gray-500">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-                    </svg>
-                    <span className="text-sm font-medium">{property.rooms || '?'} rooms</span>
-                  </div>
-                  <div className="text-xs text-gray-400 font-medium">
-                    Created {formatDate ? formatDate(property.created_at) : 'Unknown'}
-                  </div>
-                </div>
-                
-                {/* Hover Indicator */}
-                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="text-sm text-blue-700 font-medium">{exportProgress.progress}%</div>
+                <div className="w-32 bg-blue-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" 
+                    style={{ width: `${exportProgress.progress}%` }}
+                  ></div>
                 </div>
               </div>
             </div>
-          ))}
-          
-          {/* Empty State */}
-          {properties.length === 0 && (
-            <div className="col-span-full">
-              <div className="text-center py-20">
-                <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">{t('properties.noPropertiesFound')}</h3>
-                <p className="text-gray-500 mb-8">{t('properties.noPropertiesMessage')}</p>
-                <button 
-                  onClick={() => handleNav('create-property')}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 font-semibold"
-                >
-                  Add Your First Property
-                </button>
-              </div>
+          </div>
+        )}
+        
+        {/* Export Status Messages */}
+        {!exportProgress.isExporting && exportProgress.message && (
+          <div className={`rounded-lg p-4 mb-4 ${
+            exportProgress.message.includes('failed') 
+              ? 'bg-red-50 border border-red-200 text-red-700'
+              : 'bg-green-50 border border-green-200 text-green-700'
+          }`}>
+            <div className="flex items-center space-x-2">
+              {exportProgress.message.includes('failed') ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{exportProgress.message}</span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Enterprise Data Table */}
+        <EnterpriseDataTable
+          data={paginatedProperties}
+          columns={PROPERTIES_TABLE_COLUMNS}
+          sortConfig={sortConfig}
+          onSort={handleSort}
+          onRowClick={handleRowClick}
+          loading={false}
+          pagination={paginationConfig}
+          searchTerm={searchTerm}
+          density={tableDensity}
+          onDensityChange={handleDensityChange}
+          selectable={true}
+          onSelectionChange={handleSelectionChange}
+          onCellEdit={handleCellEdit}
+        />
       </div>
 
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
+      {/* Legacy pagination - keeping for compatibility */}
+      <div className="flex justify-center mt-8">
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalProcessedPages}
+          onPageChange={onPageChange}
+        />
+      </div>
     </div>
   );
 };

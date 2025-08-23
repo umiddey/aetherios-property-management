@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import logging
 import socketio
 
-from services.task_service import TaskService
+from services.core.task_service import TaskService
 from models.task import TaskOrder, TaskOrderCreate, TaskOrderUpdate, TaskOrderResponse, TaskStatus, Priority
 from utils.auth import get_current_user
 from utils.dependencies import get_database

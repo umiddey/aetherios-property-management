@@ -994,7 +994,7 @@ const CreateContractForm = () => {
         </div>
 
         {/* NEW: Invoice Generation Settings */}
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+        <div className="bg-blue-600 border border-green-200 rounded-lg p-4">
           <div className="flex items-center mb-4">
             <div className="flex-shrink-0">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

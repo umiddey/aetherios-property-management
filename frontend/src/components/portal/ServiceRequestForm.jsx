@@ -44,16 +44,21 @@ const ServiceRequestForm = () => {
         }
 
         // Fetch form options and tenant's contracts in parallel
-        const [typesResponse, prioritiesResponse, contractsResponse] = await Promise.all([
-          axios.get(`${BACKEND_URL}/api/v1/service-request-options/types`),
-          axios.get(`${BACKEND_URL}/api/v1/service-request-options/priorities`),
+        const token = secureStorage.getPortalToken();
+        const authHeaders = { Authorization: `Bearer ${token}` };
+        
+        const [metadataResponse, contractsResponse] = await Promise.all([
+          axios.get(`${BACKEND_URL}/api/v1/portal/service-request-metadata`, {
+            headers: authHeaders
+          }),
           axios.get(`${BACKEND_URL}/api/v1/portal/contracts`, {
-            headers: { Authorization: `Bearer ${secureStorage.getPortalToken()}` }
+            headers: authHeaders
           })
         ]);
         
-        setRequestTypes(typesResponse.data || []);
-        setPriorities(prioritiesResponse.data || []);
+        // Extract types and priorities from metadata response
+        setRequestTypes(metadataResponse.data.types || []);
+        setPriorities(metadataResponse.data.priorities || []);
         setContracts(contractsResponse.data || []);
         
         // Auto-select contract if only one active contract
@@ -250,7 +255,7 @@ const ServiceRequestForm = () => {
   if (success) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+        <div className="max-w-md w-full bg-white rounded-md shadow-lg p-8 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -291,7 +296,7 @@ const ServiceRequestForm = () => {
 
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+        <div className="bg-white rounded-md shadow-sm border border-gray-200 p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Request Type Selection */}
             <div>

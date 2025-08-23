@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Literal
+from typing import Optional, List, Dict, Literal, Union
 from datetime import datetime, timezone
 from enum import Enum
 from models.technical_object import TechnicalObject, TechnicalObjectCreate, TechnicalObjectUpdate, TechnicalObjectType
@@ -44,8 +44,12 @@ class HeatingEfficiencyClass(str, Enum):
 class HeatingSystem(TechnicalObject):
     """Heating system as a technical object - MOVED FROM PROPERTY MODEL"""
     
-    # Override object_type to be specifically heating
-    object_type: Literal[TechnicalObjectType.HEATING_SYSTEM] = TechnicalObjectType.HEATING_SYSTEM
+    # Override object_type to support all heating types - updated for German compliance
+    object_type: Union[
+        Literal[TechnicalObjectType.HEATING_GAS],
+        Literal[TechnicalObjectType.HEATING_OIL], 
+        Literal[TechnicalObjectType.HEATING_WOOD]
+    ]
     
     # Heating-specific fields
     heating_type: HeatingType
@@ -77,8 +81,12 @@ class HeatingSystem(TechnicalObject):
 class HeatingSystemCreate(TechnicalObjectCreate):
     """Create model for heating systems"""
     
-    # Override to ensure heating type
-    object_type: Literal[TechnicalObjectType.HEATING_SYSTEM] = TechnicalObjectType.HEATING_SYSTEM
+    # Override to support all heating types
+    object_type: Union[
+        Literal[TechnicalObjectType.HEATING_GAS],
+        Literal[TechnicalObjectType.HEATING_OIL], 
+        Literal[TechnicalObjectType.HEATING_WOOD]
+    ]
     
     # Required heating-specific fields
     heating_type: HeatingType

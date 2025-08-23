@@ -4,9 +4,10 @@ import logging
 from datetime import datetime
 
 from models.property import PropertyCreate, PropertyUpdate, PropertyFilters
-from services.property_service import PropertyService
-from services.property_validation import PropertyValidationService, Jurisdiction
-from dependencies import get_current_user, get_property_service
+from services.core.property_service import PropertyService
+from services.validation.property_validation import PropertyValidationService, Jurisdiction
+from utils.auth import get_current_user
+from utils.dependencies import get_property_service
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ async def create_property(
         # Heating system validation moved to Technical Objects API
         
         # Validate marketing compliance if this is a rental property
-        if property_data.rent_per_sqm and property_data.rent_per_sqm > 0:
+        if hasattr(property_data, 'rent_per_sqm') and property_data.rent_per_sqm and property_data.rent_per_sqm > 0:
             marketing_data = {
                 "energieausweis_type": property_data.energieausweis_type,
                 "energieausweis_class": property_data.energieausweis_class,
@@ -75,6 +76,9 @@ async def create_property(
 @router.get("/")
 async def get_properties(
     property_type: Optional[str] = Query(None),
+    property_type_in: Optional[List[str]] = Query(None, description="Filter by multiple property types"),
+    unit_type: Optional[str] = Query(None),
+    unit_type_in: Optional[List[str]] = Query(None, description="Filter by multiple unit types"),
     min_rooms: Optional[int] = Query(None),
     max_rooms: Optional[int] = Query(None),
     min_surface: Optional[float] = Query(None),
@@ -93,6 +97,9 @@ async def get_properties(
     try:
         filters = PropertyFilters(
             property_type=property_type,
+            property_type_in=property_type_in,
+            unit_type=unit_type,
+            unit_type_in=unit_type_in,
             min_rooms=min_rooms,
             max_rooms=max_rooms,
             min_surface=min_surface,
@@ -291,3 +298,33 @@ async def get_parent_options(
     except Exception as e:
         logger.error(f"Error fetching parent options for {property_type}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch parent options")
+
+
+@router.get("/hierarchy/{complex_id}")
+async def get_property_hierarchy(
+    complex_id: str,
+    current_user = Depends(get_current_user),
+    property_service: PropertyService = Depends(get_property_service)
+):
+    """Get the complete hierarchy tree for a complex (Complex -> Buildings -> Units)."""
+    try:
+        hierarchy = await property_service.get_hierarchy_by_complex(complex_id)
+        return hierarchy
+    except Exception as e:
+        logger.error(f"Error fetching hierarchy for complex {complex_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch property hierarchy")
+
+
+@router.get("/units/by-type/{unit_type}")
+async def get_units_by_type(
+    unit_type: str,
+    current_user = Depends(get_current_user),
+    property_service: PropertyService = Depends(get_property_service)
+):
+    """Get all units of a specific unit type."""
+    try:
+        units = await property_service.get_units_by_unit_type(unit_type)
+        return units
+    except Exception as e:
+        logger.error(f"Error fetching units by type {unit_type}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch units by type")

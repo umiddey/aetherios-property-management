@@ -15,6 +15,8 @@ from models.account import (
     Account, AccountType, AccountStatus, AccountCreate, AccountUpdate, AccountResponse,
     TenantProfile
 )
+from utils.auth import normalize_email
+import re
 
 
 class TenantService:
@@ -95,6 +97,54 @@ class TenantService:
         # Create response
         account_response = AccountResponse(**account_doc, profile_data=profile_data)
         return account_response
+
+    async def get_tenant_by_portal_email(self, email: str) -> Optional[AccountResponse]:
+        """Get tenant by normalized portal email (fast lookup)."""
+        norm = normalize_email(email)
+        # Find tenant profile with matching portal_email
+        profile_doc = await self.tenant_profiles.find_one({
+            "portal_email": norm
+        })
+        if not profile_doc:
+            return None
+        # Get corresponding active tenant account
+        account_doc = await self.collection.find_one({
+            "id": profile_doc["account_id"],
+            "account_type": AccountType.TENANT,
+            "is_archived": False
+        })
+        if not account_doc:
+            return None
+        account_doc.pop("_id", None)
+        profile_doc.pop("_id", None)
+        return AccountResponse(**account_doc, profile_data=profile_doc)
+
+    async def get_tenant_by_account_email(self, email: str) -> Optional[AccountResponse]:
+        """Get tenant by base account email (normalized)."""
+        norm = normalize_email(email)
+        # Try exact normalized equality first
+        account_doc = await self.collection.find_one({
+            "email": norm,
+            "account_type": AccountType.TENANT,
+            "is_archived": False
+        })
+        if not account_doc:
+            # Fallback: case-insensitive lookup without normalization (non-indexed if case differs)
+            regex = re.compile(f"^{re.escape(norm)}$", re.IGNORECASE)
+            account_doc = await self.collection.find_one({
+                "email": regex,
+                "account_type": AccountType.TENANT,
+                "is_archived": False
+            })
+            if not account_doc:
+                return None
+        account_id = account_doc["id"]
+        # Fetch profile if exists
+        profile_doc = await self.tenant_profiles.find_one({"account_id": account_id})
+        if profile_doc:
+            profile_doc.pop("_id", None)
+        account_doc.pop("_id", None)
+        return AccountResponse(**account_doc, profile_data=profile_doc)
     
     async def get_tenants(
         self, 
