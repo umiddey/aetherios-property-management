@@ -6,16 +6,32 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const getTechnicalObjectTypes = (t) => [
-  { value: 'heating_system', label: t('technicalObjects.manager.objectTypes.heating_system'), icon: '🔥' },
-  { value: 'elevator', label: t('technicalObjects.manager.objectTypes.elevator'), icon: '🛗' },
-  { value: 'intercom', label: t('technicalObjects.manager.objectTypes.intercom'), icon: '📞' },
-  { value: 'building_management', label: t('technicalObjects.manager.objectTypes.building_management'), icon: '🏢' },
-  { value: 'security_system', label: t('technicalObjects.manager.objectTypes.security_system'), icon: '🔒' },
-  { value: 'ventilation', label: t('technicalObjects.manager.objectTypes.ventilation'), icon: '💨' },
-  { value: 'solar_panels', label: t('technicalObjects.manager.objectTypes.solar_panels'), icon: '☀️' },
-  { value: 'fire_safety', label: t('technicalObjects.manager.objectTypes.fire_safety'), icon: '🚨' },
-  { value: 'water_system', label: t('technicalObjects.manager.objectTypes.water_system'), icon: '💧' },
-  { value: 'electrical_system', label: t('technicalObjects.manager.objectTypes.electrical_system'), icon: '⚡' }
+  // German Compliance Types - Schornsteinfeger
+  { value: 'heating_gas', label: t('technicalObjects.manager.objectTypes.heating_gas'), icon: '🔥', category: 'heating_combustion' },
+  { value: 'heating_oil', label: t('technicalObjects.manager.objectTypes.heating_oil'), icon: '🔥', category: 'heating_combustion' },
+  { value: 'heating_wood', label: t('technicalObjects.manager.objectTypes.heating_wood'), icon: '🔥', category: 'heating_combustion' },
+  { value: 'chimney', label: t('technicalObjects.manager.objectTypes.chimney'), icon: '🏠', category: 'heating_combustion' },
+  
+  // German Compliance Types - TÜV
+  { value: 'elevator_passenger', label: t('technicalObjects.manager.objectTypes.elevator_passenger'), icon: '🛗', category: 'elevators_lifts' },
+  { value: 'elevator_freight', label: t('technicalObjects.manager.objectTypes.elevator_freight'), icon: '🛗', category: 'elevators_lifts' },
+  { value: 'pressure_vessel', label: t('technicalObjects.manager.objectTypes.pressure_vessel'), icon: '⚗️', category: 'pressure_equipment' },
+  { value: 'boiler_system', label: t('technicalObjects.manager.objectTypes.boiler_system'), icon: '🔥', category: 'pressure_equipment' },
+  { value: 'fire_extinguisher', label: t('technicalObjects.manager.objectTypes.fire_extinguisher'), icon: '🚨', category: 'fire_safety_systems' },
+  
+  // German Compliance Types - DGUV V3
+  { value: 'electrical_installation', label: t('technicalObjects.manager.objectTypes.electrical_installation'), icon: '⚡', category: 'electrical_systems' },
+  { value: 'electrical_portable', label: t('technicalObjects.manager.objectTypes.electrical_portable'), icon: '⚡', category: 'electrical_systems' },
+  
+  // Standard Building Systems
+  { value: 'intercom', label: t('technicalObjects.manager.objectTypes.intercom'), icon: '📞', category: 'communication' },
+  { value: 'building_management', label: t('technicalObjects.manager.objectTypes.building_management'), icon: '🏢', category: 'communication' },
+  { value: 'security_system', label: t('technicalObjects.manager.objectTypes.security_system'), icon: '🔒', category: 'security_access' },
+  { value: 'ventilation', label: t('technicalObjects.manager.objectTypes.ventilation'), icon: '💨', category: 'hvac_ventilation' },
+  { value: 'air_conditioning', label: t('technicalObjects.manager.objectTypes.air_conditioning'), icon: '❄️', category: 'hvac_ventilation' },
+  { value: 'water_supply', label: t('technicalObjects.manager.objectTypes.water_supply'), icon: '💧', category: 'water_sanitary' },
+  { value: 'sewage_system', label: t('technicalObjects.manager.objectTypes.sewage_system'), icon: '🚰', category: 'water_sanitary' },
+  { value: 'solar_panels', label: t('technicalObjects.manager.objectTypes.solar_panels'), icon: '☀️', category: 'building_envelope' }
 ];
 
 const getObjectStatus = (t) => [
@@ -28,16 +44,23 @@ const getObjectStatus = (t) => [
 
 const getHeatingTypes = (t) => [
   { value: 'zentralheizung', label: t('technicalObjects.manager.heatingTypes.zentralheizung') },
-  { value: 'gasheizung', label: t('technicalObjects.manager.heatingTypes.gasheizung') },
-  { value: 'fernwaerme', label: t('technicalObjects.manager.heatingTypes.fernwaerme') },
-  { value: 'waermepumpe', label: t('technicalObjects.manager.heatingTypes.waermepumpe') },
-  { value: 'elektroheizung', label: t('technicalObjects.manager.heatingTypes.elektroheizung') }
+  { value: 'etagenheizung', label: t('technicalObjects.manager.heatingTypes.etagenheizung') },
+  { value: 'einzelheizung', label: t('technicalObjects.manager.heatingTypes.einzelheizung') }
 ];
 
 const getDistributionMethods = (t) => [
   { value: 'surface_area', label: t('technicalObjects.manager.distributionMethods.surface_area') },
   { value: 'consumption', label: t('technicalObjects.manager.distributionMethods.consumption') },
   { value: 'apartment_count', label: t('technicalObjects.manager.distributionMethods.apartment_count') }
+];
+
+const getComplianceCategories = (t) => [
+  { value: 'all', label: t('technicalObjects.compliance.categories.all'), color: 'bg-gray-100 text-gray-800', icon: '📋' },
+  { value: 'elevators_lifts', label: t('technicalObjects.compliance.categories.elevators_lifts'), color: 'bg-red-100 text-red-800', icon: '🛗' },
+  { value: 'pressure_equipment', label: t('technicalObjects.compliance.categories.pressure_equipment'), color: 'bg-red-100 text-red-800', icon: '⚡' },
+  { value: 'fire_safety_systems', label: t('technicalObjects.compliance.categories.fire_safety_systems'), color: 'bg-red-100 text-red-800', icon: '🚨' },
+  { value: 'heating_combustion', label: t('technicalObjects.compliance.categories.heating_combustion'), color: 'bg-orange-100 text-orange-800', icon: '🔥' },
+  { value: 'electrical_systems', label: t('technicalObjects.compliance.categories.electrical_systems'), color: 'bg-blue-100 text-blue-800', icon: '⚡' }
 ];
 
 const TechnicalObjectsManager = ({ 
@@ -51,9 +74,14 @@ const TechnicalObjectsManager = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
+  // German Compliance State
+  const [complianceSummary, setComplianceSummary] = useState(null);
+  const [complianceLoading, setComplianceLoading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  
   const [formData, setFormData] = useState({
     name: '',
-    object_type: 'heating_system',
+    object_type: 'heating_gas',
     manufacturer: '',
     model: '',
     serial_number: '',
@@ -76,10 +104,15 @@ const TechnicalObjectsManager = ({
     efficiency_rating: ''
   });
 
-  // Fetch technical objects for property
+  // Fetch compliance data for dashboard
   useEffect(() => {
     if (propertyId && isEditMode) {
+      // Property-specific mode: load objects and compliance for specific property
       fetchTechnicalObjects();
+      fetchComplianceSummary();
+    } else {
+      // Standalone mode: Load system-wide compliance dashboard
+      fetchSystemWideCompliance();
     }
   }, [propertyId, isEditMode]);
 
@@ -87,13 +120,84 @@ const TechnicalObjectsManager = ({
     try {
       setLoading(true);
       const token = localStorage.getItem('access_token');
-      const response = await cachedAxios.get(`${API}/v1/technical-objects/property/${propertyId}`, {
+      
+      // Choose endpoint based on whether we have a property ID
+      const endpoint = propertyId 
+        ? `${API}/v1/technical-objects/property/${propertyId}` 
+        : `${API}/v1/technical-objects/`;
+        
+      const response = await cachedAxios.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTechnicalObjects(response.data || []);
     } catch (error) {
       console.error('Error fetching technical objects:', error);
       setError(t('technicalObjects.manager.errors.loadFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchComplianceSummary = async () => {
+    try {
+      setComplianceLoading(true);
+      const token = localStorage.getItem('access_token');
+      const response = await cachedAxios.get(`${API}/v1/core/compliance/property/${propertyId}/summary`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setComplianceSummary(response.data);
+    } catch (error) {
+      console.error('Error fetching compliance summary:', error);
+      // Don't show error for compliance - it's optional enhancement
+    } finally {
+      setComplianceLoading(false);
+    }
+  };
+
+  const fetchSystemWideCompliance = async () => {
+    try {
+      setLoading(true);
+      setError(''); // Clear any previous errors
+      const token = localStorage.getItem('access_token');
+      
+      // Fetch system-wide overdue inspections
+      const overdueResponse = await cachedAxios.get(`${API}/v1/core/compliance/overdue`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Transform overdue alerts to display format
+      const overdueAlerts = overdueResponse.data || [];
+      setTechnicalObjects(overdueAlerts); // Repurpose state for compliance alerts
+      
+      // Set summary for dashboard view
+      const totalOverdue = overdueAlerts.length;
+      const criticalCount = overdueAlerts.filter(alert => alert.urgency === 'critical').length;
+      const totalCosts = overdueAlerts.reduce((sum, alert) => sum + (alert.estimated_cost || 0), 0);
+      
+      setComplianceSummary({
+        compliance_percentage: totalOverdue > 0 ? 0 : 100, // 0% if any overdue
+        compliant_count: 0,
+        overdue_count: totalOverdue,
+        due_soon_count: overdueAlerts.filter(alert => alert.urgency === 'HIGH').length,
+        critical_count: criticalCount,
+        total_estimated_costs: totalCosts,
+        alerts: overdueAlerts
+      });
+      
+    } catch (error) {
+      console.error('Error fetching system-wide compliance:', error);
+      // Don't show error - gracefully degrade to "no data available" state
+      setError(''); // Clear any existing error
+      setTechnicalObjects([]);
+      setComplianceSummary({
+        compliance_percentage: 100,
+        compliant_count: 0, 
+        overdue_count: 0,
+        due_soon_count: 0,
+        critical_count: 0,
+        total_estimated_costs: 0,
+        alerts: []
+      });
     } finally {
       setLoading(false);
     }
@@ -110,7 +214,7 @@ const TechnicalObjectsManager = ({
   const resetForm = () => {
     setFormData({
       name: '',
-      object_type: 'heating_system',
+      object_type: 'heating_gas',
       manufacturer: '',
       model: '',
       serial_number: '',
@@ -162,7 +266,7 @@ const TechnicalObjectsManager = ({
       };
 
       // Add heating-specific fields ONLY for heating systems with exact backend field names
-      if (formData.object_type === 'heating_system') {
+      if (['heating_gas', 'heating_oil', 'heating_wood'].includes(formData.object_type)) {
         payload.heating_type = formData.heating_type || 'zentralheizung';
         payload.heating_distribution_key = formData.distribution_method || 'surface_area';
         payload.fuel_type = formData.fuel_type || 'gas';
@@ -268,9 +372,52 @@ const TechnicalObjectsManager = ({
     return statuses.find(s => s.value === status) || statuses[0];
   };
 
+  const handleScheduleInspection = async (objectId) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      await cachedAxios.post(`${API}/v1/core/compliance/technical-object/${objectId}/schedule`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Refresh compliance data
+      await fetchComplianceSummary();
+      alert(t('technicalObjects.compliance.inspectionScheduled'));
+    } catch (error) {
+      console.error('Error scheduling inspection:', error);
+      alert(t('technicalObjects.compliance.schedulingError'));
+    }
+  };
+
+  const handleCompleteInspection = async (objectId) => {
+    const inspectionDate = prompt(t('technicalObjects.compliance.enterCompletionDate'), 
+      new Date().toISOString().split('T')[0]);
+    
+    if (inspectionDate) {
+      const inspectorNotes = prompt(t('technicalObjects.compliance.enterInspectorNotes'), '');
+      
+      try {
+        const token = localStorage.getItem('access_token');
+        await cachedAxios.post(`${API}/v1/core/compliance/technical-object/${objectId}/complete-inspection`, {
+          inspection_date: new Date(inspectionDate).toISOString(),
+          inspector_notes: inspectorNotes || null
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        // Refresh compliance data
+        await fetchComplianceSummary();
+        await fetchTechnicalObjects(); // May update last_inspection_date
+        alert(t('technicalObjects.compliance.inspectionCompleted'));
+      } catch (error) {
+        console.error('Error completing inspection:', error);
+        alert(t('technicalObjects.compliance.completionError'));
+      }
+    }
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-      <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
+    <div className="bg-white rounded-md shadow-lg border border-gray-200 overflow-hidden">
+      <div className="bg-blue-600 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center mr-3">
@@ -279,8 +426,18 @@ const TechnicalObjectsManager = ({
               </svg>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">{t('technicalObjects.manager.title')}</h3>
-              <p className="text-orange-100 text-sm">{t('technicalObjects.manager.subtitle')}</p>
+              <h3 className="text-lg font-bold text-white">
+                {propertyId && isEditMode 
+                  ? t('technicalObjects.manager.title')
+                  : t('technicalObjects.compliance.title')
+                }
+              </h3>
+              <p className="text-orange-100 text-sm">
+                {propertyId && isEditMode 
+                  ? t('technicalObjects.manager.subtitle') 
+                  : t('technicalObjects.compliance.subtitle')
+                }
+              </p>
             </div>
           </div>
           
@@ -312,15 +469,125 @@ const TechnicalObjectsManager = ({
           </div>
         )}
 
-        {/* Technical Objects List */}
-        {!loading && technicalObjects.length > 0 && (
+        {/* German Compliance Dashboard */}
+        {!loading && complianceSummary && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-orange-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                🏛️ {t('technicalObjects.compliance.title')}
+                <span className="ml-2 text-sm font-normal text-gray-600">
+                  ({t('technicalObjects.compliance.subtitle')})
+                </span>
+              </h3>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-blue-600">
+                  {Math.round(complianceSummary.compliance_percentage)}%
+                </div>
+                <div className="text-xs text-gray-600">{t('technicalObjects.compliance.compliant')}</div>
+              </div>
+            </div>
+
+            {/* Compliance Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="text-center p-3 bg-green-100 rounded-lg">
+                <div className="text-lg font-bold text-green-600">{complianceSummary.compliant_count}</div>
+                <div className="text-xs text-green-800">{t('technicalObjects.compliance.stats.compliant')}</div>
+              </div>
+              <div className="text-center p-3 bg-yellow-100 rounded-lg">
+                <div className="text-lg font-bold text-yellow-600">{complianceSummary.due_soon_count}</div>
+                <div className="text-xs text-yellow-800">{t('technicalObjects.compliance.stats.dueSoon')}</div>
+              </div>
+              <div className="text-center p-3 bg-red-100 rounded-lg">
+                <div className="text-lg font-bold text-red-600">{complianceSummary.overdue_count}</div>
+                <div className="text-xs text-red-800">{t('technicalObjects.compliance.stats.overdue')}</div>
+              </div>
+              <div className="text-center p-3 bg-purple-100 rounded-lg">
+                <div className="text-lg font-bold text-purple-600">€{Math.round(complianceSummary.total_estimated_costs)}</div>
+                <div className="text-xs text-purple-800">{t('technicalObjects.compliance.stats.estimatedCosts')}</div>
+              </div>
+            </div>
+
+            {/* Critical Alerts */}
+            {complianceSummary.alerts && complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-red-600 mb-2 flex items-center">
+                  🚨 {t('technicalObjects.compliance.criticalAlerts')} ({complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').length})
+                </h4>
+                <div className="space-y-2">
+                  {complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').slice(0, 3).map((alert) => (
+                    <div key={alert.technical_object_id} className="bg-red-50 border border-red-200 rounded p-2 text-sm cursor-pointer hover:bg-red-100 transition-colors"
+                         onClick={() => window.location.href = `/technical-objects/${alert.technical_object_id}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-red-800">{alert.object_name}</span>
+                            <span className="text-red-600 text-xs">
+                              {alert.days_until_due < 0 ? `${Math.abs(alert.days_until_due).toLocaleString()} days ${t('technicalObjects.compliance.overdue')}` : `${alert.days_until_due} days ${t('technicalObjects.compliance.remaining')}`}
+                            </span>
+                          </div>
+                          <div className="text-red-600 text-xs mt-1">{alert.legal_requirement}</div>
+                          <div className="text-red-500 text-xs mt-1">💰 ~€{alert.estimated_cost} • {alert.consequences}</div>
+                          <div className="flex gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => handleScheduleInspection(alert.technical_object_id)}
+                              className="text-xs px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded transition-colors"
+                              title={t('technicalObjects.compliance.scheduleInspection')}
+                            >
+                              📅 Schedule
+                            </button>
+                            <button
+                              onClick={() => handleCompleteInspection(alert.technical_object_id)}
+                              className="text-xs px-2 py-1 bg-green-100 text-green-700 hover:bg-green-200 rounded transition-colors"
+                              title={t('technicalObjects.compliance.markComplete')}
+                            >
+                              ✅ Complete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Category Filter Buttons */}
+            <div className="flex flex-wrap gap-2">
+              {getComplianceCategories(t).map(category => (
+                <button
+                  key={category.value}
+                  onClick={() => setSelectedCategory(category.value)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 flex items-center ${
+                    selectedCategory === category.value 
+                      ? category.color + ' ring-2 ring-offset-1 ring-blue-300' 
+                      : category.color.replace('-800', '-600').replace('bg-', 'bg-').replace('text-', 'text-') + ' opacity-60 hover:opacity-80'
+                  }`}
+                >
+                  <span className="mr-1">{category.icon}</span>
+                  {category.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Technical Objects List - Only show in property edit mode, not compliance dashboard */}
+        {!loading && technicalObjects.length > 0 && isEditMode && (
           <div className="space-y-4 mb-6">
             {technicalObjects.map((object) => {
               const typeInfo = getObjectTypeInfo(object.object_type);
               const statusInfo = getStatusInfo(object.status);
               
+              // Find compliance alert for this object
+              const complianceAlert = complianceSummary?.alerts?.find(alert => alert.technical_object_id === object._id);
+              
               return (
-                <div key={object._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div key={object._id} className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
+                  complianceAlert?.urgency === 'critical' ? 'border-red-300 bg-red-50' :
+                  complianceAlert?.urgency === 'high' ? 'border-orange-300 bg-orange-50' :
+                  complianceAlert?.urgency === 'medium' ? 'border-yellow-300 bg-yellow-50' :
+                  'border-gray-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center flex-1">
                       <span className="text-2xl mr-3">{typeInfo.icon}</span>
@@ -336,33 +603,93 @@ const TechnicalObjectsManager = ({
                           {object.manufacturer && <span className="mr-4">• {object.manufacturer}</span>}
                           {object.model && <span>• {object.model}</span>}
                         </div>
-                        {object.object_type === 'heating_system' && object.heating_type && (
+                        {['heating_gas', 'heating_oil', 'heating_wood'].includes(object.object_type) && object.heating_type && (
                           <div className="text-sm text-orange-600 mt-1">
                             🔥 {getHeatingTypes(t).find(h => h.value === object.heating_type)?.label || object.heating_type}
                             {object.cost_per_sqm && <span className="ml-2">• €{object.cost_per_sqm}/m²</span>}
+                          </div>
+                        )}
+                        {/* Compliance Alert */}
+                        {complianceAlert && (
+                          <div className={`text-sm mt-2 p-2 rounded ${
+                            complianceAlert.urgency === 'critical' ? 'bg-red-100 text-red-800' :
+                            complianceAlert.urgency === 'high' ? 'bg-orange-100 text-orange-800' :
+                            complianceAlert.urgency === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center">
+                                {complianceAlert.urgency === 'critical' && '🚨'}
+                                {complianceAlert.urgency === 'high' && '⚠️'}
+                                {complianceAlert.urgency === 'medium' && '📅'}
+                                <span className="ml-1 font-medium">
+                                  {complianceAlert.days_until_due < 0 
+                                    ? `${Math.abs(complianceAlert.days_until_due).toLocaleString()} days ${t('technicalObjects.compliance.overdue')}`
+                                    : `${t('technicalObjects.compliance.nextInspection')}: ${complianceAlert.days_until_due} days`
+                                  }
+                                </span>
+                              </span>
+                              {complianceAlert.estimated_cost && (
+                                <span className="text-xs">~€{complianceAlert.estimated_cost}</span>
+                              )}
+                            </div>
+                            <div className="text-xs mt-1 opacity-75">{complianceAlert.legal_requirement}</div>
+                            {complianceAlert.inspector_contact_name && (
+                              <div className="text-xs mt-1 flex items-center">
+                                📞 {complianceAlert.inspector_contact_name}
+                                {complianceAlert.inspector_phone && (
+                                  <a href={`tel:${complianceAlert.inspector_phone}`} className="ml-2 text-blue-600 hover:text-blue-800">
+                                    {complianceAlert.inspector_phone}
+                                  </a>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
                     
                     {isEditMode && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(object)}
-                          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(object._id)}
-                          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEdit(object)}
+                            className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                            title={t('technicalObjects.manager.editButton')}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(object._id)}
+                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                            title={t('technicalObjects.manager.deleteButton')}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                        {/* Compliance Actions */}
+                        {complianceAlert && (
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => handleScheduleInspection(object._id)}
+                              className="text-xs px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded transition-colors"
+                              title={t('technicalObjects.compliance.scheduleInspection')}
+                            >
+                              📅 {t('technicalObjects.compliance.scheduleButton')}
+                            </button>
+                            <button
+                              onClick={() => handleCompleteInspection(object._id)}
+                              className="text-xs px-2 py-1 bg-green-100 text-green-700 hover:bg-green-200 rounded transition-colors"
+                              title={t('technicalObjects.compliance.markComplete')}
+                            >
+                              ✅ {t('technicalObjects.compliance.completeButton')}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -374,17 +701,32 @@ const TechnicalObjectsManager = ({
 
         {!loading && technicalObjects.length === 0 && (
           <div className="text-center py-8 text-gray-500">
-            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5l-1-1z" />
-            </svg>
-            <p>{t('technicalObjects.manager.noObjectsMessage')}</p>
-            {isEditMode && (
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="mt-3 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                {t('technicalObjects.manager.addFirstButton')}
-              </button>
+            {propertyId && isEditMode ? (
+              // Property-specific mode: No technical objects for this property
+              <>
+                <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5l-1-1z" />
+                </svg>
+                <p>{t('technicalObjects.manager.noObjectsMessage')}</p>
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="mt-3 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  {t('technicalObjects.manager.addFirstButton')}
+                </button>
+              </>
+            ) : (
+              // Compliance dashboard mode: No overdue inspections (good news!)
+              <>
+                <svg className="w-16 h-16 mx-auto mb-4 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="text-lg font-medium text-green-600 mb-2">🎉 Excellent Compliance!</h3>
+                <p className="text-green-700">No overdue inspections found. All technical objects are compliant with German legal requirements.</p>
+                <div className="mt-4 text-sm text-gray-600">
+                  <p>TÜV • Schornsteinfeger • DGUV V3</p>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -493,7 +835,7 @@ const TechnicalObjectsManager = ({
               </div>
 
               {/* Heating System Specific Fields */}
-              {formData.object_type === 'heating_system' && (
+              {['heating_gas', 'heating_oil', 'heating_wood'].includes(formData.object_type) && (
                 <div className="border-t border-gray-200 pt-4">
                   <h5 className="text-md font-medium text-gray-900 mb-3">{t('technicalObjects.manager.form.heatingSystemDetails')}</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

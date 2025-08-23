@@ -22,9 +22,9 @@ EMAIL_AVAILABLE = True  # FORCE TRUE - WE'RE SENDING REAL EMAILS
 
 from models.service_request import ServiceRequest, ServiceRequestType
 from models.account import ContractorProfile
-from services.contractor_service import ContractorService
-from services.tenant_service import TenantService
-from services.contractor_matching_service import ContractorMatchingService, PropertyLocation
+from services.contractors.contractor_service import ContractorService
+from services.accounts.tenant_service import TenantService
+from services.contractors.contractor_matching_service import ContractorMatchingService, PropertyLocation
 
 
 logger = logging.getLogger(__name__)

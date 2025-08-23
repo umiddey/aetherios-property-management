@@ -28,7 +28,7 @@ from utils.auth import (
     normalize_email,
     get_portal_user,
 )
-from services.tenant_service import TenantService
+from services.accounts.tenant_service import TenantService
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 
@@ -387,7 +387,7 @@ async def get_portal_contracts(
     Get all active contracts for the authenticated portal user (tenant)
     Used for service request contract selection
     """
-    from services.account_service import AccountService
+    from services.accounts.account_service import AccountService
     
     account_service = AccountService(db)
     
@@ -411,8 +411,8 @@ async def get_portal_furnished_items(
     Get furnished items for a specific property (portal access)
     Used for service request furnished item selection
     """
-    from services.property_service import PropertyService
-    from services.account_service import AccountService
+    from services.core.property_service import PropertyService
+    from services.accounts.account_service import AccountService
     
     property_service = PropertyService(db)
     account_service = AccountService(db)

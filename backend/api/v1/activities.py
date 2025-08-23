@@ -4,7 +4,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from datetime import datetime
 import logging
 
-from services.activity_service import ActivityService
+from services.analytics.activity_service import ActivityService
 from models.activity import Activity, ActivityCreate, ActivityUpdate, ActivityResponse
 from utils.auth import get_current_user
 from utils.dependencies import get_database

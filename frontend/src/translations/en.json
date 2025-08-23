@@ -611,7 +611,6 @@
       "inactive": "❌ Inactive"
     },
     "types": {
-      "heating_system": "Heating System",
       "elevator": "Elevator",
       "intercom": "Intercom",
       "security_system": "Security System",
@@ -676,7 +675,6 @@
         "cancelButton": "Cancel"
       },
       "objectTypes": {
-        "heating_system": "🔥 Heating System",
         "elevator": "🛗 Elevator",
         "intercom": "📞 Intercom",
         "building_management": "🏢 Building Management",
@@ -695,16 +693,72 @@
         "planned": "📅 Planned"
       },
       "heatingTypes": {
-        "zentralheizung": "Zentralheizung (Central)",
-        "gasheizung": "Gasheizung (Gas)",
-        "fernwaerme": "Fernwärme (District)",
-        "waermepumpe": "Wärmepumpe (Heat Pump)",
-        "elektroheizung": "Elektroheizung (Electric)"
+        "zentralheizung": "Central Heating",
+        "etagenheizung": "Floor Heating",
+        "einzelheizung": "Individual Unit Heating"
       },
       "distributionMethods": {
         "surface_area": "Surface Area (m²)",
         "consumption": "Consumption Based (BetrKV)",
         "apartment_count": "Equal Distribution"
+      },
+      "objectTypes": {
+        "heating_gas": "🔥 Gas Heating System",
+        "heating_oil": "🔥 Oil Heating System", 
+        "heating_wood": "🔥 Wood Heating System",
+        "chimney": "🏠 Chimney",
+        "elevator_passenger": "🛗 Passenger Elevator",
+        "elevator_freight": "🛗 Freight Elevator",
+        "pressure_vessel": "⚗️ Pressure Vessel",
+        "boiler_system": "🔥 Boiler System",
+        "fire_extinguisher": "🚨 Fire Extinguisher",
+        "electrical_installation": "⚡ Electrical Installation",
+        "electrical_portable": "⚡ Portable Electrical Equipment",
+        "intercom": "📞 Intercom System",
+        "building_management": "🏢 Building Management System",
+        "security_system": "🔒 Security System",
+        "ventilation": "💨 Ventilation System",
+        "air_conditioning": "❄️ Air Conditioning",
+        "water_supply": "💧 Water Supply",
+        "sewage_system": "🚰 Sewage System",
+        "solar_panels": "☀️ Solar Panels"
+      }
+    },
+    "compliance": {
+      "title": "German Compliance Dashboard",
+      "subtitle": "Legal inspection requirements tracking",
+      "compliantObjects": "Compliant Objects",
+      "overdueObjects": "Overdue Inspections", 
+      "pendingObjects": "Pending Inspections",
+      "stats": "Compliance Statistics",
+      "compliant": "Compliant",
+      "criticalAlerts": "Critical Alerts",
+      "overdue": "overdue",
+      "remaining": "remaining",
+      "nextInspection": "Next Inspection",
+      "inspectionScheduled": "Inspection scheduled successfully",
+      "inspectionCompleted": "Inspection completed successfully",
+      "schedulingError": "Error scheduling inspection",
+      "completionError": "Error completing inspection",
+      "scheduleInspection": "Schedule Inspection",
+      "markComplete": "Mark Complete",
+      "scheduleButton": "Schedule",
+      "completeButton": "Complete",
+      "enterCompletionDate": "Enter inspection completion date:",
+      "enterInspectorNotes": "Enter inspector notes (optional):",
+      "stats": {
+        "compliant": "Compliant",
+        "dueSoon": "Due Soon",
+        "overdue": "Overdue",
+        "estimatedCosts": "Estimated Costs"
+      },
+      "categories": {
+        "all": "All Categories",
+        "elevators_lifts": "Elevators & Lifts",
+        "pressure_equipment": "Pressure Equipment", 
+        "fire_safety_systems": "Fire Safety Systems",
+        "heating_combustion": "Heating & Combustion",
+        "electrical_systems": "Electrical Systems"
       }
     }
   },

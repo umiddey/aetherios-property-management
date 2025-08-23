@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime
 import logging
 
-from services.invoice_service import InvoiceService
+from services.core.invoice_service import InvoiceService
 from models.invoice import Invoice, InvoiceCreate, InvoiceUpdate, InvoiceFilters, InvoiceStatus
 from utils.auth import get_current_user
 from utils.dependencies import get_invoice_service

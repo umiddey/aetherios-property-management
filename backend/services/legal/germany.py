@@ -1,6 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from typing import Tuple, Optional, Dict, Any
-from services.property_validation import BasePropertyValidator, PropertyValidationResult, Jurisdiction
+from services.validation.property_validation import BasePropertyValidator, PropertyValidationResult, Jurisdiction
 
 
 class GermanPropertyValidator(BasePropertyValidator):

@@ -11,9 +11,9 @@ from pymongo.database import Database
 
 from utils.dependencies import get_database
 from models.service_request import ServiceRequest, ServiceRequestStatus
-from services.contractor_email_service import ContractorEmailService, get_smtp_config
-from services.completion_tracking_service import CompletionTrackingService
-from services.tenant_service import TenantService
+from services.contractors.contractor_email_service import ContractorEmailService, get_smtp_config
+from services.contractors.completion_tracking_service import CompletionTrackingService
+from services.accounts.tenant_service import TenantService
 
 
 router = APIRouter(prefix="/contractor", tags=["contractor"])

@@ -27,10 +27,11 @@ const SidebarNavigation = ({ onNavigate, user, canManageLicenses }) => {
       route: 'properties',
       hasSubmenu: true,
       submenu: [
-        { id: 'properties-list', label: 'Properties', route: 'properties' },
-        { id: 'buildings', label: 'Buildings', route: 'properties' },
-        { id: 'units', label: 'Units', route: 'properties' },
-        { id: 'technical-objects', label: 'Technical Objects', route: 'properties' }
+        { id: 'properties-list', label: 'All Properties', route: 'properties' },
+        { id: 'complexes', label: 'Complexes', route: 'properties', filter: { property_type: 'complex' } },
+        { id: 'buildings', label: 'Buildings', route: 'properties', filter: { property_type: 'building' } },
+        { id: 'units', label: 'Units', route: 'properties', filter: { property_type: 'unit', unit_type_in: ['apartment', 'office', 'house', 'commercial'] } },
+        { id: 'technical-objects', label: 'Technical Objects', route: 'technical-objects' }
       ]
     },
     {
@@ -40,8 +41,8 @@ const SidebarNavigation = ({ onNavigate, user, canManageLicenses }) => {
       route: 'accounts',
       hasSubmenu: true,
       submenu: [
-        { id: 'tenants', label: 'Tenants', route: 'accounts' },
-        { id: 'creditors', label: 'Creditors', route: 'accounts' }
+        { id: 'tenants', label: 'Tenants', route: 'accounts', filter: { account_type: 'tenant' } },
+        { id: 'creditors', label: 'Creditors', route: 'accounts', filter: { account_type: 'creditor' } }
       ]
     },
     {
@@ -114,7 +115,7 @@ const SidebarNavigation = ({ onNavigate, user, canManageLicenses }) => {
   };
 
   const handleSubmenuClick = (submenuItem) => {
-    onNavigate(submenuItem.route);
+    onNavigate(submenuItem.route, submenuItem.filter || {});
     setHoveredItem(null); // Close submenu after selection
     setIsMobileMenuOpen(false); // Close mobile menu after navigation
   };
@@ -194,29 +195,38 @@ const SidebarNavigation = ({ onNavigate, user, canManageLicenses }) => {
               )}
             </button>
 
-            {/* Floating Submenu */}
+            {/* Floating Submenu with Bridge */}
             {item.hasSubmenu && hoveredItem === item.id && (
-              <div 
-                className="absolute left-64 top-0 bg-white border border-gray-200 rounded-lg shadow-xl z-50 min-w-48"
-                style={{ 
-                  marginLeft: '8px',
-                  animation: 'slideIn 0.15s ease-out'
-                }}
-              >
-                {item.submenu.map((submenuItem, index) => (
-                  <button
-                    key={submenuItem.id}
-                    onClick={() => handleSubmenuClick(submenuItem)}
-                    className={`
-                      w-full px-4 py-3 text-left text-gray-700 hover:bg-gray-50 text-sm
-                      ${index === 0 ? 'rounded-t-lg' : ''} 
-                      ${index === item.submenu.length - 1 ? 'rounded-b-lg' : 'border-b border-gray-100'}
-                    `}
-                  >
-                    {submenuItem.label}
-                  </button>
-                ))}
-              </div>
+              <>
+                {/* Invisible bridge to prevent gap issues */}
+                <div 
+                  className="absolute left-full top-0 w-2 h-full z-40"
+                  onMouseEnter={() => setHoveredItem(item.id)}
+                  onMouseLeave={() => setHoveredItem(null)}
+                />
+                <div 
+                  className="absolute left-64 top-0 bg-white border border-gray-200 rounded-lg shadow-xl z-50 min-w-48"
+                  style={{ 
+                    animation: 'slideIn 0.15s ease-out'
+                  }}
+                  onMouseEnter={() => setHoveredItem(item.id)}
+                  onMouseLeave={() => setHoveredItem(null)}
+                >
+                  {item.submenu.map((submenuItem, index) => (
+                    <button
+                      key={submenuItem.id}
+                      onClick={() => handleSubmenuClick(submenuItem)}
+                      className={`
+                        w-full px-4 py-3 text-left text-gray-700 hover:bg-gray-50 text-sm
+                        ${index === 0 ? 'rounded-t-lg' : ''} 
+                        ${index === item.submenu.length - 1 ? 'rounded-b-lg' : 'border-b border-gray-100'}
+                      `}
+                    >
+                      {submenuItem.label}
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         ))}

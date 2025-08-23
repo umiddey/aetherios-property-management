@@ -26,7 +26,7 @@ from models.service_request import (
 )
 from utils.auth import get_current_user, get_portal_user
 from utils.dependencies import get_database
-from services.service_request_service import ServiceRequestService
+from services.core.service_request_service import ServiceRequestService
 
 router = APIRouter(prefix="/service-requests", tags=["service-requests"])
 

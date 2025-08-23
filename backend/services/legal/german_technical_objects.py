@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
-from services.technical_object_validation import BaseTechnicalObjectValidator
-from services.property_validation import PropertyValidationResult, Jurisdiction
+from services.validation.technical_object_validation import BaseTechnicalObjectValidator
+from services.validation.property_validation import PropertyValidationResult, Jurisdiction
 
 
 class GermanTechnicalObjectValidator(BaseTechnicalObjectValidator):

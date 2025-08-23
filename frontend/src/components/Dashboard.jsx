@@ -8,6 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import useToast from '../hooks/useToast';
 import { ToastContainer } from './Toast';
 import io from 'socket.io-client';
+import Button from './ui/Button';
 import DashboardView from './DashboardView';
 import PropertiesView from './PropertiesView';
 import TenantsView from './TenantsView';
@@ -32,6 +33,8 @@ import CreateContractForm from './CreateContractForm';
 import ContractDetailPage from './ContractDetailPage';
 import ContractEditPage from './ContractEditPage';
 import LicenseManagementView from './LicenseManagementView';
+import TechnicalObjectsManager from './TechnicalObjectsManager';
+import TechnicalObjectDetailPage from './TechnicalObjectDetailPage';
 import Breadcrumb from './Breadcrumb';
 import LanguageSwitcher from './LanguageSwitcher';
 import SidebarNavigation from './ui/SidebarNavigation';
@@ -77,7 +80,8 @@ const Dashboard = () => {
     min_surface: '',
     max_surface: '',
     archived: false,
-    search: ''
+    search: '',
+    units_filter: null
   });
   const [tenantFilters, setTenantFilters] = useState({
     archived: false,
@@ -666,9 +670,34 @@ const Dashboard = () => {
     return breadcrumbs;
   };
 
-  const handleNav = (view, state = {}) => {
+  const handleNav = (view, filters = {}) => {
     logAction('navigation', { view });
-    navigate(`/${view}`, { state });
+    
+    // Apply filters when navigating
+    if (view === 'properties' && (filters.property_type || filters.unit_type_in)) {
+      // Handle new hierarchy filtering
+      if (filters.unit_type_in) {
+        // For Units navigation with unit_type_in
+        setPropertyFilters(prev => ({
+          ...prev,
+          property_type: filters.property_type, // 'unit'
+          unit_type_in: filters.unit_type_in,
+          units_filter: null
+        }));
+      } else if (filters.property_type) {
+        // Regular single property type filter (Complexes, Buildings)
+        setPropertyFilters(prev => ({
+          ...prev,
+          property_type: filters.property_type,
+          unit_type_in: null,
+          units_filter: null
+        }));
+      }
+    } else if (view === 'accounts' && filters.account_type) {
+      setAccountTypeFilter(filters.account_type);
+    }
+    
+    navigate(`/${view}`, { state: filters });
   };
 
   // Notification bell handlers
@@ -747,7 +776,7 @@ const Dashboard = () => {
               <div className="relative notification-bell">
                 <button
                   onClick={toggleNotifications}
-                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                  className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-all duration-200"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -763,7 +792,7 @@ const Dashboard = () => {
 
                 {/* Notification Dropdown */}
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-2xl border border-gray-200 z-50 max-h-96 overflow-hidden">
                     <div className="p-4 border-b border-gray-200">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-gray-900">Pending Approvals</h3>
@@ -851,14 +880,14 @@ const Dashboard = () => {
                 )}
               </div>
               
-              <button onClick={logout} className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl">
+              <Button onClick={logout} variant="danger" size="sm" className="text-sm font-medium">
                 <div className="flex items-center space-x-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                   <span>{t('navigation.logout')}</span>
                 </div>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -935,6 +964,12 @@ const Dashboard = () => {
             formatCurrency={formatCurrency} 
             handleNav={handleNav}
           />} />
+          <Route path="/technical-objects/:objectId" element={<TechnicalObjectDetailPage 
+            getStatusColor={getStatusColor} 
+            formatDate={formatDate} 
+            formatCurrency={formatCurrency} 
+            handleNav={handleNav}
+          />} />
           <Route path="/tenants" element={<TenantsView 
             tenantFilters={tenantFilters} 
             handleTenantFilterChange={handleTenantFilterChange} 
@@ -982,6 +1017,11 @@ const Dashboard = () => {
             logAction={logAction}
           />} />
           <Route path="/service-requests" element={<ServiceRequestsView 
+            handleNav={handleNav} 
+            formatDate={formatDate} 
+            logAction={logAction}
+          />} />
+          <Route path="/technical-objects" element={<TechnicalObjectsManager 
             handleNav={handleNav} 
             formatDate={formatDate} 
             logAction={logAction}

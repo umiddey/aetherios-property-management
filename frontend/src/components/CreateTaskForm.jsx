@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
+import { PROFESSIONAL_FORM_CLASSES, getProfessionalInputClasses, getProfessionalSelectClasses, getProfessionalTextareaClasses } from './ui/ProfessionalFormStandards';
+import Button from './ui/Button';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -56,25 +58,38 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
 
   return (
     <div>
-      <button
+      <Button
         onClick={onBack}
-        className="mb-4 text-blue-500 hover:text-blue-700 text-sm font-medium"
+        variant="secondary"
+        className="mb-4 text-sm"
       >
         ← {t('tasks.backToTasks')}
-      </button>
+      </Button>
       
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">{t('tasks.createTaskOrder')}</h2>
+      <div className={PROFESSIONAL_FORM_CLASSES.container}>
+        <div className={PROFESSIONAL_FORM_CLASSES.header}>
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+            </div>
+            {t('tasks.createTaskOrder')}
+          </div>
+        </div>
         
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className={PROFESSIONAL_FORM_CLASSES.alertError}>
+            <svg className="w-5 h-5 text-red-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={PROFESSIONAL_FORM_CLASSES.label}>
               {t('tasks.subject')} *
             </label>
             <input
@@ -82,20 +97,20 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
               name="subject"
               value={formData.subject}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={getProfessionalInputClasses()}
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={PROFESSIONAL_FORM_CLASSES.label}>
               {t('common.description')} *
             </label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={getProfessionalInputClasses()}
               rows="3"
               required
             />
@@ -103,14 +118,14 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('common.customer')} *
               </label>
               <select
                 name="customer_id"
                 value={formData.customer_id}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={getProfessionalInputClasses()}
                 required
               >
                 <option value="">{t('common.selectCustomer')}</option>
@@ -123,14 +138,14 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('tasks.priority')} *
               </label>
               <select
                 name="priority"
                 value={formData.priority}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={getProfessionalInputClasses()}
                 required
               >
                 <option value="low">{t('tasks.low')}</option>
@@ -142,7 +157,7 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('tasks.budget')} ($)
               </label>
               <input
@@ -150,14 +165,14 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
                 name="budget"
                 value={formData.budget}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={getProfessionalInputClasses()}
                 step="0.01"
                 min="0"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('tasks.dueDate')}
               </label>
               <input
@@ -165,20 +180,20 @@ const CreateTaskForm = ({ onBack, onSuccess, customers, users = [], context }) =
                 name="due_date"
                 value={formData.due_date}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={getProfessionalInputClasses()}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={PROFESSIONAL_FORM_CLASSES.label}>
               {t('tasks.assignedTo')}
             </label>
             <select
               name="assigned_to"
               value={formData.assigned_to}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={getProfessionalInputClasses()}
             >
               <option value="">{t('tasks.none')}</option>
               {users.map(user => (

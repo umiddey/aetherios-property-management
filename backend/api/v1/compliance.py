@@ -13,7 +13,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from services.contractor_service import ContractorService
+from services.contractors.contractor_service import ContractorService
 from models.contractor_license import ContractorLicense, LicenseType, VerificationStatus
 from utils.auth import get_current_user, get_property_manager_admin
 from utils.dependencies import get_database

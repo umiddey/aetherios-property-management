@@ -12,7 +12,7 @@ from models.technical_object import (
     TechnicalObjectType
 )
 from models.heating_system import HeatingSystemCreate
-from services.technical_object_validation import TechnicalObjectValidationService, Jurisdiction
+from services.validation.technical_object_validation import TechnicalObjectValidationService, Jurisdiction
 from utils.auth import get_current_user
 from utils.dependencies import get_database
 
@@ -26,6 +26,29 @@ validation_service = TechnicalObjectValidationService()
 def get_validation_service():
     """Dependency to get technical object validation service"""
     return validation_service
+
+
+@router.get("/")
+async def get_all_technical_objects(
+    current_user = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Get all technical objects across all properties."""
+    try:
+        cursor = db.technical_objects.find({})
+        objects = []
+        
+        async for obj in cursor:
+            obj["_id"] = str(obj["_id"])
+            if "property_id" in obj:
+                obj["property_id"] = str(obj["property_id"])
+            objects.append(obj)
+        
+        return objects
+        
+    except Exception as e:
+        logger.error(f"Error retrieving all technical objects: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve technical objects: {str(e)}")
 
 
 @router.post("/")
@@ -42,7 +65,7 @@ async def create_technical_object(
         object_type = request_data.get("object_type")
         
         # Use specific model based on object type
-        if object_type == "heating_system":
+        if object_type in ["heating_gas", "heating_oil", "heating_wood"]:
             object_data = HeatingSystemCreate(**request_data)
         else:
             object_data = TechnicalObjectCreate(**request_data)
@@ -56,7 +79,7 @@ async def create_technical_object(
         jurisdiction = Jurisdiction.GERMANY  # Default to Germany for now
         
         # Validate technical object based on type
-        if object_data.object_type == TechnicalObjectType.HEATING_SYSTEM:
+        if object_data.object_type in [TechnicalObjectType.HEATING_GAS, TechnicalObjectType.HEATING_OIL, TechnicalObjectType.HEATING_WOOD]:
             # Validate heating system compliance (BetrKV)
             validation_result = validator.validate_heating_system(
                 jurisdiction,
@@ -176,7 +199,7 @@ async def update_technical_object(
             raise HTTPException(status_code=404, detail="Technical object not found")
         
         # Validate updates if they affect critical fields
-        if update_data.object_type == TechnicalObjectType.HEATING_SYSTEM:
+        if update_data.object_type in [TechnicalObjectType.HEATING_GAS, TechnicalObjectType.HEATING_OIL, TechnicalObjectType.HEATING_WOOD]:
             # Re-validate heating system if relevant fields changed
             jurisdiction = Jurisdiction.GERMANY
             validation_result = validator.validate_heating_system(

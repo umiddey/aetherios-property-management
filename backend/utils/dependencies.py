@@ -1,8 +1,8 @@
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from services.property_service import PropertyService
+from services.core.property_service import PropertyService
 from repositories.property_repository import PropertyRepository
-from services.tenant_service import TenantService
-from services.invoice_service import InvoiceService
+from services.accounts.tenant_service import TenantService
+from services.core.invoice_service import InvoiceService
 from fastapi import Depends
 from utils.database import get_database, db
 

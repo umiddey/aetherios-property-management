@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime
 import logging
 
-from services.tenant_service import TenantService
+from services.accounts.tenant_service import TenantService
 from models.tenant import Tenant, TenantCreate, TenantUpdate, TenantFilters
 from utils.auth import get_current_user
 from utils.dependencies import get_tenant_service

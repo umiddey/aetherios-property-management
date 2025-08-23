@@ -615,7 +615,6 @@
       "inactive": "❌ Inaktiv"
     },
     "types": {
-      "heating_system": "Heizungsanlage",
       "elevator": "Aufzug",
       "intercom": "Gegensprechanlage",
       "security_system": "Sicherheitssystem",
@@ -680,7 +679,6 @@
         "cancelButton": "Abbrechen"
       },
       "objectTypes": {
-        "heating_system": "🔥 Heizungsanlage",
         "elevator": "🛗 Aufzug",
         "intercom": "📞 Gegensprechanlage",
         "building_management": "🏢 Gebäudeverwaltung",
@@ -700,15 +698,71 @@
       },
       "heatingTypes": {
         "zentralheizung": "Zentralheizung",
-        "gasheizung": "Gasheizung",
-        "fernwaerme": "Fernwärme",
-        "waermepumpe": "Wärmepumpe",
-        "elektroheizung": "Elektroheizung"
+        "etagenheizung": "Etagenheizung",
+        "einzelheizung": "Einzelheizung"
       },
       "distributionMethods": {
         "surface_area": "Wohnfläche (m²)",
         "consumption": "Verbrauchsbasiert (BetrKV)",
         "apartment_count": "Gleichverteilung"
+      },
+      "objectTypes": {
+        "heating_gas": "🔥 Gasheizungsanlage",
+        "heating_oil": "🔥 Ölheizungsanlage", 
+        "heating_wood": "🔥 Holzheizungsanlage",
+        "chimney": "🏠 Schornstein",
+        "elevator_passenger": "🛗 Personenaufzug",
+        "elevator_freight": "🛗 Lastenaufzug",
+        "pressure_vessel": "⚗️ Druckbehälter",
+        "boiler_system": "🔥 Kesselanlage",
+        "fire_extinguisher": "🚨 Feuerlöscher",
+        "electrical_installation": "⚡ Elektrische Installation",
+        "electrical_portable": "⚡ Ortsveränderliche Elektrogeräte",
+        "intercom": "📞 Sprechanlage",
+        "building_management": "🏢 Gebäudeleittechnik",
+        "security_system": "🔒 Sicherheitsanlage",
+        "ventilation": "💨 Lüftungsanlage",
+        "air_conditioning": "❄️ Klimaanlage",
+        "water_supply": "💧 Wasserversorgung",
+        "sewage_system": "🚰 Abwassersystem",
+        "solar_panels": "☀️ Solaranlagen"
+      }
+    },
+    "compliance": {
+      "title": "Deutsche Compliance Dashboard",
+      "subtitle": "Gesetzliche Prüfanforderungen Verfolgung",
+      "compliantObjects": "Konforme Objekte",
+      "overdueObjects": "Überfällige Prüfungen", 
+      "pendingObjects": "Anstehende Prüfungen",
+      "stats": "Compliance Statistiken",
+      "compliant": "Konform",
+      "criticalAlerts": "Kritische Warnungen",
+      "overdue": "überfällig",
+      "remaining": "verbleibend",
+      "nextInspection": "Nächste Prüfung",
+      "inspectionScheduled": "Prüfung erfolgreich geplant",
+      "inspectionCompleted": "Prüfung erfolgreich abgeschlossen",
+      "schedulingError": "Fehler beim Planen der Prüfung",
+      "completionError": "Fehler beim Abschließen der Prüfung",
+      "scheduleInspection": "Prüfung planen",
+      "markComplete": "Als abgeschlossen markieren",
+      "scheduleButton": "Planen",
+      "completeButton": "Abschließen",
+      "enterCompletionDate": "Prüfungsabschlussdatum eingeben:",
+      "enterInspectorNotes": "Prüfernotizen eingeben (optional):",
+      "stats": {
+        "compliant": "Konform",
+        "dueSoon": "Bald fällig",
+        "overdue": "Überfällig",
+        "estimatedCosts": "Geschätzte Kosten"
+      },
+      "categories": {
+        "all": "Alle Kategorien",
+        "elevators_lifts": "Aufzüge & Lifte",
+        "pressure_equipment": "Druckgeräte", 
+        "fire_safety_systems": "Brandschutzsysteme",
+        "heating_combustion": "Heizung & Verbrennung",
+        "electrical_systems": "Elektrische Anlagen"
       }
     }
   },

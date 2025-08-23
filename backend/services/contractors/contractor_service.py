@@ -13,7 +13,7 @@ from models.account import (
     ContractorProfile
 )
 from models.contractor_license import ContractorLicense, LicenseType, VerificationStatus
-from services.license_verification_service import LicenseVerificationService
+from services.contractors.license_verification_service import LicenseVerificationService
 
 
 class ContractorService:

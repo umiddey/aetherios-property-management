@@ -12,8 +12,8 @@ from dataclasses import dataclass
 
 from models.service_request import ServiceRequest, ServiceRequestType, ServiceRequestPriority
 from models.account import ContractorProfile
-from services.contractor_service import ContractorService
-from services.license_verification_service import LicenseVerificationService
+from services.contractors.contractor_service import ContractorService
+from services.contractors.license_verification_service import LicenseVerificationService
 
 logger = logging.getLogger(__name__)
 

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
 import FurnishedItemsManager from './FurnishedItemsManager';
+import { PROFESSIONAL_FORM_CLASSES, getProfessionalInputClasses, getProfessionalSelectClasses, getProfessionalTextareaClasses } from './ui/ProfessionalFormStandards';
+import Button from './ui/Button';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -11,7 +13,8 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
   const [formData, setFormData] = useState({
     id: '',
     name: '',
-    property_type: 'apartment',
+    property_type: 'complex',
+    unit_type: '',
     street: '',
     house_nr: '',
     postcode: '',
@@ -142,8 +145,8 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             owned_by_firm: parentProperty.owned_by_firm,
             manager_id: parentProperty.manager_id
           }));
-        } else if (formData.property_type === 'apartment' || formData.property_type === 'office') {
-          // Apartments/Offices inherit from parent Building: address, manager, ownership, furnished items, rent_per_sqm, and furnishing_status
+        } else if (formData.property_type === 'unit') {
+          // Units inherit from parent Building: address, manager, ownership, furnished items, rent_per_sqm, and furnishing_status
           const furnishedItemsResponse = await axios.get(`${API}/v1/furnished-items/property/${formData.parent_id}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -248,17 +251,27 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
 
-      // First, create the property without furnished items
-      const propertyData = {
-        ...formData,
+      // Build property data conditionally based on property type
+      const basePropertyData = {
+        id: formData.id,
+        name: formData.name,
+        property_type: formData.property_type,
+        street: formData.street,
+        house_nr: formData.house_nr,
+        postcode: formData.postcode,
+        city: formData.city,
+        floor: formData.floor,
         surface_area: parseFloat(formData.surface_area),
         number_of_rooms: parseInt(formData.number_of_rooms),
-        num_toilets: formData.num_toilets ? parseInt(formData.num_toilets) : null,
-        max_tenants: formData.max_tenants ? parseInt(formData.max_tenants) : null,
-        rent_per_sqm: formData.rent_per_sqm ? parseFloat(formData.rent_per_sqm) : null,
-        betriebskosten_per_sqm: formData.betriebskosten_per_sqm ? parseFloat(formData.betriebskosten_per_sqm) : null,
-        cold_rent: formData.cold_rent ? parseFloat(formData.cold_rent) : null,
+        description: formData.description,
+        status: formData.status,
+        owner_name: formData.owner_name,
+        owner_email: formData.owner_email,
+        owner_phone: formData.owner_phone,
         parent_id: formData.parent_id || null,
+        manager_id: formData.manager_id,
+        furnishing_status: formData.furnishing_status,
+        owned_by_firm: formData.owned_by_firm,
         
         // German Legal Compliance Fields
         energieausweis_type: formData.energieausweis_type || null,
@@ -269,6 +282,25 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
         
         furnished_items: [] // Start with empty list
       };
+
+      // Add conditional fields based on property type
+      if (formData.property_type === 'unit') {
+        // Units require unit_type and rental fields
+        basePropertyData.unit_type = formData.unit_type;
+        basePropertyData.rent_per_sqm = formData.rent_per_sqm ? parseFloat(formData.rent_per_sqm) : null;
+        basePropertyData.betriebskosten_per_sqm = formData.betriebskosten_per_sqm ? parseFloat(formData.betriebskosten_per_sqm) : null;
+        basePropertyData.cold_rent = formData.cold_rent ? parseFloat(formData.cold_rent) : null;
+        basePropertyData.num_toilets = formData.num_toilets ? parseInt(formData.num_toilets) : null;
+        basePropertyData.max_tenants = formData.max_tenants ? parseInt(formData.max_tenants) : null;
+      } else if (formData.property_type === 'building') {
+        // Buildings may have optional rental fields but no unit_type
+        basePropertyData.rent_per_sqm = formData.rent_per_sqm ? parseFloat(formData.rent_per_sqm) : null;
+        basePropertyData.betriebskosten_per_sqm = formData.betriebskosten_per_sqm ? parseFloat(formData.betriebskosten_per_sqm) : null;
+        basePropertyData.cold_rent = formData.cold_rent ? parseFloat(formData.cold_rent) : null;
+      }
+      // Complexes get no additional fields - just the base data
+
+      const propertyData = basePropertyData;
 
       const propertyResponse = await axios.post(`${API}/v1/properties/`, propertyData, { headers });
       const createdProperty = propertyResponse.data;
@@ -332,37 +364,50 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({ 
-      ...formData, 
-      [name]: type === 'checkbox' ? checked : value 
-    });
+    
+    // Clear unit_type when property_type changes away from 'unit'
+    if (name === 'property_type' && value !== 'unit') {
+      setFormData({ 
+        ...formData, 
+        [name]: type === 'checkbox' ? checked : value,
+        unit_type: ''
+      });
+    } else {
+      setFormData({ 
+        ...formData, 
+        [name]: type === 'checkbox' ? checked : value 
+      });
+    }
   };
 
   return (
     <div className="max-w-4xl mx-auto">
-      <button
+      <Button
         onClick={onBack}
-        className="mb-6 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+        variant="secondary"
+        className="mb-6 flex items-center gap-2"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-{t('forms.backTo')} {t('navigation.properties')}
-      </button>
+        {t('forms.backTo')} {t('navigation.properties')}
+      </Button>
       
-      <div className="bg-white shadow-lg rounded-2xl p-8 border border-gray-100">
-        <div className="flex items-center mb-8">
-          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center mr-4">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
+      <div className={PROFESSIONAL_FORM_CLASSES.container}>
+        <div className={PROFESSIONAL_FORM_CLASSES.header}>
+          <div className="flex items-center">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            {t('forms.createProperty.title')}
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">{t('forms.createProperty.title')}</h2>
         </div>
         
         {error && (
-          <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 text-red-700 px-6 py-4 rounded-xl mb-6 flex items-center">
-            <svg className="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={PROFESSIONAL_FORM_CLASSES.alertError}>
+            <svg className="w-5 h-5 text-red-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
             {error}
@@ -371,7 +416,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className={PROFESSIONAL_FORM_CLASSES.label}>
 {t('forms.createProperty.propertyId')} *
             </label>
             <div className="relative">
@@ -385,7 +430,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 name="id"
                 value={formData.id}
                 readOnly
-                className={`w-full pl-10 px-4 py-3 border rounded-xl transition-all duration-200 bg-gray-50 ${
+                className={`w-full pl-10 px-4 py-3 border rounded-md transition-all duration-200 bg-gray-50 ${
                   idValidationError 
                     ? 'border-red-300' 
                     : 'border-gray-300'
@@ -413,60 +458,79 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           
           {/* Basic Information Section */}
           <div className="mt-8 mb-6">
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mr-3">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.basicInfo')}</h3>
+            <div className={PROFESSIONAL_FORM_CLASSES.sectionHeader}>
+              <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {t('forms.createProperty.basicInfo')}
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-{t('forms.createProperty.propertyName')} *
+              <label className={PROFESSIONAL_FORM_CLASSES.labelRequired}>
+                {t('forms.createProperty.propertyName')}
               </label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 required
               />
             </div>
             
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('forms.createProperty.propertyType')} *
               </label>
               <select
                 name="property_type"
                 value={formData.property_type}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 required
               >
-                <option value="apartment">{t('properties.apartment')}</option>
-                <option value="house">{t('properties.house')}</option>
-                <option value="office">{t('properties.office')}</option>
-                <option value="commercial">{t('properties.commercial')}</option>
-                <option value="building">{t('properties.building')}</option>
                 <option value="complex">{t('properties.complex')}</option>
+                <option value="building">{t('properties.building')}</option>
+                <option value="unit">{t('properties.unit')}</option>
               </select>
             </div>
+
+            {/* Unit Type Selection - Show when property_type is "unit" */}
+            {formData.property_type === 'unit' && (
+              <div>
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
+                  {t('forms.createProperty.unitType')} *
+                </label>
+                <select
+                  name="unit_type"
+                  value={formData.unit_type}
+                  onChange={handleChange}
+                  className={getProfessionalInputClasses()}
+                  required={formData.property_type === 'unit'}
+                >
+                  <option value="">{t('forms.createProperty.selectUnitType')}</option>
+                  <option value="apartment">{t('properties.apartment')}</option>
+                  <option value="house">{t('properties.house')}</option>
+                  <option value="office">{t('properties.office')}</option>
+                  <option value="commercial">{t('properties.commercial')}</option>
+                  <option value="storage">{t('properties.storage')}</option>
+                  <option value="parking">{t('properties.parking')}</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Parent Property Selection - Show right after property type */}
           {formData.property_type !== 'complex' && (
             <div className="mt-6">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('forms.createProperty.parentProperty')}
               </label>
               {loadingParents ? (
-                <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500">
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
                   Loading parent properties...
                 </div>
               ) : (
@@ -474,7 +538,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   name="parent_id"
                   value={formData.parent_id}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className={getProfessionalInputClasses()}
                 >
                   <option value="">{t('forms.createProperty.none')}</option>
                   {parentProperties.map(property => (
@@ -486,9 +550,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
               )}
               <p className="text-xs text-gray-500 mt-1">
                 {formData.property_type === 'building' && 'Buildings can only have Complex as parent'}
-                {(formData.property_type === 'apartment' || formData.property_type === 'office') && 'Apartments/Offices can only have Building as parent'}
-                {formData.property_type === 'house' && 'Houses can have Complex or Building as parent'}
-                {formData.property_type === 'commercial' && 'Commercial properties can only have Building as parent'}
+                {formData.property_type === 'unit' && 'Units can only have Building as parent'}
               </p>
             </div>
           )}
@@ -497,7 +559,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           {formData.property_type !== 'complex' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   Furnishing Status *
                 </label>
                 <div className="relative">
@@ -510,7 +572,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                     name="furnishing_status"
                     value={formData.furnishing_status}
                     onChange={handleChange}
-                    className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                     required
                   >
                     <option value="unfurnished">{t('forms.createProperty.furnishing.unfurnished')}</option>
@@ -523,10 +585,10 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   {t('forms.createProperty.furnishedItems')}
                 </label>
-                <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-md">
                   <span className="text-sm text-gray-600">
                     {t('forms.createProperty.itemsCount', { count: formData.furnished_items.length })}
                   </span>
@@ -548,20 +610,18 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
 
           {/* Address Information Section */}
           <div className="mt-8 mb-6">
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center mr-3">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-bold text-gray-900">{t('forms.createProperty.addressInfo')}</h3>
+            <div className={PROFESSIONAL_FORM_CLASSES.sectionHeader}>
+              <svg className="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {t('forms.createProperty.addressInfo')}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('forms.createProperty.street')} *
               </label>
               <input
@@ -569,7 +629,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 name="street"
                 value={formData.street}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 required
               />
             </div>
@@ -577,7 +637,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             {/* Hide house number for Complex */}
             {formData.property_type !== 'complex' && (
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   {t('forms.createProperty.houseNumber')} *
                 </label>
                 <input
@@ -585,7 +645,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   name="house_nr"
                   value={formData.house_nr}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className={getProfessionalInputClasses()}
                   required
                 />
               </div>
@@ -594,7 +654,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('forms.createProperty.postcode')} *
               </label>
               <input
@@ -602,13 +662,13 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 name="postcode"
                 value={formData.postcode}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 required
               />
             </div>
             
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('forms.createProperty.city')} *
               </label>
               <input
@@ -616,7 +676,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 name="city"
                 value={formData.city}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 required
               />
             </div>
@@ -625,7 +685,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           {/* Property Details Section */}
           <div className="mt-8 mb-6">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                 </svg>
@@ -638,7 +698,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             {/* Floor field - hide for Complex and Building */}
             {!['complex', 'building'].includes(formData.property_type) && (
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   {t('forms.createProperty.floor')}
                 </label>
                 <input
@@ -646,7 +706,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   name="floor"
                   value={formData.floor}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className={getProfessionalInputClasses()}
                   placeholder={t('forms.createProperty.placeholders.floorExample')}
                 />
               </div>
@@ -655,7 +715,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             {/* Number of Floors for Building */}
             {formData.property_type === 'building' && (
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   Number of Floors *
                 </label>
                 <input
@@ -663,7 +723,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   name="floor"
                   value={formData.floor}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className={getProfessionalInputClasses()}
                   min="1"
                   placeholder={t('forms.createProperty.placeholders.totalFloors')}
                   required
@@ -672,7 +732,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             )}
             
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('forms.createProperty.surfaceArea')} (m²) *
               </label>
               <input
@@ -680,7 +740,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 name="surface_area"
                 value={formData.surface_area}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 step="0.01"
                 min="0"
                 required
@@ -688,7 +748,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             </div>
             
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {formData.property_type === 'building' 
                   ? 'Number of Apartments *' 
                   : formData.property_type === 'complex'
@@ -700,7 +760,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 name="number_of_rooms"
                 value={formData.number_of_rooms}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
                 min="1"
                 required
               />
@@ -712,7 +772,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             <>
               <div className="mt-8 mb-6">
                 <div className="flex items-center">
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
+                  <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -721,12 +781,12 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 </div>
               </div>
 
-              {/* Different rental fields for Building vs other property types */}
+              {/* Rental fields only for Buildings and Units, not Complexes */}
               {formData.property_type === 'building' ? (
                 // Buildings: Show only Rent per sqm
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       {t('forms.createProperty.rentPerSqm')} (€) *
                     </label>
                     <input
@@ -734,14 +794,14 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                       name="rent_per_sqm"
                       value={formData.rent_per_sqm}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      className={getProfessionalInputClasses()}
                       step="0.01"
                       min="0"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       Betriebskosten per m² (€)
                     </label>
                     <input
@@ -749,51 +809,51 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                       name="betriebskosten_per_sqm"
                       value={formData.betriebskosten_per_sqm}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      className={getProfessionalInputClasses()}
                       step="0.01"
                       min="0"
                       placeholder={t('forms.createProperty.placeholders.priceExample')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       {t('forms.createProperty.coldRent')} (Kaltmiete)
                     </label>
                     <input
                       type="text"
                       value={formData.cold_rent}
                       disabled
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       Betriebskosten Total (€)
                     </label>
                     <input
                       type="text"
                       value={formData.betriebskosten_total}
                       disabled
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       Warm Rent / Warmmiete (€)
                     </label>
                     <input
                       type="text"
                       value={formData.warm_rent}
                       disabled
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-100"
                     />
                   </div>
                 </div>
-              ) : (
-                // All other property types: Show full rental section
+              ) : formData.property_type === 'unit' ? (
+                // Units: Show full rental section with required fields
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       {t('forms.createProperty.numberOfToilets')}
                     </label>
                     <input
@@ -801,13 +861,13 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                       name="num_toilets"
                       value={formData.num_toilets}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      className={getProfessionalInputClasses()}
                       min="0"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       {t('forms.createProperty.maxTenants')}
                     </label>
                     <input
@@ -815,14 +875,14 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                       name="max_tenants"
                       value={formData.max_tenants}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      className={getProfessionalInputClasses()}
                       min="1"
                       placeholder={t('forms.createProperty.placeholders.noLimit')}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       {t('forms.createProperty.rentPerSqm')} (€) *
                     </label>
                     <input
@@ -830,7 +890,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                       name="rent_per_sqm"
                       value={formData.rent_per_sqm}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      className={getProfessionalInputClasses()}
                       step="0.01"
                       min="0"
                       required
@@ -838,7 +898,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       Betriebskosten per m² (€)
                     </label>
                     <input
@@ -846,7 +906,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                       name="betriebskosten_per_sqm"
                       value={formData.betriebskosten_per_sqm}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                      className={getProfessionalInputClasses()}
                       step="0.01"
                       min="0"
                       placeholder={t('forms.createProperty.placeholders.priceExample')}
@@ -854,7 +914,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       {t('forms.createProperty.coldRent')} (Kaltmiete) (€)
                     </label>
                     <input
@@ -866,7 +926,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       Betriebskosten Total (€)
                     </label>
                     <input
@@ -878,7 +938,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                    <label className={PROFESSIONAL_FORM_CLASSES.label}>
                       Warm Rent / Warmmiete (€)
                     </label>
                     <input
@@ -889,6 +949,11 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                     />
                   </div>
                 </div>
+              ) : (
+                // Complexes: No rental fields shown
+                <div className="text-sm text-gray-500 italic">
+                  {t('forms.createProperty.complexNoRentFields')}
+                </div>
               )}
             </>
           )}
@@ -896,7 +961,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           {/* German Legal Compliance Section */}
           <div className="mt-8 mb-6">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-yellow-500 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
@@ -906,7 +971,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           </div>
 
           {/* Energy Certificate Section (Mandatory for Marketing) */}
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+          <div className="bg-red-50 border border-red-200 rounded-md p-6 mb-6">
             <h4 className="text-md font-semibold text-gray-900 mb-4">
               {t('forms.createProperty.energyCertificate.title')}
               <span className="text-xs text-red-600 ml-2">{t('forms.createProperty.energyCertificate.mandatoryNote')}</span>
@@ -914,14 +979,14 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   Certificate Type *
                 </label>
                 <select
                   name="energieausweis_type"
                   value={formData.energieausweis_type}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
                   required
                 >
                   <option value="">Select Type</option>
@@ -931,14 +996,14 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   Energy Class *
                 </label>
                 <select
                   name="energieausweis_class"
                   value={formData.energieausweis_class}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"  
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"  
                   required
                 >
                   <option value="">Select Class</option>
@@ -955,7 +1020,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   {t('forms.createProperty.energyCertificate.value')}
                 </label>
                 <input
@@ -963,7 +1028,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   name="energieausweis_value"
                   value={formData.energieausweis_value}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
                   step="0.1"
                   min="0"
                   placeholder={t('forms.createProperty.placeholders.energyExample')}
@@ -974,7 +1039,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   Certificate Expiry Date *
                 </label>
                 <input
@@ -982,13 +1047,13 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   name="energieausweis_expiry"
                   value={formData.energieausweis_expiry}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
                   required
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
+                <label className={PROFESSIONAL_FORM_CLASSES.label}>
                   {t('forms.createProperty.energyCertificate.co2')}
                 </label>
                 <input
@@ -996,7 +1061,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   name="energieausweis_co2"
                   value={formData.energieausweis_co2}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all duration-200"
                   step="0.1"
                   min="0"  
                   placeholder={t('forms.createProperty.placeholders.co2Example')}
@@ -1009,7 +1074,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           {/* Additional Information Section */}
           <div className="mt-8 mb-6">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -1019,7 +1084,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className={PROFESSIONAL_FORM_CLASSES.label}>
               {t('common.description')}
             </label>
             <textarea
@@ -1033,7 +1098,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className={PROFESSIONAL_FORM_CLASSES.label}>
               {t('common.status')} *
             </label>
             <select
@@ -1050,7 +1115,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           </div>
 
           {/* Property Ownership Section */}
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -1073,7 +1138,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           {/* Property Manager Selection */}
           <div className="mt-6">
             <div className="flex items-center mb-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-6 h-6 text-gray-600 mr-2 flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -1082,11 +1147,11 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             </div>
             
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 Assign Property Manager
               </label>
               {loadingUsers ? (
-                <div className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50 text-gray-500">
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
                   Loading property managers...
                 </div>
               ) : (
@@ -1094,7 +1159,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                   name="manager_id"
                   value={formData.manager_id}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                   required
                 >
                   <option value="">Select a property manager</option>
@@ -1113,7 +1178,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
 
           <div className="mt-8 mb-6">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
@@ -1123,7 +1188,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('forms.createProperty.ownerName')}
               </label>
               <input
@@ -1131,12 +1196,12 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 name="owner_name"
                 value={formData.owner_name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
               />
             </div>
             
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
+              <label className={PROFESSIONAL_FORM_CLASSES.label}>
                 {t('forms.createProperty.ownerEmail')}
               </label>
               <input
@@ -1144,13 +1209,13 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
                 name="owner_email"
                 value={formData.owner_email}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className={getProfessionalInputClasses()}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
+            <label className={PROFESSIONAL_FORM_CLASSES.label}>
               {t('forms.createProperty.ownerPhone')}
             </label>
             <input
@@ -1166,14 +1231,14 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
             <button
               type="button"
               onClick={onBack}
-              className="px-6 py-3 text-gray-700 bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl hover:from-gray-200 hover:to-gray-300 transition-all duration-300 font-medium"
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors duration-200"
             >
               {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-bold shadow-lg hover:shadow-xl flex items-center gap-2"
+              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loading ? (
                 <>
@@ -1199,7 +1264,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
       {/* Furnished Items Modal */}
       {showFurnishedItemsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-gray-900">{t('forms.createProperty.manageFurnishedItems')}</h3>
@@ -1223,7 +1288,7 @@ const CreatePropertyForm = ({ onBack, onSuccess }) => {
               <div className="flex justify-end mt-6 pt-6 border-t">
                 <button
                   onClick={() => setShowFurnishedItemsModal(false)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-colors duration-200"
                 >
                   Done
                 </button>

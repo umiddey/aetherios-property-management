@@ -1,1 +1,0 @@
-// Backup of original PropertiesView.jsx before enterprise table transformation

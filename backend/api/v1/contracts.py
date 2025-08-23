@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime
-from services.contract_service import ContractService
-from services.contract_invoice_service import ContractInvoiceService
-from services.invoice_service import InvoiceService
+from services.core.contract_service import ContractService
+from services.core.contract_invoice_service import ContractInvoiceService
+from services.core.invoice_service import InvoiceService
 from models.contract import (
     Contract, ContractCreate, ContractUpdate, ContractResponse, 
     ContractType, ContractStatus, ContractBillingType

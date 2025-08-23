@@ -185,10 +185,10 @@ const PropertyEditPage = () => {
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
       {/* Header */}
-      <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+      <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-100">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-black bg-blue-600 bg-clip-text text-transparent">
               {t('properties.editProperty')}
             </h1>
             <p className="text-gray-500 mt-1">ID: {property.id}</p>
@@ -196,14 +196,14 @@ const PropertyEditPage = () => {
           <div className="flex space-x-3">
             <button
               onClick={handleCancel}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-200"
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200"
             >
               {t('common.cancel')}
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-200 disabled:opacity-50"
             >
               {saving ? t('common.saving') : t('common.save')}
             </button>
@@ -211,7 +211,7 @@ const PropertyEditPage = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
             <p className="text-red-600">{error}</p>
           </div>
         )}
@@ -229,7 +229,7 @@ const PropertyEditPage = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 required
               />
             </div>
@@ -240,7 +240,7 @@ const PropertyEditPage = () => {
                 name="property_type"
                 value={formData.property_type}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 required
               >
                 <option value="apartment">🏠 Apartment</option>
@@ -257,7 +257,7 @@ const PropertyEditPage = () => {
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               >
                 <option value="empty">Empty</option>
                 <option value="occupied">Occupied</option>
@@ -271,7 +271,7 @@ const PropertyEditPage = () => {
                 name="furnishing_status"
                 value={formData.furnishing_status}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               >
                 <option value="unfurnished">🏠 Unfurnished</option>
                 <option value="furnished">🛋️ Furnished</option>
@@ -280,7 +280,7 @@ const PropertyEditPage = () => {
             </div>
 
             {/* Property Ownership Section */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -311,7 +311,7 @@ const PropertyEditPage = () => {
                 name="street"
                 value={formData.street}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 required
               />
             </div>
@@ -323,7 +323,7 @@ const PropertyEditPage = () => {
                 name="house_nr"
                 value={formData.house_nr}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 required
               />
             </div>
@@ -335,7 +335,7 @@ const PropertyEditPage = () => {
                 name="postcode"
                 value={formData.postcode}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 required
               />
             </div>
@@ -347,7 +347,7 @@ const PropertyEditPage = () => {
                 name="city"
                 value={formData.city}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 required
               />
             </div>
@@ -367,7 +367,7 @@ const PropertyEditPage = () => {
                     name="floor"
                     value={formData.floor}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                     placeholder="e.g., 2nd, Ground"
                   />
                 </div>
@@ -382,7 +382,7 @@ const PropertyEditPage = () => {
                     name="floor"
                     value={formData.floor}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                     min="1"
                     placeholder="Total floors in building"
                     required
@@ -397,7 +397,7 @@ const PropertyEditPage = () => {
                   name="surface_area"
                   value={formData.surface_area}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   step="0.01"
                   min="0"
                   required
@@ -417,7 +417,7 @@ const PropertyEditPage = () => {
                   name="number_of_rooms"
                   value={formData.number_of_rooms}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   min="1"
                   required
                 />
@@ -443,7 +443,7 @@ const PropertyEditPage = () => {
                         name="rent_per_sqm"
                         value={formData.rent_per_sqm}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         required
                       />
                     </div>
@@ -455,7 +455,7 @@ const PropertyEditPage = () => {
                         name="betriebskosten_per_sqm"
                         value={formData.betriebskosten_per_sqm}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         placeholder="e.g. 2.50"
                       />
                     </div>
@@ -465,7 +465,7 @@ const PropertyEditPage = () => {
                         type="text"
                         value={((parseFloat(formData.surface_area) || 0) * (parseFloat(formData.rent_per_sqm) || 0)).toFixed(2)}
                         disabled
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-100"
                       />
                     </div>
                   </div>
@@ -479,7 +479,7 @@ const PropertyEditPage = () => {
                         name="num_toilets"
                         value={formData.num_toilets}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         min="0"
                       />
                     </div>
@@ -491,7 +491,7 @@ const PropertyEditPage = () => {
                         name="max_tenants"
                         value={formData.max_tenants}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         min="1"
                         placeholder="Leave empty for no limit"
                       />
@@ -505,7 +505,7 @@ const PropertyEditPage = () => {
                         name="rent_per_sqm"
                         value={formData.rent_per_sqm}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         required
                       />
                     </div>
@@ -518,7 +518,7 @@ const PropertyEditPage = () => {
                         name="betriebskosten_per_sqm"
                         value={formData.betriebskosten_per_sqm}
                         onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                         placeholder="e.g. 2.50"
                       />
                     </div>
@@ -569,7 +569,7 @@ const PropertyEditPage = () => {
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 >
                   <option value="empty">Empty</option>
                   <option value="active">Active</option>
@@ -585,7 +585,7 @@ const PropertyEditPage = () => {
                     name="furnishing_status"
                     value={formData.furnishing_status}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                   >
                     <option value="unfurnished">Unfurnished</option>
                     <option value="furnished">Furnished</option>
@@ -603,7 +603,7 @@ const PropertyEditPage = () => {
                   name="owner_name"
                   value={formData.owner_name}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 />
               </div>
               <div>
@@ -613,7 +613,7 @@ const PropertyEditPage = () => {
                   name="owner_email"
                   value={formData.owner_email}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 />
               </div>
               <div>
@@ -623,7 +623,7 @@ const PropertyEditPage = () => {
                   name="owner_phone"
                   value={formData.owner_phone}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 />
               </div>
             </div>
@@ -638,7 +638,7 @@ const PropertyEditPage = () => {
             value={formData.description}
             onChange={handleChange}
             rows={3}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
             placeholder="Optional property description..."
           />
         </div>
@@ -646,9 +646,9 @@ const PropertyEditPage = () => {
 
       {/* Furnished Items Management - Hide for Complex */}
       {property?.property_type !== 'complex' && (
-        <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+        <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-100">
         <div className="mb-6">
-          <h2 className="text-2xl font-black bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-2">
+          <h2 className="text-2xl font-black bg-blue-600 bg-clip-text text-transparent mb-2">
             Furnished Items Management
           </h2>
           <p className="text-gray-500">
@@ -666,9 +666,9 @@ const PropertyEditPage = () => {
       )}
 
       {/* Technical Objects Management */}
-      <div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100">
+      <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-100">
         <div className="mb-6">
-          <h2 className="text-2xl font-black bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
+          <h2 className="text-2xl font-black bg-blue-600 bg-clip-text text-transparent mb-2">
             {t('technicalObjects.managementTitle')}
           </h2>
           <p className="text-gray-500">

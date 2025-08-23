@@ -37,6 +37,7 @@ from api.v1.service_requests import router as service_requests_router
 from api.v1.portal import router as portal_router
 from api.v1.contractor import router as contractor_router
 from api.v1.compliance import router as compliance_router
+from api.v1.core.compliance import router as core_compliance_router
 from api.v1.furnished_items import router as furnished_items_router
 from api.v1.technical_objects import router as technical_objects_router
 from api.v2.accounts import router as accounts_v2_router
@@ -120,6 +121,7 @@ app.include_router(contracts_router, prefix="/api/v1")
 app.include_router(service_requests_router, prefix="/api/v1")
 app.include_router(contractor_router, prefix="/api/v1")
 app.include_router(compliance_router, prefix="/api/v1/compliance")
+app.include_router(core_compliance_router, prefix="/api/v1/core")
 app.include_router(furnished_items_router, prefix="/api/v1")
 app.include_router(technical_objects_router, prefix="/api/v1")
 

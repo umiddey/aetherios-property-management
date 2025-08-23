@@ -10,6 +10,7 @@ import {
   PROPERTIES_TABLE_COLUMNS, 
   getDefaultSortConfig, 
   filterPropertiesBySearch, 
+  filterPropertiesByUnits,
   sortProperties 
 } from './PropertiesTableConfig.jsx';
 
@@ -34,11 +35,21 @@ const PropertiesView = ({
   const [tableDensity, setTableDensity] = useState('compact'); // NEW: Density state
   
 
-  // Process properties: filter by search, then sort
+  // Process properties: filter by units if applicable, then by search, then sort
   const processedProperties = useMemo(() => {
-    let filtered = filterPropertiesBySearch(properties, searchTerm);
+    let filtered = properties;
+    
+    // Apply Units filter if active (new hierarchy)
+    if (propertyFilters.unit_type_in) {
+      filtered = filterPropertiesByUnits(filtered, propertyFilters.unit_type_in);
+    }
+    
+    // Apply search filter
+    filtered = filterPropertiesBySearch(filtered, searchTerm);
+    
+    // Sort
     return sortProperties(filtered, sortConfig);
-  }, [properties, searchTerm, sortConfig]);
+  }, [properties, propertyFilters.unit_type_in, searchTerm, sortConfig]);
 
   const handleSort = (newSortConfig) => {
     setSortConfig(newSortConfig);

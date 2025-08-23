@@ -14,8 +14,8 @@ from models.account import (
     PortalCodeGenerate, PortalAccess, TenantMigration
 )
 from models.user import User
-from services.account_service import AccountService
-from services.tenant_service import TenantService
+from services.accounts.account_service import AccountService
+from services.accounts.tenant_service import TenantService
 from utils.auth import get_current_user
 from utils.dependencies import get_database
 

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Tuple, Optional, Dict, Any
 from enum import Enum
-from services.property_validation import PropertyValidationResult, Jurisdiction
+from services.validation.property_validation import PropertyValidationResult, Jurisdiction
 
 
 class TechnicalObjectValidationService:

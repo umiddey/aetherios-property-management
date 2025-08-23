@@ -337,6 +337,15 @@ export const filterPropertiesBySearch = (properties, searchTerm) => {
   );
 };
 
+// Filter properties by Units (new hierarchy: property_type='unit' + unit_type filtering)
+export const filterPropertiesByUnits = (properties, unitTypeFilter) => {
+  if (!unitTypeFilter || !Array.isArray(unitTypeFilter)) return properties;
+  
+  return properties.filter(property => 
+    property.property_type === 'unit' && unitTypeFilter.includes(property.unit_type)
+  );
+};
+
 // Sort properties by column
 export const sortProperties = (properties, sortConfig) => {
   if (!sortConfig) return properties;
