@@ -22,6 +22,7 @@ const TechnicalObjectDetailPage = ({
   const [relatedObjects, setRelatedObjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     const fetchTechnicalObjectDetails = async () => {
@@ -58,9 +59,6 @@ const TechnicalObjectDetailPage = ({
             }),
           cachedAxios.get(`${API}/v1/core/compliance/technical-object/${objectId}`, { headers })
             .catch(error => {
-              console.error('❌ COMPLIANCE API FAILED:', error);
-              console.error('❌ API URL:', `${API}/v1/core/compliance/technical-object/${objectId}`);
-              console.error('❌ Headers:', headers);
               console.error('❌ Error Response:', error.response);
               return null;
             })
@@ -75,15 +73,7 @@ const TechnicalObjectDetailPage = ({
           setRelatedObjects((relatedRes.data || []).filter(obj => obj._id !== objectRes.data._id));
         }
         
-        console.log('🔍 COMPLIANCE DEBUG:', {
-          complianceRes,
-          complianceData: complianceRes?.data,
-          complianceStatus: complianceRes?.status,
-          hasData: !!complianceRes?.data
-        });
-        
         if (complianceRes?.data) {
-          console.log('✅ Setting compliance status:', complianceRes.data);
           setComplianceStatus(complianceRes.data);
         } else {
           console.log('❌ No compliance data - will show COMPLIANT fallback');
@@ -112,10 +102,22 @@ const TechnicalObjectDetailPage = ({
         }
       });
       
-      // Refresh compliance status
-      window.location.reload();
+      // Show success toast
+      setToast({ type: 'success', message: 'Inspection scheduled successfully!' });
+      setTimeout(() => setToast(null), 5000);
+      
+      // Refresh compliance status (refetch data instead of page reload)
+      const token2 = localStorage.getItem('access_token');
+      const headers = { 'Authorization': `Bearer ${token2}`, 'Content-Type': 'application/json' };
+      const complianceRes = await cachedAxios.get(`${API}/v1/core/compliance/technical-object/${objectId}`, { headers })
+        .catch(() => null);
+      if (complianceRes?.data) {
+        setComplianceStatus(complianceRes.data);
+      }
     } catch (error) {
       console.error('Error scheduling inspection:', error);
+      setToast({ type: 'error', message: 'Failed to schedule inspection' });
+      setTimeout(() => setToast(null), 5000);
     }
   };
 
@@ -129,10 +131,22 @@ const TechnicalObjectDetailPage = ({
         }
       });
       
-      // Refresh compliance status
-      window.location.reload();
+      // Show success toast
+      setToast({ type: 'success', message: 'Inspection marked as complete!' });
+      setTimeout(() => setToast(null), 5000);
+      
+      // Refresh compliance status (refetch data instead of page reload)
+      const token2 = localStorage.getItem('access_token');
+      const headers = { 'Authorization': `Bearer ${token2}`, 'Content-Type': 'application/json' };
+      const complianceRes = await cachedAxios.get(`${API}/v1/core/compliance/technical-object/${objectId}`, { headers })
+        .catch(() => null);
+      if (complianceRes?.data) {
+        setComplianceStatus(complianceRes.data);
+      }
     } catch (error) {
       console.error('Error completing inspection:', error);
+      setToast({ type: 'error', message: 'Failed to complete inspection' });
+      setTimeout(() => setToast(null), 5000);
     }
   };
 
@@ -178,18 +192,18 @@ const TechnicalObjectDetailPage = ({
             <span className="font-medium">{message}</span>
           </div>
           {daysUntilDue < 0 && (
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
               <button
                 onClick={handleScheduleInspection}
-                className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm"
+                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
               >
-                Schedule Inspection
+                📅 Schedule Inspection
               </button>
               <button
                 onClick={handleCompleteInspection}
-                className="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 text-sm"
+                className="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
               >
-                Mark Complete
+                ✅ Mark Complete
               </button>
             </div>
           )}
@@ -236,6 +250,18 @@ const TechnicalObjectDetailPage = ({
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      {/* Toast Notifications */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
+          toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`}>
+          <div className="flex items-center">
+            <span className="mr-2">{toast.type === 'success' ? '✅' : '❌'}</span>
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
+      
       <div className="max-w-7xl mx-auto">
         {/* Breadcrumb Navigation */}
         <div className="mb-6">
@@ -405,12 +431,93 @@ const TechnicalObjectDetailPage = ({
               )}
 
               {/* Object-Specific Specifications */}
-              {technicalObject.specifications && (
+              {technicalObject.specifications && Object.keys(technicalObject.specifications).length > 0 && (
                 <div className="mt-6 pt-6 border-t border-gray-200">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">Detailed Specifications</h3>
-                  <pre className="bg-gray-50 p-3 rounded-md text-sm text-gray-800">
-                    {JSON.stringify(technicalObject.specifications, null, 2)}
-                  </pre>
+                  
+                  {/* Render object-specific specs based on object type */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Heating System Specifications */}
+                    {(technicalObject.object_type?.includes('heating') || technicalObject.object_type?.includes('boiler')) && (
+                      <>
+                        {technicalObject.specifications.heating_type && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Heating Type</label>
+                            <p className="text-gray-900">{technicalObject.specifications.heating_type}</p>
+                          </div>
+                        )}
+                        {technicalObject.specifications.fuel_type && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Type</label>
+                            <p className="text-gray-900">{technicalObject.specifications.fuel_type}</p>
+                          </div>
+                        )}
+                        {technicalObject.specifications.efficiency_class && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Efficiency Class</label>
+                            <p className="text-gray-900">{technicalObject.specifications.efficiency_class}</p>
+                          </div>
+                        )}
+                        {technicalObject.specifications.power_output_kw && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Power Output</label>
+                            <p className="text-gray-900">{technicalObject.specifications.power_output_kw} kW</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {/* Elevator Specifications */}
+                    {technicalObject.object_type?.includes('elevator') && (
+                      <>
+                        {technicalObject.specifications.capacity_kg && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                            <p className="text-gray-900">{technicalObject.specifications.capacity_kg} kg</p>
+                          </div>
+                        )}
+                        {technicalObject.specifications.floors_served && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Floors Served</label>
+                            <p className="text-gray-900">{technicalObject.specifications.floors_served}</p>
+                          </div>
+                        )}
+                        {technicalObject.specifications.last_tuv_inspection && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Last TÜV Inspection</label>
+                            <p className="text-gray-900">{formatDate(technicalObject.specifications.last_tuv_inspection)}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {/* Generic specifications for other object types */}
+                    {Object.entries(technicalObject.specifications).map(([key, value]) => {
+                      // Skip the specialized fields we already handled above
+                      const specializedFields = ['heating_type', 'fuel_type', 'efficiency_class', 'power_output_kw', 
+                                               'capacity_kg', 'floors_served', 'last_tuv_inspection'];
+                      if (specializedFields.includes(key) || !value) return null;
+                      
+                      return (
+                        <div key={key}>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </label>
+                          <p className="text-gray-900">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Raw JSON fallback for debugging (collapsible) */}
+                  <details className="mt-4">
+                    <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
+                      Show Raw Specifications Data
+                    </summary>
+                    <pre className="bg-gray-50 p-3 rounded-md text-sm text-gray-800 mt-2">
+                      {JSON.stringify(technicalObject.specifications, null, 2)}
+                    </pre>
+                  </details>
                 </div>
               )}
             </div>
@@ -448,6 +555,21 @@ const TechnicalObjectDetailPage = ({
                           className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
                         >
                           📞 Call
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {technicalObject.inspector_email && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <div className="flex items-center space-x-2">
+                        <p className="text-gray-900">{technicalObject.inspector_email}</p>
+                        <a
+                          href={`mailto:${technicalObject.inspector_email}?subject=Inspection Request - ${technicalObject.name || technicalObject.object_type}`}
+                          className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                        >
+                          ✉️ Email
                         </a>
                       </div>
                     </div>
