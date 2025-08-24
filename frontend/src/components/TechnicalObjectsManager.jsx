@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import cachedAxios from '../utils/cachedAxios';
+import { TECHNICAL_OBJECTS_TABLE_COLUMNS } from './TechnicalObjectsTableConfig.jsx';
+import EnterpriseDataTable from './ui/EnterpriseDataTable';
+import EnterpriseSearchBar from './ui/EnterpriseSearchBar';
+import Pagination from './Pagination';
+import { exportDataWithProgress } from '../utils/exportUtils';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -79,6 +84,43 @@ const TechnicalObjectsManager = ({
   const [complianceLoading, setComplianceLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   
+  // --- VIEW TOGGLE STATE MANAGEMENT ---
+  const [viewMode, setViewMode] = useState('dashboard'); // 'dashboard' or 'table'
+  
+  // --- Table View State ---
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+  const [selectedObjects, setSelectedObjects] = useState([]);
+
+  // Map technical objects for table view to ensure 'name' and '_id' fields exist
+  const mappedTechnicalObjects = technicalObjects.map(obj => ({
+    ...obj,
+    name: obj.name || obj.object_name || '',
+    _id: obj._id || obj.technical_object_id || obj.id || '',
+  }));
+
+  // Filter and paginate technical objects for table view
+  const filteredObjects = mappedTechnicalObjects.filter(obj =>
+    obj.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    obj.object_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    obj.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const totalPages = Math.ceil(filteredObjects.length / itemsPerPage);
+  const paginatedObjects = filteredObjects.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // --- State Persistence for View Mode ---
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem('technicalObjects_viewMode');
+    if (savedViewMode && ['dashboard', 'table'].includes(savedViewMode)) {
+      setViewMode(savedViewMode);
+    }
+  }, []);
+  const handleViewModeChange = (newMode) => {
+    setViewMode(newMode);
+    localStorage.setItem('technicalObjects_viewMode', newMode);
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     object_type: 'heating_gas',
@@ -453,6 +495,44 @@ const TechnicalObjectsManager = ({
             </button>
           )}
         </div>
+        {/* --- VIEW TOGGLE UI --- */}
+        <div className="bg-gray-50 px-6 py-3 border-b border-gray-200 mt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex bg-white rounded-lg p-1 shadow-sm">
+              <button
+                onClick={() => handleViewModeChange('dashboard')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  viewMode === 'dashboard' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📊 Compliance Dashboard
+              </button>
+              <button
+                onClick={() => handleViewModeChange('table')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  viewMode === 'table' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📋 Table View
+              </button>
+            </div>
+            {/* Export button only in table view */}
+            {viewMode === 'table' && (
+              <button
+                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                onClick={async () => {
+                  await exportDataWithProgress(filteredObjects, null, 'csv');
+                }}
+              >
+                📤 Export
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="p-6">
@@ -469,106 +549,140 @@ const TechnicalObjectsManager = ({
           </div>
         )}
 
-        {/* German Compliance Dashboard */}
-        {!loading && complianceSummary && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-orange-50 rounded-lg border border-blue-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                🏛️ {t('technicalObjects.compliance.title')}
-                <span className="ml-2 text-sm font-normal text-gray-600">
-                  ({t('technicalObjects.compliance.subtitle')})
-                </span>
-              </h3>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-blue-600">
-                  {Math.round(complianceSummary.compliance_percentage)}%
+        {/* --- CONDITIONAL RENDERING: DASHBOARD OR TABLE VIEW --- */}
+        {!loading && viewMode === 'dashboard' && (
+          complianceSummary ? (
+            // German Compliance Dashboard
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-orange-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  🏛️ {t('technicalObjects.compliance.title')}
+                  <span className="ml-2 text-sm font-normal text-gray-600">
+                    ({t('technicalObjects.compliance.subtitle')})
+                  </span>
+                </h3>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {Math.round(complianceSummary.compliance_percentage)}%
+                  </div>
+                  <div className="text-xs text-gray-600">{t('technicalObjects.compliance.compliant')}</div>
                 </div>
-                <div className="text-xs text-gray-600">{t('technicalObjects.compliance.compliant')}</div>
               </div>
-            </div>
 
-            {/* Compliance Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <div className="text-center p-3 bg-green-100 rounded-lg">
-                <div className="text-lg font-bold text-green-600">{complianceSummary.compliant_count}</div>
-                <div className="text-xs text-green-800">{t('technicalObjects.compliance.stats.compliant')}</div>
+              {/* Compliance Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="text-center p-3 bg-green-100 rounded-lg">
+                  <div className="text-lg font-bold text-green-600">{complianceSummary.compliant_count}</div>
+                  <div className="text-xs text-green-800">{t('technicalObjects.compliance.stats.compliant')}</div>
+                </div>
+                <div className="text-center p-3 bg-yellow-100 rounded-lg">
+                  <div className="text-lg font-bold text-yellow-600">{complianceSummary.due_soon_count}</div>
+                  <div className="text-xs text-yellow-800">{t('technicalObjects.compliance.stats.dueSoon')}</div>
+                </div>
+                <div className="text-center p-3 bg-red-100 rounded-lg">
+                  <div className="text-lg font-bold text-red-600">{complianceSummary.overdue_count}</div>
+                  <div className="text-xs text-red-800">{t('technicalObjects.compliance.stats.overdue')}</div>
+                </div>
+                <div className="text-center p-3 bg-purple-100 rounded-lg">
+                  <div className="text-lg font-bold text-purple-600">€{Math.round(complianceSummary.total_estimated_costs)}</div>
+                  <div className="text-xs text-purple-800">{t('technicalObjects.compliance.stats.estimatedCosts')}</div>
+                </div>
               </div>
-              <div className="text-center p-3 bg-yellow-100 rounded-lg">
-                <div className="text-lg font-bold text-yellow-600">{complianceSummary.due_soon_count}</div>
-                <div className="text-xs text-yellow-800">{t('technicalObjects.compliance.stats.dueSoon')}</div>
-              </div>
-              <div className="text-center p-3 bg-red-100 rounded-lg">
-                <div className="text-lg font-bold text-red-600">{complianceSummary.overdue_count}</div>
-                <div className="text-xs text-red-800">{t('technicalObjects.compliance.stats.overdue')}</div>
-              </div>
-              <div className="text-center p-3 bg-purple-100 rounded-lg">
-                <div className="text-lg font-bold text-purple-600">€{Math.round(complianceSummary.total_estimated_costs)}</div>
-                <div className="text-xs text-purple-800">{t('technicalObjects.compliance.stats.estimatedCosts')}</div>
-              </div>
-            </div>
 
-            {/* Critical Alerts */}
-            {complianceSummary.alerts && complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-sm font-semibold text-red-600 mb-2 flex items-center">
-                  🚨 {t('technicalObjects.compliance.criticalAlerts')} ({complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').length})
-                </h4>
-                <div className="space-y-2">
-                  {complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').slice(0, 3).map((alert) => (
-                    <div key={alert.technical_object_id} className="bg-red-50 border border-red-200 rounded p-2 text-sm cursor-pointer hover:bg-red-100 transition-colors"
-                         onClick={() => window.location.href = `/technical-objects/${alert.technical_object_id}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-red-800">{alert.object_name}</span>
-                            <span className="text-red-600 text-xs">
-                              {alert.days_until_due < 0 ? `${Math.abs(alert.days_until_due).toLocaleString()} days ${t('technicalObjects.compliance.overdue')}` : `${alert.days_until_due} days ${t('technicalObjects.compliance.remaining')}`}
-                            </span>
-                          </div>
-                          <div className="text-red-600 text-xs mt-1">{alert.legal_requirement}</div>
-                          <div className="text-red-500 text-xs mt-1">💰 ~€{alert.estimated_cost} • {alert.consequences}</div>
-                          <div className="flex gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => handleScheduleInspection(alert.technical_object_id)}
-                              className="text-xs px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded transition-colors"
-                              title={t('technicalObjects.compliance.scheduleInspection')}
-                            >
-                              📅 Schedule
-                            </button>
-                            <button
-                              onClick={() => handleCompleteInspection(alert.technical_object_id)}
-                              className="text-xs px-2 py-1 bg-green-100 text-green-700 hover:bg-green-200 rounded transition-colors"
-                              title={t('technicalObjects.compliance.markComplete')}
-                            >
-                              ✅ Complete
-                            </button>
+              {/* Critical Alerts */}
+              {complianceSummary.alerts && complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-red-600 mb-2 flex items-center">
+                    🚨 {t('technicalObjects.compliance.criticalAlerts')} ({complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').length})
+                  </h4>
+                  <div className="space-y-2">
+                    {complianceSummary.alerts.filter(alert => alert.urgency === 'critical' || alert.status === 'critical').slice(0, 3).map((alert) => (
+                      <div key={alert.technical_object_id} className="bg-red-50 border border-red-200 rounded p-2 text-sm cursor-pointer hover:bg-red-100 transition-colors"
+                           onClick={() => window.location.href = `/technical-objects/${alert.technical_object_id}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-red-800">{alert.object_name}</span>
+                              <span className="text-red-600 text-xs">
+                                {alert.days_until_due < 0 ? `${Math.abs(alert.days_until_due).toLocaleString()} days ${t('technicalObjects.compliance.overdue')}` : `${alert.days_until_due} days ${t('technicalObjects.compliance.remaining')}`}
+                              </span>
+                            </div>
+                            <div className="text-red-600 text-xs mt-1">{alert.legal_requirement}</div>
+                            <div className="text-red-500 text-xs mt-1">💰 ~€{alert.estimated_cost} • {alert.consequences}</div>
+                            <div className="flex gap-1 mt-2" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => handleScheduleInspection(alert.technical_object_id)}
+                                className="text-xs px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded transition-colors"
+                                title={t('technicalObjects.compliance.scheduleInspection')}
+                              >
+                                📅 Schedule
+                              </button>
+                              <button
+                                onClick={() => handleCompleteInspection(alert.technical_object_id)}
+                                className="text-xs px-2 py-1 bg-green-100 text-green-700 hover:bg-green-200 rounded transition-colors"
+                                title={t('technicalObjects.compliance.markComplete')}
+                              >
+                                ✅ Complete
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Category Filter Buttons */}
-            <div className="flex flex-wrap gap-2">
-              {getComplianceCategories(t).map(category => (
-                <button
-                  key={category.value}
-                  onClick={() => setSelectedCategory(category.value)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 flex items-center ${
-                    selectedCategory === category.value 
-                      ? category.color + ' ring-2 ring-offset-1 ring-blue-300' 
-                      : category.color.replace('-800', '-600').replace('bg-', 'bg-').replace('text-', 'text-') + ' opacity-60 hover:opacity-80'
-                  }`}
-                >
-                  <span className="mr-1">{category.icon}</span>
-                  {category.label}
-                </button>
-              ))}
+              {/* Category Filter Buttons */}
+              <div className="flex flex-wrap gap-2">
+                {getComplianceCategories(t).map(category => (
+                  <button
+                    key={category.value}
+                    onClick={() => setSelectedCategory(category.value)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 flex items-center ${
+                      selectedCategory === category.value 
+                        ? category.color + ' ring-2 ring-offset-1 ring-blue-300' 
+                        : category.color.replace('-800', '-600').replace('bg-', 'bg-').replace('text-', 'text-') + ' opacity-60 hover:opacity-80'
+                    }`}
+                  >
+                    <span className="mr-1">{category.icon}</span>
+                    {category.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 7.172V5l-1-1z" />
+              </svg>
+              <p>Compliance data not available.</p>
+            </div>
+          )
+        )}
+        {!loading && viewMode === 'table' && (
+          <>
+            <EnterpriseSearchBar
+              placeholder="Search technical objects..."
+              value={searchTerm}
+              onSearch={setSearchTerm}
+            />
+            <EnterpriseDataTable
+              data={paginatedObjects}
+              columns={TECHNICAL_OBJECTS_TABLE_COLUMNS}
+              selectable={true}
+              onSelectionChange={setSelectedObjects}
+              loading={false}
+              // Mobile responsiveness: pass prop or use CSS to hide columns as needed
+              className="overflow-x-auto"
+              onRowClick={(row) => window.location.href = `/technical-objects/${row._id || row.id}`}
+            />
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </>
         )}
 
         {/* Technical Objects List - Only show in property edit mode, not compliance dashboard */}
